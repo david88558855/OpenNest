@@ -25,7 +25,14 @@ const List<String> _fontFallback = [
 /// 全局唯一主题：浅色。项目不支持深色模式与主题切换（0.4.0 起）。
 ThemeData olTheme() {
   const p = OlPalette.light;
-  final base = ThemeData(brightness: Brightness.light, useMaterial3: true);
+  // 字体只能通过构造器设置：ThemeData.copyWith 没有 fontFamily /
+  // fontFamilyFallback 这两个命名参数（写在那里会直接编译失败）。
+  final base = ThemeData(
+    brightness: Brightness.light,
+    useMaterial3: true,
+    fontFamily: _uiFont,
+    fontFamilyFallback: _fontFallback,
+  );
   final scheme = ColorScheme.fromSeed(
     seedColor: OlTokens.sky600,
     brightness: Brightness.light,
@@ -38,8 +45,6 @@ ThemeData olTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: p.card,
     canvasColor: p.card,
-    fontFamily: _uiFont,
-    fontFamilyFallback: _fontFallback,
     // v1.0.52：点击涟漪也属于动画（约 200ms 扩散）。
     // 全项目不要任何动画，这里换成 NoSplash 并把高亮色设为透明，
     // 点击即刻响应、没有任何过渡。
