@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,20 +5,19 @@ import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/i18n/zh.dart';
+import '../../core/models/storage_source.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/theme/tokens.dart';
-import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
-import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
-import '../../core/widgets/workspace_nav.dart';
 import '../files/file_actions.dart';
+import '../sources/sources_controller.dart';
 import '../settings/download_dir.dart';
 import 'transfers_controller.dart';
 
 part 'parts/transfers_sidebar.dart';
 part 'parts/transfers_cards.dart';
-part 'parts/transfers_settings.dart';
 
 /// W3（Windows 传输中心）/ A3（Android 传输 Tab）。
 ///
@@ -99,13 +96,18 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
       handleBack: true,
       child: Row(
         children: [
-          _QueueSidebar(filter: _filter, onFilter: (f) => setState(() => _filter = f)),
+          const _QueueSidebar(),
           Expanded(
             child: ColoredBox(
-              color: p.surfaceAlt,
+              color: p.card,
               child: Column(
                 children: [
-                  _TopBar(onNew: () => offlineDownload(context, ref)),
+                  _QueueHead(
+                    filter: _filter,
+                    onFilter: (f) => setState(() => _filter = f),
+                    onNew: () => offlineDownload(context, ref),
+                  ),
+                  const _GlobalBar(),
                   Expanded(
                     // v1.0.30：整页改 sliver 体系。原来任务列表是
                     // SingleChildScrollView + Column + for 循环，会把所有任务行
@@ -113,21 +115,10 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                     // 现在任务行走 SliverList，按需构建。
                     child: CustomScrollView(
                       slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                          sliver: SliverToBoxAdapter(child: _SpeedCard(state: state)),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          sliver: SliverToBoxAdapter(child: _StatTiles(state: state, visible: tasks.length)),
-                        ),
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                          sliver: _TaskListSliver(
-                            tasks: tasks,
-                            filter: _filter,
-                            onFilter: (f) => setState(() => _filter = f),
-                          ),
+                        _TaskListSliver(
+                          tasks: tasks,
+                          filter: _filter,
+                          onFilter: (f) => setState(() => _filter = f),
                         ),
                       ],
                     ),
@@ -136,7 +127,6 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
               ),
             ),
           ),
-          const SizedBox(width: 250, child: _TransferSettings()),
         ],
       ),
     );
@@ -167,8 +157,11 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
-              child: _SpeedCard(state: state, compact: true),
+              padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile, vertical: 4),
+              child: Text(
+                '下载 ${formatSpeed(state.downSpeed)} · 上传 ${formatSpeed(state.upSpeed)}',
+                style: TextStyle(fontSize: 11.5, color: context.ol.ink3),
+              ),
             ),
           ),
           SliverToBoxAdapter(
@@ -248,6 +241,154 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 104)),
         ],
+      ),
+    );
+  }
+}
+
+
+/// 队列标题区（设计稿 D5 `.head`）：标题 + 副标题 + 右侧分段。
+class _QueueHead extends ConsumerWidget {
+  final _Filter filter;
+  final ValueChanged<_Filter> onFilter;
+  final VoidCallback onNew;
+
+  const _QueueHead({required this.filter, required this.onFilter, required this.onNew});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final state = ref.watch(transfersProvider);
+    final active = state.tasks.where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed).length;
+    final done = state.done.length;
+
+    return Container(
+      // 设计稿 D5 `.head`：padding 20/24/0。
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      decoration: BoxDecoration(
+        color: p.card,
+        border: Border(bottom: BorderSide(color: p.line)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('传输队列', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: p.ink)),
+              const SizedBox(height: 4),
+              Text(
+                '任务持久化保存 · 重启后自动恢复 · 断点续传',
+                style: TextStyle(fontSize: 11.5, color: p.ink3),
+              ),
+            ],
+          ),
+          const Spacer(),
+          // 设计稿 `.tabs`：底 #F1F6FB、圆角 10、padding 3，段高 30。
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F6FB),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                _TabButton(
+                  label: '进行中',
+                  count: active,
+                  selected: filter == _Filter.active,
+                  onTap: () => onFilter(_Filter.active),
+                ),
+                const SizedBox(width: 6),
+                _TabButton(
+                  label: '已完成',
+                  count: done,
+                  selected: filter == _Filter.done,
+                  onTap: () => onFilter(_Filter.done),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OlGhostButton(
+            label: '新建任务',
+            icon: 'plus',
+            height: 32,
+            fontSize: 12,
+            horizontalPadding: 14,
+            fgColor: p.ink,
+            onTap: onNew,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 分段按钮（设计稿 `.tab`）：30 高、圆角 8；选中白底 + 轻阴影 + 计数徽标。
+class _TabButton extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: selected ? p.card : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: selected
+                ? const [BoxShadow(color: Color(0x1A0E3A46), blurRadius: 6, offset: Offset(0, 2))]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? p.ink : p.ink2,
+                ),
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF8FE),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF08799F),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

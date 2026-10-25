@@ -1,110 +1,71 @@
 part of '../transfers_page.dart';
 
-// 左侧队列导航（进行中 / 下载 / 上传 / 离线 / 已完成 / 失败）
+// 左侧栏：存储源列表（设计稿 D5）
 // ---------------------------------------------------------------------------
-// 左侧队列
+// 左侧栏
 // ---------------------------------------------------------------------------
 class _QueueSidebar extends ConsumerWidget {
-  final _Filter filter;
-  final ValueChanged<_Filter> onFilter;
-  const _QueueSidebar({required this.filter, required this.onFilter});
+  const _QueueSidebar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final state = ref.watch(transfersProvider);
-    final down = state.active.where((e) => e.kind == TransferKind.download).length;
-    final up = state.active.where((e) => e.kind == TransferKind.upload).length;
-    final doneBytes = state.done.fold<int>(0, (sum, e) => sum + e.total);
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
 
     return Container(
-      width: 204,
+      width: 200,
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border(right: BorderSide(color: p.line2)),
+        border: Border(right: BorderSide(color: p.line)),
       ),
       child: Column(
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(9, 4, 9, 0),
+              // 设计稿 D5：侧栏 padding 16/10。
+              padding: const EdgeInsets.fromLTRB(10, 16, 10, 0),
               children: [
-                // v1.0.17：工作区导航共用同一份组件（条目/顺序/badge 与其它页一致），
-                // 下面是传输页独有的队列筛选。
-                const WorkspaceNav(active: 'transfers'),
-                const OlSectionLabel('队列'),
-                _NavRow(
-                  icon: 'layers',
-                  label: '进行中',
-                  badge: state.pendingCount,
-                  active: filter == _Filter.active,
-                  onTap: () => onFilter(_Filter.active),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(10, 0, 10, 6),
+                  child: Text(
+                    '存储源',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF9DB2C4),
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ),
-                _NavRow(
-                  icon: 'download',
-                  label: '正在下载',
-                  badge: down,
-                  active: filter == _Filter.download,
-                  onTap: () => onFilter(_Filter.download),
-                ),
-                _NavRow(
-                  icon: 'upload',
-                  label: '正在上传',
-                  badge: up,
-                  active: filter == _Filter.upload,
-                  onTap: () => onFilter(_Filter.upload),
-                ),
-                _NavRow(
-                  icon: 'cloud-dl',
-                  label: '离线下载',
-                  badge: state.serverTasks.length,
-                  active: filter == _Filter.offline,
-                  onTap: () => onFilter(_Filter.offline),
-                ),
-                _NavRow(
-                  icon: 'check',
-                  label: '已完成',
-                  badge: state.done.length,
-                  active: filter == _Filter.done,
-                  onTap: () => onFilter(_Filter.done),
-                ),
-                _NavRow(
-                  icon: 'alert',
-                  label: '失败',
-                  badge: state.failed.length,
-                  danger: true,
-                  active: filter == _Filter.failed,
-                  onTap: () => onFilter(_Filter.failed),
-                ),
+                for (final source in sources)
+                  _SourceRow(source: source),
+                if (sources.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                    child: Text(
+                      '还没有存储源',
+                      style: TextStyle(fontSize: 11.5, color: p.ink4),
+                    ),
+                  ),
               ],
             ),
           ),
-          Container(
-            margin: const EdgeInsets.fromLTRB(9, 8, 9, 12),
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
-            decoration: BoxDecoration(gradient: OlTokens.deepPanel, borderRadius: BorderRadius.circular(12)),
+          // 底部两个 mini 按钮（设计稿 D5）
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    const Text('今日流量', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9DB4C8))),
-                    const Spacer(),
-                    const Text('不限速', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF5EEAD4))),
-                  ],
+                _MiniButton(
+                  icon: 'download',
+                  label: '下载目录',
+                  onTap: () => showDownloadDirDialog(context, ref),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  formatBytes(doneBytes),
-                  style: const TextStyle(fontSize: 20, height: 1.1, letterSpacing: -0.5, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text('下载 ${formatSpeed(state.downSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
-                    const Spacer(),
-                    Text('上传 ${formatSpeed(state.upSpeed)}', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
-                  ],
+                const SizedBox(height: 8),
+                _MiniButton(
+                  icon: 'settings',
+                  label: '设置',
+                  onTap: () => context.go('/settings'),
                 ),
               ],
             ),
@@ -115,64 +76,98 @@ class _QueueSidebar extends ConsumerWidget {
   }
 }
 
-class _NavRow extends StatelessWidget {
-  final String icon;
-  final String label;
-  final int badge;
-  final bool active;
-  final bool danger;
-  final VoidCallback? onTap;
+/// 侧栏源行：名称 + 右侧类型胶囊（设计稿 D5 `.src` + `.pt`）。
+class _SourceRow extends StatelessWidget {
+  final StorageSource source;
 
-  const _NavRow({
-    required this.icon,
-    required this.label,
-    this.badge = 0,
-    this.active = false,
-    this.danger = false,
-    this.onTap,
-  });
+  const _SourceRow({required this.source});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    final fg = danger ? const Color(0xFFC2415A) : (active ? p.navOn : p.nav);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 1),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            height: 31,
-            padding: const EdgeInsets.symmetric(horizontal: 9),
-            decoration: BoxDecoration(
-              color: active ? p.navOnBg : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                OlIcon(icon, size: 15, color: danger ? const Color(0xFFE06B82) : (active ? OlTokens.sky600 : p.navIcon)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg),
-                  ),
+    final tag = driverShortTag(source.driver);
+    final (fg, bg) = _tagColors(tag);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => context.go('/files?path=${Uri.encodeComponent(source.mountPath)}'),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  source.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: p.ink2),
                 ),
-                if (badge > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: active ? p.card : p.navBadgeBg,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text('$badge', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: p.ink4)),
-                  ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+                child: Text(
+                  tag,
+                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: fg),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 类型胶囊配色：本地/WebDAV 蓝、网盘琥珀、SFTP/FTP/SMB 绿。
+  (Color, Color) _tagColors(String tag) {
+    const sky = {'本地', 'WebDAV'};
+    const green = {'SFTP', 'FTP', 'SMB'};
+    if (sky.contains(tag)) {
+      return (const Color(0xFF08799F), const Color(0xFFEAF8FE));
+    }
+    if (green.contains(tag)) {
+      return (const Color(0xFF0B6B4A), const Color(0xFFD3F2E6));
+    }
+    return (const Color(0xFFB7791F), const Color(0xFFFEF3C7));
+  }
+}
+
+/// 侧栏底部 mini 按钮（设计稿 D5 `.mini`）：34 高、描边、白底。
+class _MiniButton extends StatelessWidget {
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _MiniButton({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 34,
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: p.line),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OlIcon(icon, size: 13, color: p.ink2),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink2)),
+            ],
           ),
         ),
       ),

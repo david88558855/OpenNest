@@ -4,38 +4,43 @@ part of '../transfers_page.dart';
 // ---------------------------------------------------------------------------
 // 顶部条 / 速度卡 / 指标
 // ---------------------------------------------------------------------------
-class _TopBar extends ConsumerWidget {
-  final VoidCallback onNew;
-  const _TopBar({required this.onNew});
+/// 全局控制条（设计稿 D5 `.gbar`）：全部暂停 + 并发 + 限速 + 汇总。
+class _GlobalBar extends ConsumerWidget {
+  const _GlobalBar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
+    final settings = ref.watch(appSettingsProvider);
+    final notifier = ref.read(transfersProvider.notifier);
+
+    // 汇总：已完成 + 进行中的总字节，以及按当前速度估算的剩余时间。
+    var totalBytes = 0;
+    var remaining = 0;
+    for (final task in state.tasks) {
+      totalBytes += task.total;
+      if (task.status != TransferStatus.done) remaining += (task.total - task.done);
+    }
+    final speed = state.downSpeed + state.upSpeed;
+    final eta = speed > 0 ? (remaining / speed).round() : 0;
+
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
       decoration: BoxDecoration(
-        color: p.surfaceAlt,
-        border: Border(bottom: BorderSide(color: p.hairline)),
+        color: p.card,
+        border: Border(bottom: BorderSide(color: p.line)),
       ),
       child: Row(
         children: [
-          // v1.0.14：传输是独立页面，顶部给显式返回。
-          OlIconButton(icon: 'chev-l', size: 30, iconSize: 17, tooltip: '返回', onTap: () => goBackOrFiles(context)),
-          const SizedBox(width: 6),
-          Text('传输中心', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
-          const SizedBox(width: 4),
-          OlIcon('chev-r', size: 12, color: p.ink4),
-          const SizedBox(width: 4),
-          Text('全部任务', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink3)),
-          const Spacer(),
-          OlIconButton(
+          OlGhostButton(
+            label: state.pausedGlobally ? '全部继续' : '全部暂停',
             icon: state.pausedGlobally ? 'play' : 'pause',
-            tooltip: state.pausedGlobally ? '全部继续' : '全部暂停',
-            squared: true,
+            height: 32,
+            fontSize: 12,
+            horizontalPadding: 14,
+            fgColor: p.ink,
             onTap: () {
-              final notifier = ref.read(transfersProvider.notifier);
               if (state.pausedGlobally) {
                 notifier.resumeAll();
               } else {
@@ -43,235 +48,54 @@ class _TopBar extends ConsumerWidget {
               }
             },
           ),
-          const SizedBox(width: 8),
-          OlGhostButton(label: '新建任务', icon: 'plus', height: 30, onTap: onNew),
-        ],
-      ),
-    );
-  }
-}
-
-class _SpeedCard extends StatelessWidget {
-  final TransfersState state;
-  final bool compact;
-  const _SpeedCard({required this.state, this.compact = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final total = state.downSpeed + state.upSpeed;
-    final mb = total / (1024 * 1024);
-    return Container(
-      height: compact ? 118 : 132,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0C1E2E), Color(0xFF0E2C40), Color(0xFF0F3A46)],
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Stack(
-        children: [
-          Positioned(right: -30, top: -70, child: _glow(220, const Color(0x382DD4BF))),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'CURRENT THROUGHPUT',
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.4, color: Color(0xFF8FB2C6)),
-                        ),
-                        const SizedBox(height: 7),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              mb >= 10 ? mb.toStringAsFixed(0) : mb.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontSize: compact ? 28 : 31,
-                                height: 1,
-                                letterSpacing: -1,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.only(left: 4, bottom: 3),
-                              child: Text('MB/s ↓', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9EBBCE))),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            _SpeedMeta(label: '上传', value: formatSpeed(state.upSpeed)),
-                            const SizedBox(width: 12),
-                            _SpeedMeta(label: '活动任务', value: '${state.active.length}'),
-                            const SizedBox(width: 12),
-                            _SpeedMeta(label: '并发', value: '${state.concurrency}'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    height: 22,
-                    padding: const EdgeInsets.symmetric(horizontal: 9),
-                    decoration: BoxDecoration(
-                      color: const Color(0x17FFFFFF),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(color: const Color(0x24FFFFFF)),
-                    ),
-                    child: const Center(
-                      child: Text('全局不限速', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFBFE6F5))),
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              SizedBox(
-                height: compact ? 36 : 44,
-                child: CustomPaint(
-                  painter: _SparkPainter(value: total <= 0 ? 0.12 : (mb / 8).clamp(0.15, 1.0)),
-                  size: Size.infinite,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _glow(double size, Color color) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [color, color.withAlpha(0)])),
-      );
-}
-
-class _SpeedMeta extends StatelessWidget {
-  final String label;
-  final String value;
-  const _SpeedMeta({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text('$label ', style: const TextStyle(fontSize: 9, color: Color(0xFF8FA8BD))),
-        Text(value, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFFCFE6F3))),
-      ],
-    );
-  }
-}
-
-class _SparkPainter extends CustomPainter {
-  final double value;
-  _SparkPainter({required this.value});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()..moveTo(0, size.height * 0.8);
-    const steps = 12;
-    for (var i = 1; i <= steps; i++) {
-      final x = size.width * i / steps;
-      final wave = (i.isEven ? 0.35 : 0.65) * value;
-      final y = size.height * (0.75 - wave * 0.6);
-      final cx = size.width * (i - 0.5) / steps;
-      path.quadraticBezierTo(cx, y, x, size.height * (0.72 - wave * 0.5));
-    }
-    final fill = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x6138BDF8), Color(0x0038BDF8)],
-        ).createShader(Offset.zero & size),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
-        ..color = const Color(0xFF7DD3FC),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparkPainter oldDelegate) => oldDelegate.value != value;
-}
-
-class _StatTiles extends StatelessWidget {
-  final TransfersState state;
-  final int visible;
-  const _StatTiles({required this.state, required this.visible});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final doneBytes = state.done.fold<int>(0, (sum, e) => sum + e.total);
-    return Row(
-      children: [
-        Expanded(child: _Tile(icon: 'arrow-down', label: '下载速度', value: formatSpeed(state.downSpeed), palette: p)),
-        const SizedBox(width: 8),
-        Expanded(child: _Tile(icon: 'arrow-up', label: '上传速度', value: formatSpeed(state.upSpeed), palette: p)),
-        const SizedBox(width: 8),
-        Expanded(child: _Tile(icon: 'zap', label: '队列', value: '$visible 项', palette: p)),
-        const SizedBox(width: 8),
-        Expanded(child: _Tile(icon: 'clock', label: '今日完成', value: formatBytes(doneBytes), palette: p)),
-      ],
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  final String icon;
-  final String label;
-  final String value;
-  final OlPalette palette;
-  const _Tile({required this.icon, required this.label, required this.value, required this.palette});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = palette;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: p.line2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              OlIcon(icon, size: 11, color: p.ink4),
-              const SizedBox(width: 5),
-              Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink4)),
-            ],
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(width: 10),
+          const OlIcon('clock', size: 13, color: Color(0xFF6B7F94)),
+          const SizedBox(width: 6),
+          Text('并发 ${settings.concurrency}', style: TextStyle(fontSize: 11.5, color: p.ink3)),
+          const SizedBox(width: 10),
+          const OlIcon('sort', size: 13, color: Color(0xFF6B7F94)),
+          const SizedBox(width: 6),
           Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 14, letterSpacing: -0.3, fontWeight: FontWeight.w800, color: p.ink),
+            '限速：${_limitLabel(settings.downLimitKbps, settings.upLimitKbps)}',
+            style: TextStyle(fontSize: 11.5, color: p.ink3),
+          ),
+          const Spacer(),
+          Text(
+            totalBytes <= 0 ? '暂无任务' : '总计 ${formatBytes(totalBytes)} · 剩余约 ${formatCountdown(eta)}',
+            style: TextStyle(fontSize: 11.5, color: p.ink3),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 限速文案：任一方向有上限就显示具体值，两边都无限速显示「不限」。
+  String _limitLabel(int down, int up) {
+    if (down <= 0 && up <= 0) return '不限';
+    if (down > 0 && up > 0) return '下载 ${down}KB/s · 上传 ${up}KB/s';
+    if (down > 0) return '下载 ${down}KB/s';
+    return '上传 ${up}KB/s';
+  }
+}
+
+/// 任务分组标题（设计稿 D5 `.grp-t`）。
+class _GroupTitle extends StatelessWidget {
+  final String text;
+
+  const _GroupTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 6),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF9DB2C4),
+          letterSpacing: 1,
+        ),
       ),
     );
   }
@@ -280,6 +104,7 @@ class _Tile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // 任务列表（sliver 版：按需构建任务行，v1.0.30）
 // ---------------------------------------------------------------------------
+/// 任务列表（设计稿 D5）：按方向分组，每行 64 高紧凑卡。
 class _TaskListSliver extends StatelessWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
@@ -290,104 +115,84 @@ class _TaskListSliver extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return DecoratedSliver(
-      decoration: BoxDecoration(
-        color: p.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.line2),
-      ),
-      sliver: SliverMainAxisGroup(
-        slivers: [
-          SliverToBoxAdapter(child: _TaskListHeader(tasks: tasks, filter: filter, onFilter: onFilter)),
-          if (tasks.isEmpty)
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 160,
-                child: _EmptyTransfers(
-                  icon: switch (filter) {
-                    _Filter.failed => 'alert',
-                    _Filter.done => 'check',
-                    _ => 'arrow-down',
-                  },
-                  iconColor: filter == _Filter.failed ? OlTokens.danger : null,
-                  title: switch (filter) {
-                    _Filter.failed => '没有失败的任务',
-                    _Filter.done => '还没有已完成的任务',
-                    _Filter.offline => '没有离线下载任务',
-                    _ => '没有进行中的任务',
-                  },
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _TaskRow(task: tasks[index]),
-                childCount: tasks.length,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
-/// 卡片头：标题 + 全部/下载/上传 分段；已完成/失败分组额外给「清除」。
-class _TaskListHeader extends ConsumerWidget {
-  final List<TransferTask> tasks;
-  final _Filter filter;
-  final ValueChanged<_Filter> onFilter;
+    // 设计稿 D5：按方向分组（下载中 / 上传中）。离线任务并入下载组。
+    final downloads = <TransferTask>[];
+    final uploads = <TransferTask>[];
+    for (final task in tasks) {
+      if (task.kind == TransferKind.upload) {
+        uploads.add(task);
+      } else {
+        downloads.add(task);
+      }
+    }
 
-  const _TaskListHeader({required this.tasks, required this.filter, required this.onFilter});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final clearable = filter == _Filter.done || filter == _Filter.failed;
-    // v2.6：标题跟随筛选走。之前固定写「进行中」，切到已完成/失败仍是这个标题。
-    final title = switch (filter) {
-      _Filter.done => '已完成',
-      _Filter.failed => '失败',
-      _Filter.offline => '离线下载',
-      _Filter.download => '正在下载',
-      _Filter.upload => '正在上传',
-      _ => '进行中',
-    };
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
-      child: Row(
-        children: [
-          Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink2)),
-          const Spacer(),
-          // v1.0.35：已完成 / 失败分组提供一键清除（之前只能逐条点，失败列表清不掉）
-          if (clearable && tasks.isNotEmpty) ...[
-            OlGhostButton(
-              label: '清除',
-              icon: 'trash',
-              height: 21,
-              fontSize: 9,
-              onTap: () => ref.read(transfersProvider.notifier).clearTasks(tasks.map((e) => e.id).toList()),
-            ),
-            const SizedBox(width: 6),
-          ],
-          OlSeg<_Filter>(
-            items: [
-              OlSegItem(_Filter.all, '全部 ${tasks.length}'),
-              OlSegItem(_Filter.download, '下载'),
-              OlSegItem(_Filter.upload, '上传'),
-            ],
-            value: (filter == _Filter.upload || filter == _Filter.download) ? filter : _Filter.all,
-            onChanged: onFilter,
-            height: 21,
+    if (tasks.isEmpty) {
+      return SliverToBoxAdapter(
+        child: SizedBox(
+          height: 260,
+          child: _EmptyTransfers(
+            icon: switch (filter) {
+              _Filter.failed => 'alert',
+              _Filter.done => 'check',
+              _ => 'arrow-down',
+            },
+            iconColor: filter == _Filter.failed ? OlTokens.danger : null,
+            title: switch (filter) {
+              _Filter.failed => '没有失败的任务',
+              _Filter.done => '还没有已完成的任务',
+              _Filter.offline => '没有离线下载任务',
+              _Filter.download => '没有下载任务',
+              _Filter.upload => '没有上传任务',
+              _ => '没有进行中的任务',
+            },
           ),
-        ],
+        ),
+      );
+    }
+
+    return SliverPadding(
+      // 设计稿 D5 `.tasks`：padding 8/24/16。
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final groups = <String, List<TransferTask>>{
+              '下载中': downloads,
+              '上传中': uploads,
+            };
+            // 展平成「[标题, 行, 行, 标题, 行…]」的顺序列表。
+            final flat = <Object>[];
+            for (final entry in groups.entries) {
+              if (entry.value.isEmpty) continue;
+              flat.add(_GroupTitle(entry.key));
+              flat.addAll(entry.value);
+            }
+            if (index >= flat.length) return const SizedBox.shrink();
+            final item = flat[index];
+            if (item is _GroupTitle) return item;
+            final task = item as TransferTask;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _TaskRow(task: task),
+            );
+          },
+          // 先算展开后的长度，避免闭包里每帧都重建 groups。
+          childCount: _flatCount(downloads, uploads),
+        ),
       ),
     );
   }
+
+  int _flatCount(List<TransferTask> downloads, List<TransferTask> uploads) {
+    var n = 0;
+    if (downloads.isNotEmpty) n += downloads.length + 1;
+    if (uploads.isNotEmpty) n += uploads.length + 1;
+    return n;
+  }
 }
 
+/// 任务行（设计稿 D5 `.task`）：64 高、grid 40/1fr/190/150/96、圆角 14 描边。
 class _TaskRow extends ConsumerWidget {
   final TransferTask task;
   final bool dense;
@@ -400,97 +205,277 @@ class _TaskRow extends ConsumerWidget {
     final ratio = task.total <= 0 ? 0.0 : (task.done / task.total).clamp(0.0, 1.0);
     final failed = task.status == TransferStatus.failed;
     final running = task.status == TransferStatus.running;
+    final paused = task.status == TransferStatus.paused;
     final done = task.status == TransferStatus.done;
+    final upload = task.kind == TransferKind.upload;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: dense ? 0 : 12, vertical: 9),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
+      height: dense ? null : 64,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: failed ? OlTokens.failRowBg : p.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: failed ? const Color(0xFFF8C9D2) : p.line),
+      ),
       child: Row(
         children: [
-          FileGlyph(name: task.name, size: 30, radius: 8, iconSize: 15),
-          const SizedBox(width: 9),
+          // 图标块 38×38 r10（设计稿 `.ic`）
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: failed
+                  ? const Color(0xFFFFF1F3)
+                  : (upload ? OlTokens.tileTeal : OlTokens.tileSky),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: OlIcon(
+                failed ? 'alert' : (upload ? 'upload' : 'download'),
+                size: 18,
+                color: failed
+                    ? const Color(0xFFD92D4B)
+                    : (upload ? const Color(0xFF0E9F6E) : const Color(0xFF0EA5E9)),
+                strokeWidth: 1.9,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // 名称 + 路径（1fr）
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   task.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.ink),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Row(
                   children: [
+                    _TaskBadge(
+                      label: failed
+                          ? '失败'
+                          : (upload ? '上传' : '下载'),
+                      fg: failed
+                          ? const Color(0xFF8A2438)
+                          : (upload ? OlTokens.tagGreenFg : OlTokens.tagSkyFg),
+                      bg: failed
+                          ? const Color(0xFFFFF1F3)
+                          : (upload ? OlTokens.tagGreenBg : OlTokens.tagSkyBg),
+                    ),
+                    const SizedBox(width: 5),
                     Flexible(
                       child: Text(
-                        failed ? '连接失败' : task.serverLabel,
+                        _pathText(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: failed ? FontWeight.w700 : FontWeight.w500,
-                          color: failed ? OlTokens.dangerDeep : p.ink4,
-                        ),
+                        style: TextStyle(fontSize: 10.5, color: p.ink4),
                       ),
                     ),
-                    const SizedBox(width: 7),
-                    Text(formatSpeed(task.speed), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: p.ink2)),
-                    const SizedBox(width: 7),
-                    Text('${formatBytes(task.done)} / ${formatBytes(task.total)}', style: TextStyle(fontSize: 9, color: p.ink4)),
                   ],
                 ),
-                const SizedBox(height: 5),
-                OlProgress(value: ratio, height: 3),
               ],
             ),
           ),
+          const SizedBox(width: 14),
+          // 进度 + meta（190）
           SizedBox(
-            width: 56,
+            width: 190,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  done ? '完成' : '${(ratio * 100).round()}%',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: failed ? OlTokens.dangerDeep : p.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  done || task.speed <= 0 ? '' : '剩余 ${formatCountdown(((task.total - task.done) / task.speed).round())}',
-                  style: TextStyle(fontSize: 9, color: p.ink4),
+                _ProgressBar(ratio: ratio, failed: failed, paused: paused),
+                const SizedBox(height: 5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${(ratio * 100).round()}% · ${formatBytes(task.done)} / ${formatBytes(task.total)}',
+                      style: TextStyle(fontSize: 10.5, color: p.ink3),
+                    ),
+                    Text(
+                      failed
+                          ? '已暂停'
+                          : (done ? '已完成' : formatSpeed(task.speed)),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: failed ? const Color(0xFF8A2438) : p.ink3,
+                        fontWeight: failed ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 4),
-          // 离线下载任务由服务端执行，本地暂停/重试无意义（v2.2 审计）。
-          if (task.id.startsWith('srv-'))
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: Center(child: OlIcon('cloud-dl', size: 12, color: p.ink4)),
-            )
-          else if (failed)
-            // v1.0.35：失败任务之前只有「重试」，没有移除按钮，失败列表越积越多清不掉。
-            Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 14),
+          // 方式徽标（150）
+          SizedBox(
+            width: 150,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _TaskBadge(
+                label: _modeLabel(),
+                fg: OlTokens.tagAmberFg,
+                bg: OlTokens.tagAmberBg,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // 操作（96）
+          SizedBox(
+            width: 96,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OlGhostButton(label: '重试', height: 22, fontSize: 9, onTap: () => notifier.retry(task.id)),
-                const SizedBox(width: 2),
-                OlIconButton(icon: 'x', size: 24, iconSize: 12, tooltip: '移除', onTap: () => notifier.remove(task.id)),
+                _ActionButton(
+                  icon: failed
+                      ? 'refresh'
+                      : (running ? 'pause' : (paused ? 'play' : 'pause')),
+                  tooltip: failed
+                      ? '重试'
+                      : (running ? '暂停' : (paused ? '继续' : '暂停')),
+                  danger: false,
+                  onTap: () {
+                    if (failed) {
+                      notifier.retry(task.id);
+                    } else if (running) {
+                      notifier.pause(task.id);
+                    } else {
+                      notifier.resume(task.id);
+                    }
+                  },
+                ),
+                const SizedBox(width: 6),
+                _ActionButton(
+                  icon: 'x',
+                  tooltip: '取消',
+                  danger: true,
+                  onTap: () => notifier.remove(task.id),
+                ),
               ],
-            )
-          else if (running)
-            OlIconButton(icon: 'pause', size: 24, iconSize: 12, tooltip: '暂停', onTap: () => notifier.pause(task.id))
-          else if (task.status == TransferStatus.paused)
-            OlIconButton(icon: 'play', size: 24, iconSize: 12, tooltip: '继续', onTap: () => notifier.resume(task.id))
-          else
-            OlIconButton(icon: 'x', size: 24, iconSize: 12, tooltip: '移除', onTap: () => notifier.remove(task.id)),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  /// 路径文案：源 → 目标。取远端路径与本地路径，缺失时退回来源标签。
+  String _pathText() {
+    final remote = task.remotePath.isEmpty ? task.serverLabel : task.remotePath;
+    final local = task.localPath.isEmpty ? '' : task.localPath;
+    if (local.isEmpty) return remote;
+    return '$remote → $local';
+  }
+
+  /// 方式徽标：失败可续传、上传流式、下载分片。
+  String _modeLabel() {
+    if (task.status == TransferStatus.failed) return '可续传';
+    if (task.kind == TransferKind.upload) return '流式上传';
+    return '分片下载';
+  }
+}
+
+/// 任务徽标（设计稿 `.badge`）：9.5/800、圆角 99、padding 2/7。
+class _TaskBadge extends StatelessWidget {
+  final String label;
+  final Color fg;
+  final Color bg;
+
+  const _TaskBadge({required this.label, required this.fg, required this.bg});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+      child: Text(label, style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: fg)),
+    );
+  }
+}
+
+/// 进度条（设计稿 `.pg`）：7 高、槽 #EDF2F8、已完成渐变，暂停态变灰。
+class _ProgressBar extends StatelessWidget {
+  final double ratio;
+  final bool failed;
+  final bool paused;
+
+  const _ProgressBar({required this.ratio, required this.failed, required this.paused});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 7,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDF2F8),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: ratio.clamp(0.0, 1.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: failed
+                ? const Color(0xFFF8C9D2)
+                : (paused ? const Color(0xFFC4D5E4) : null),
+            gradient: (failed || paused)
+                ? null
+                : const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)]),
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 行内操作按钮（设计稿 `.ia`）：30×30、圆角 8、描边。
+class _ActionButton extends StatelessWidget {
+  final String icon;
+  final String tooltip;
+  final bool danger;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Tooltip(
+      message: tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: p.line),
+            ),
+            child: Center(
+              child: OlIcon(
+                icon,
+                size: 13,
+                color: danger ? const Color(0xFFD92D4B) : p.ink2,
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
