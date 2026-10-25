@@ -33,6 +33,9 @@ class OlPrimaryButton extends StatelessWidget {
   final bool expand;
   final bool busy;
   final double fontSize;
+  final LinearGradient? gradient;
+  final List<BoxShadow>? shadow;
+  final double? horizontalPadding;
 
   const OlPrimaryButton({
     super.key,
@@ -43,6 +46,9 @@ class OlPrimaryButton extends StatelessWidget {
     this.expand = false,
     this.busy = false,
     this.fontSize = 11.5,
+    this.gradient,
+    this.shadow,
+    this.horizontalPadding,
   });
 
   @override
@@ -52,12 +58,14 @@ class OlPrimaryButton extends StatelessWidget {
     final font = _mobileFont(context, fontSize);
     final content = Container(
       height: h,
-      padding: EdgeInsets.symmetric(horizontal: _isMobile(context) ? 16 : 12),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding ?? (_isMobile(context) ? 16 : 12)),
       decoration: BoxDecoration(
-        gradient: enabled ? OlTokens.gradientPrimary : const LinearGradient(colors: [Color(0xFFB8D9EA), Color(0xFFB8E3E1)]),
+        gradient: enabled
+            ? (gradient ?? OlTokens.gradientPrimary)
+            : const LinearGradient(colors: [Color(0xFFB8D9EA), Color(0xFFB8E3E1)]),
         borderRadius: BorderRadius.circular(8),
         boxShadow: enabled
-            ? const [BoxShadow(color: Color(0x5938BDF8), blurRadius: 16, offset: Offset(0, 7))]
+            ? (shadow ?? const [BoxShadow(color: Color(0x5938BDF8), blurRadius: 16, offset: Offset(0, 7))])
             : null,
       ),
       child: Row(
@@ -95,6 +103,8 @@ class OlGhostButton extends StatelessWidget {
   final VoidCallback? onTap;
   final double height;
   final double fontSize;
+  final double? horizontalPadding;
+  final Color? fgColor;
 
   const OlGhostButton({
     super.key,
@@ -103,6 +113,8 @@ class OlGhostButton extends StatelessWidget {
     this.onTap,
     this.height = 30,
     this.fontSize = 11.5,
+    this.horizontalPadding,
+    this.fgColor,
   });
 
   @override
@@ -119,14 +131,14 @@ class OlGhostButton extends StatelessWidget {
     final border = enabled
         ? p.line
         : const Color(0xFFEEF3F8);
-    final fg = enabled ? p.ink2 : p.ink4;
+    final fg = enabled ? (fgColor ?? p.ink2) : p.ink4;
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           height: _mobileHeight(context, height),
-          padding: EdgeInsets.symmetric(horizontal: mobile ? 14 : 11),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding ?? (mobile ? 14 : 11)),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(8),
@@ -613,19 +625,36 @@ class OlBadge extends StatelessWidget {
   final Color fg;
   final Color bg;
   final Color? border;
+  final double radius;
+  final EdgeInsets padding;
+  final double fontSize;
+  final bool showBorder;
 
-  const OlBadge({super.key, required this.label, this.fg = OlTokens.okDeep, this.bg = const Color(0xFFE7FBF5), this.border});
+  const OlBadge({
+    super.key,
+    required this.label,
+    this.fg = OlTokens.okDeep,
+    this.bg = const Color(0xFFE7FBF5),
+    this.border,
+    this.radius = 5,
+    this.padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    this.fontSize = 8.5,
+    this.showBorder = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: padding,
       decoration: BoxDecoration(
         color: bg,
-        border: Border.all(color: border ?? const Color(0xFFCBEFE6)),
-        borderRadius: BorderRadius.circular(5),
+        border: showBorder ? Border.all(color: border ?? const Color(0xFFCBEFE6)) : null,
+        borderRadius: BorderRadius.circular(radius),
       ),
-      child: Text(label, style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w800, color: fg, letterSpacing: 0.2)),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800, color: fg, letterSpacing: 0.2),
+      ),
     );
   }
 }
@@ -991,4 +1020,46 @@ class _DashedRRectPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.radius != radius || oldDelegate.fill != fill;
+}
+
+/// 全站统一的「返回上一级」按钮（设计稿 D2–D8 的 `.ib` 规格）。
+///
+/// 32×32、圆角 8、1px 描边、图标 15px；窄屏自动放大到 40×40（命中区要求）。
+/// 子页面一律用它，不要各页再自绘。
+class OlBackButton extends StatelessWidget {
+  final VoidCallback? onTap;
+  final String tooltip;
+  final double size;
+
+  const OlBackButton({super.key, this.onTap, this.tooltip = '返回', this.size = 32});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    final mobile = _isMobile(context);
+    final edge = mobile ? OlMobile.iconButton : size;
+    final glyph = mobile ? 18.0 : 15.0;
+    final enabled = onTap != null;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: edge,
+            height: edge,
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: p.line),
+            ),
+            child: Center(
+              child: OlIcon('chev-l', size: glyph, color: enabled ? p.ink2 : p.ink4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

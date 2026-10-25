@@ -178,26 +178,34 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     return AppFrame(
       showNav: false,
       handleBack: true,
-      child: catalog.when(
-        loading: () => const Center(child: _Loading(text: '正在读取驱动列表')),
-        error: (error, _) => _Failed(message: '$error'),
-        data: (drivers) {
-          if (drivers.isEmpty) {
-            return const _Failed(message: '引擎没有返回任何驱动');
-          }
-          if (widget.initialDriver != null && _driver == null) {
-            final info = drivers[widget.initialDriver];
-            if (info != null) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _selectDriver(info));
-              });
-            }
-          }
-          final sorted = drivers.keys.toList()..sort();
-          return context.isNarrow
-              ? _buildMobile(drivers, sorted)
-              : _buildDesktop(drivers, sorted);
-        },
+      child: Column(
+        children: [
+          // 0.5.0：整页只被 push 进来，此前「选类型 / 加载 / 失败」三态都没有返回入口。
+          _PageTopBar(onBack: () => goBackOrFiles(context)),
+          Expanded(
+            child: catalog.when(
+              loading: () => const Center(child: _Loading(text: '正在读取驱动列表')),
+              error: (error, _) => _Failed(message: '$error'),
+              data: (drivers) {
+                if (drivers.isEmpty) {
+                  return const _Failed(message: '引擎没有返回任何驱动');
+                }
+                if (widget.initialDriver != null && _driver == null) {
+                  final info = drivers[widget.initialDriver];
+                  if (info != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _selectDriver(info));
+                    });
+                  }
+                }
+                final sorted = drivers.keys.toList()..sort();
+                return context.isNarrow
+                    ? _buildMobile(drivers, sorted)
+                    : _buildDesktop(drivers, sorted);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -382,7 +390,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
               onTap: _busy ? null : () => _submit(info),
             ),
             const SizedBox(width: 10),
-            OlGhostButton(label: '取消', height: 38, onTap: () => goBackOrFiles(context)),
             const Spacer(),
             if (_created)
               Text('已保存', style: TextStyle(fontSize: 10.5, color: OlTokens.ok)),
@@ -844,6 +851,45 @@ class _Hint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: TextStyle(fontSize: 12, color: context.ol.ink3));
+  }
+}
+
+/// 添加存储源页面级顶栏：返回 + 标题 + 取消。
+///
+/// 设计稿 D2 没有这一条（稿面靠窗口标题栏），但整页只被 push 进来，
+/// 没有返回会让用户卡在「选类型 / 加载失败」这两态里出不去。
+class _PageTopBar extends StatelessWidget {
+  final VoidCallback onBack;
+
+  const _PageTopBar({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: p.card,
+        border: Border(bottom: BorderSide(color: p.line)),
+      ),
+      child: Row(
+        children: [
+          OlBackButton(onTap: onBack),
+          const SizedBox(width: 12),
+          if (!context.isNarrow)
+            Expanded(
+              child: Text(
+                '添加存储源',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: p.ink),
+              ),
+            )
+          else
+            const Spacer(),
+          OlGhostButton(label: '取消', height: 32, fontSize: 12, onTap: onBack),
+        ],
+      ),
+    );
   }
 }
 

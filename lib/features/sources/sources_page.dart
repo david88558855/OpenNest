@@ -33,6 +33,11 @@ class SourcesPage extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 0.5.0：该页只被 push 进来（设置 / 引擎状态），此前两端都没有返回入口。
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 12),
+                    child: OlBackButton(onTap: () => goBackOrFiles(context)),
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

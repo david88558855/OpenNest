@@ -55,7 +55,17 @@ class _AppFrameState extends ConsumerState<AppFrame> {
   DateTime? _lastBackAt;
 
   Future<void> _handleSystemBack() async {
+    // 1) 页面自己的返回逻辑优先（抽屉 / 批量模式 / 上一级目录）。
     if (widget.onBack != null && await widget.onBack!.call()) return;
+    // 2) 子页面：栈里有上一页就正常出栈。
+    //    0.5.0 修复：之前只判断「双击退出」，导致 /sources、/sources/add、/preview
+    //    这些 push 进来的页面按系统返回键第一次只提示、第二次直接退出应用。
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
+    // 3) 根页：2 秒内再按一次才退出应用。
     final now = DateTime.now();
     final last = _lastBackAt;
     if (last != null && now.difference(last) <= _exitWindow) {

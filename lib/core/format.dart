@@ -137,19 +137,85 @@ class TileColors {
 }
 
 TileColors tileColors(TileTone tone) {
+  // 0.5.0：换成设计稿 D3/D4 的六组配色（此前是旧版蓝/玫红/琥珀/青/石板灰）。
   switch (tone) {
     case TileTone.sky:
-      return const TileColors(Color(0xFFE6F7FE), Color(0xFF0A93C4));
+      return const TileColors(kTileSky, kTypeFolder);
     case TileTone.violet:
-      return const TileColors(Color(0xFFF1EDFF), Color(0xFF7C5CFC));
+      return const TileColors(kTileViolet, kTypeVideo);
     case TileTone.rose:
-      return const TileColors(Color(0xFFFFEDF2), Color(0xFFE8476F));
+      return const TileColors(kTileTeal, kTypeImage);
     case TileTone.amber:
-      return const TileColors(Color(0xFFFFF5E2), Color(0xFFD98A06));
+      return const TileColors(kTileAmber, kTypeDoc);
     case TileTone.teal:
-      return const TileColors(Color(0xFFE4FBF5), Color(0xFF0DA98F));
+      return const TileColors(kTilePink, kTypeAudio);
     case TileTone.slate:
-      return const TileColors(Color(0xFFEFF3F8), Color(0xFF63788E));
+      return const TileColors(kTileSlate, kTypeMuted);
+  }
+}
+
+// 本地常量（避免 format.dart 反向依赖 theme/tokens，只镜像取值）
+const kTileSky = Color(0xFFEAF8FE);
+const kTileViolet = Color(0xFFF0EDFF);
+const kTileTeal = Color(0xFFE8FBF3);
+const kTileAmber = Color(0xFFFFF6E8);
+const kTilePink = Color(0xFFFCE7F3);
+const kTileSlate = Color(0xFFF1F6FB);
+const kTypeFolder = Color(0xFF38BDF8);
+const kTypeImage = Color(0xFF2DD4BF);
+const kTypeVideo = Color(0xFF7C5CFC);
+const kTypeDoc = Color(0xFFF97316);
+const kTypeAudio = Color(0xFFEC4899);
+const kTypeMuted = Color(0xFF6B7F94);
+
+/// 表格「类型」列文案（设计稿 D3）：目录统一「文件夹」，图片带扩展名，
+/// 文档按应用名，其余用中文类名。
+String typeLabelOf(String name, bool isDir) {
+  if (isDir) return '文件夹';
+  final ext = extensionOf(name);
+  final kind = kindOf(name, isDir);
+  switch (kind) {
+    case FileKind.video:
+      return '视频';
+    case FileKind.audio:
+      return '音频';
+    case FileKind.archive:
+      return '压缩包';
+    case FileKind.code:
+      return '代码文件';
+    case FileKind.image:
+      return ext.isEmpty ? '图片' : '${ext.toUpperCase()} 图片';
+    case FileKind.text:
+      switch (ext) {
+        case 'doc':
+        case 'docx':
+          return 'Word 文档';
+        case 'xls':
+        case 'xlsx':
+          return 'Excel 表格';
+        case 'ppt':
+        case 'pptx':
+          return 'PPT 演示';
+        case 'pdf':
+          return 'PDF 文档';
+        case 'epub':
+          return '电子书';
+        case 'txt':
+        case 'md':
+        case 'log':
+        case 'csv':
+          return '文本文件';
+        case 'ass':
+        case 'srt':
+        case 'vtt':
+          return '字幕文件';
+        default:
+          return '文档';
+      }
+    case FileKind.folder:
+      return '文件夹';
+    case FileKind.other:
+      return ext.isEmpty ? '文件' : '${ext.toUpperCase()} 文件';
   }
 }
 

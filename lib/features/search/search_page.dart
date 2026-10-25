@@ -209,6 +209,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
               child: Row(
                 children: [
+                  // 0.5.0：桌面端此前只有 Esc 键帽提示，没有可点的返回入口。
+                  OlBackButton(onTap: () => context.go('/files')),
+                  const SizedBox(width: 10),
                   const OlIcon('search', size: 18, color: OlTokens.sky600),
                   const SizedBox(width: 10),
                   Expanded(
@@ -276,7 +279,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           padding: const EdgeInsets.symmetric(horizontal: 18),
           child: Row(
             children: [
-              GestureDetector(onTap: () => context.go('/files'), child: OlIcon('chev-l', size: 18, color: p.ink3)),
+              // 与全站统一成 32/40 的按钮形态（原来是 18px 裸图标，命中区不足）。
+              OlBackButton(onTap: () => context.go('/files')),
               const SizedBox(width: 10),
               Expanded(
                 child: Container(

@@ -38,6 +38,45 @@ class OlTokens {
   static const typeFolder = Color(0xFF38BDF8);
   static const typeOther = Color(0xFF64748B);
 
+  // ---- 设计稿补齐（D2–D8 用到但此前缺失的散装值）----
+  /// 侧栏项 / 面包屑段 hover 底
+  static const hoverSoft = Color(0xFFEDF6FD);
+
+  /// 网格卡选中底
+  static const gridSelBg = Color(0xFFF0FAFF);
+
+  /// 复选框描边
+  static const checkBorder = Color(0xFFC4D5E4);
+
+  /// 添加存储源虚线描边
+  static const dashBorder = Color(0xFFB9D8EA);
+
+  /// 拖拽浮层副文案
+  static const dropSubInk = Color(0xFF3E7A9B);
+
+  /// 传输失败行底
+  static const failRowBg = Color(0xFFFFFBFB);
+
+  /// 绿色徽标（上传 / SFTP）：字 / 底
+  static const tagGreenFg = Color(0xFF0B6B4A);
+  static const tagGreenBg = Color(0xFFD3F2E6);
+
+  /// 琥珀徽标（网盘 / 续传）：字 / 底
+  static const tagAmberFg = Color(0xFFB7791F);
+  static const tagAmberBg = Color(0xFFFEF3C7);
+
+  /// 蓝色徽标（下载 / 本地 / WebDAV）：字 / 底
+  static const tagSkyFg = Color(0xFF08799F);
+  static const tagSkyBg = Color(0xFFEAF8FE);
+
+  // ---- 类型图标底（设计稿 D3/D4/D5 六组）----
+  static const tileSky = Color(0xFFEAF8FE);
+  static const tileViolet = Color(0xFFF0EDFF);
+  static const tileTeal = Color(0xFFE8FBF3);
+  static const tileAmber = Color(0xFFFFF6E8);
+  static const tilePink = Color(0xFFFCE7F3);
+  static const tileSlate = Color(0xFFF1F6FB);
+
   // ---- Radii（02 · 20 卡片 / 14 面板 / 9 按钮 / 99 胶囊）----
   static const r1 = 22.0; // 旧：卡片 / 弹层
   static const r2 = 16.0; // 旧：面板 / 缩略图
@@ -142,6 +181,16 @@ class OlDesktop {
 
   /// Windows / macOS / Linux 字号放大比例。
   static const textScale = 1.0;
+
+  // ---- 桌面骨架尺寸（设计稿 D2–D8 统一取值）----
+  static const topBar = 52.0;
+  static const listHeader = 36.0;
+  static const row = 44.0;
+  static const statusBar = 34.0;
+  static const sideBar = 236.0;
+  static const sideBarSettings = 216.0;
+  static const iconBtn = 32.0;
+  static const btn = 32.0;
 }
 
 /// 单一浅色调色板。所有界面元素都从这里取色，项目**不支持深色模式**

@@ -129,6 +129,8 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
               ),
               child: Row(
                 children: [
+                  OlBackButton(onTap: () => goBackOrFiles(context)),
+                  const SizedBox(width: 10),
                   OlIcon(_iconFor(), size: 15, color: OlTokens.typeImage),
                   const SizedBox(width: 9),
                   Flexible(
@@ -168,14 +170,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                                   _parentDir(),
                                 );
                           },
-                  ),
-                  const SizedBox(width: 8),
-                  OlGhostButton(
-                    label: '关闭',
-                    icon: 'x',
-                    height: 32,
-                    fontSize: 12,
-                    onTap: () => goBackOrFiles(context),
                   ),
                 ],
               ),

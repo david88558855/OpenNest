@@ -284,11 +284,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             return Scaffold(
               backgroundColor: p.bg,
               body: SafeArea(
-                child: Column(
+                child: Stack(
                   children: [
-                    if (!_fullscreen) _topBar(context),
-                    Expanded(
-                      child: Row(
+                    Column(
+                      children: [
+                        if (!_fullscreen) _topBar(context),
+                        Expanded(
+                          child: Row(
                         children: [
                           Expanded(
                             child: Padding(
@@ -303,10 +305,32 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                               ),
                             ),
                           ),
-                          if (!narrow && !_fullscreen) _sidePanel(context),
-                        ],
-                      ),
+                              if (!narrow && !_fullscreen) _sidePanel(context),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
+                    // 全屏时顶栏整体隐藏，这里补一个悬浮返回，避免无路可退。
+                    if (_fullscreen)
+                      Positioned(
+                        left: 12,
+                        top: 12,
+                        child: GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: const Color(0x66000000),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: OlIcon('chev-l', size: 15, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
