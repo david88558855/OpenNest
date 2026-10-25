@@ -252,16 +252,21 @@ class DesktopSidecarManager implements SidecarManager {
     final stored = await _secure.read(kSidecarTokenKey);
     final api = OpenListApi(baseUrl: 'http://127.0.0.1:$port', token: stored);
     SiteInfo? site;
-    final String token;
+    String token;
     if (stored == null || stored.isEmpty) {
       token = await api.login(username: 'admin', password: password);
       await _secure.write(kSidecarTokenKey, token);
     } else {
       api.token = stored;
+      var valid = true;
       try {
         await api.me();
-        token = stored;
       } catch (_) {
+        valid = false;
+      }
+      if (valid) {
+        token = stored;
+      } else {
         token = await api.login(username: 'admin', password: password);
         await _secure.write(kSidecarTokenKey, token);
       }
