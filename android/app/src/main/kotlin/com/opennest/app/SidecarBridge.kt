@@ -34,14 +34,24 @@ object SidecarBridge {
                 stopEngine()
                 result.success(true)
             }
-            "isRunning" -> result.success(process?.isAlive == true)
-            "pid" -> result.success(process?.pid())
+            "isRunning" -> {
+                val current = process
+                result.success(current != null && isAlive(current))
+            }
             else -> result.notImplemented()
         }
     }
 
-    private fun startEngine(context: Context, dataDir: String, password: String, logPath: String): Int {
-        process?.let { if (it.isAlive) return it.pid() }
+    /** Android 的 Process 没有 Java 9 的 pid()，用 exitValue 反推是否存活。 */
+    private fun isAlive(target: Process): Boolean = try {
+        target.exitValue()
+        false
+    } catch (error: IllegalThreadStateException) {
+        true
+    }
+
+    private fun startEngine(context: Context, dataDir: String, password: String, logPath: String): Boolean {
+        process?.let { if (isAlive(it)) return true }
 
         val binary = File(context.applicationInfo.nativeLibraryDir, "libopenlist.so")
         if (!binary.exists()) {
@@ -62,7 +72,7 @@ object SidecarBridge {
         val started = builder.start()
         process = started
         attachLog(started, logPath)
-        return started.pid()
+        return true
     }
 
     private fun attachLog(started: Process, logPath: String) {

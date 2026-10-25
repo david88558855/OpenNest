@@ -11,6 +11,8 @@ import '../features/files/files_page.dart';
 import '../features/media/player_page.dart';
 import '../features/search/search_page.dart';
 import '../features/settings/settings_page.dart';
+import '../features/sources/add_source_page.dart';
+import '../features/sources/sources_page.dart';
 import '../features/transfers/transfers_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -46,6 +48,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _page(state, FilesPage(initialPath: state.uri.queryParameters['path'])),
       ),
       GoRoute(path: '/transfers', pageBuilder: (context, state) => _page(state, const TransfersPage())),
+      GoRoute(path: '/sources', pageBuilder: (context, state) => _page(state, const SourcesPage())),
+      GoRoute(
+        path: '/sources/add',
+        pageBuilder: (context, state) => _page(
+          state,
+          AddSourcePage(initialDriver: state.uri.queryParameters['driver']),
+        ),
+      ),
       GoRoute(
         path: '/favorites',
         redirect: (context, state) {

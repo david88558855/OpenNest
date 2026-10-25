@@ -151,7 +151,7 @@ class _ServersSection extends ConsumerWidget {
                 icon: 'chev-r',
                 height: 28,
                 fontSize: 10.5,
-                onTap: () => context.push('/files'),
+                onTap: () => context.push('/sources'),
               ),
             ],
           ),

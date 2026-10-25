@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 
 import '../format.dart';
 import '../models/api_types.dart';
+import '../models/driver_schema.dart';
+import '../models/storage_source.dart';
 import 'api_exception.dart';
 
 /// Thin, typed wrapper over the OpenList HTTP API (v3 / v4).
@@ -293,6 +295,54 @@ class OpenListApi {
           .toList();
     }
     return const [];
+  }
+
+  // ------------------------------------------------------- admin：存储源管理
+
+  /// 存储源完整列表（含 driver / addition / status）。
+  Future<List<StorageSource>> adminStorages() async {
+    final data = await _get('/api/admin/storage/list');
+    final List raw;
+    if (data is Map && data['content'] is List) {
+      raw = data['content'] as List;
+    } else if (data is List) {
+      raw = data;
+    } else {
+      raw = const [];
+    }
+    return raw.whereType<Map>().map((e) => StorageSource.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  /// 全部驱动的字段定义（一次拿全，供添加向导分组展示）。
+  Future<Map<String, DriverInfo>> driverList() async {
+    final data = await _get('/api/admin/driver/list');
+    final result = <String, DriverInfo>{};
+    if (data is Map) {
+      data.forEach((key, value) {
+        if (value is Map) {
+          result['$key'] = DriverInfo.fromJson('$key', Map<String, dynamic>.from(value));
+        }
+      });
+    }
+    return result;
+  }
+
+  Future<int> createStorage(StorageSource source) async {
+    final data = await _post('/api/admin/storage/create', source.toRequestJson());
+    final id = data is Map ? data['id'] : null;
+    return (id as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> updateStorage(StorageSource source) async {
+    await _post('/api/admin/storage/update', source.toRequestJson(withId: true));
+  }
+
+  Future<void> deleteStorage(int id) async {
+    await _post('/api/admin/storage/delete?id=$id');
+  }
+
+  Future<void> setStorageEnabled(int id, bool enabled) async {
+    await _post('/api/admin/storage/${enabled ? 'enable' : 'disable'}?id=$id');
   }
 
   Future<List<ServerTask>> tasks() async {

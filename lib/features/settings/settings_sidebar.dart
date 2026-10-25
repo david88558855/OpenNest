@@ -66,6 +66,7 @@ class SettingsSidebar extends ConsumerWidget {
           ),
           // 引擎状态是设置分区（不再有独立的服务器管理页）
           _SideRow(icon: 'server', label: '引擎状态', active: active == 'servers', onTap: () => context.go('/settings/servers')),
+          _SideRow(icon: 'folder', label: '存储源', onTap: () => context.push('/sources')),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),

@@ -14,6 +14,7 @@ import '../../core/sidecar/sidecar_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
+import '../sources/sources_controller.dart';
 
 /// 启动页：先出画面，再在后台拉起内嵌引擎，失败时给出可操作错误。
 class BootPage extends ConsumerStatefulWidget {
@@ -69,13 +70,21 @@ class _BootPageState extends ConsumerState<BootPage> {
     if (sidecar.status == SidecarStatus.ready) {
       await ref.read(sessionProvider.notifier).boot();
       if (!mounted) return;
+      var hasSources = false;
       try {
-        await ref.read(filesProvider.notifier).attach();
+        final sources = await ref.read(sourcesProvider.future);
+        hasSources = sources.isNotEmpty;
       } catch (_) {}
+      if (!mounted) return;
+      if (hasSources) {
+        try {
+          await ref.read(filesProvider.notifier).attach();
+        } catch (_) {}
+      }
       if (!mounted) return;
       _ticker?.cancel();
       setState(() => _progress = 1);
-      if (mounted) context.go('/files');
+      if (mounted) context.go(hasSources ? '/files' : '/sources/add');
       return;
     }
 

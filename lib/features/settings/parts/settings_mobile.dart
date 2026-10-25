@@ -147,6 +147,12 @@ class _MobileSettings extends ConsumerWidget {
                       value: '端口 / 版本 / 日志',
                       onTap: () => context.go('/settings/servers'),
                     ),
+                    _MobileTile(
+                      icon: 'folder',
+                      label: '存储源',
+                      value: '添加 / 停用 / 删除',
+                      onTap: () => context.push('/sources'),
+                    ),
                   ],
                 ),
                 _MobileGroup(
