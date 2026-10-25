@@ -54,7 +54,7 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
     }
     try {
       final item = await api.get(widget.path);
-      final url = await api.downloadUrl(widget.path, item.sign);
+      final url = api.downloadUrl(widget.path, sign: item.sign);
       String? text;
       if (_isText) {
         text = await _fetchText(api, url);
