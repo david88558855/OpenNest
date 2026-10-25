@@ -46,6 +46,13 @@ userdata/
 - **Windows**：解压 zip，运行 `OpenNest.exe`。`openlist.exe` 必须与它同目录。
 - **Android**：安装 apk。首次启动会在私有目录初始化引擎，受系统限制仅支持 arm64 设备。
 
+## 已知限制
+
+- **Android 16KB 页设备**：内置引擎二进制为 4KB 页对齐（上游产物如此），Android 15 及以上启用 16KB 页的设备无法执行引擎。普通 4KB 页设备不受影响。
+- 需要扫码或浏览器授权的驱动（部分网盘）无法在客户端内完成授权，表单会提示。
+- 后台传输在系统回收应用后可能中断，重新打开会自动恢复队列。
+- 一期只构建 Windows x64 与 Android arm64。
+
 ## 许可
 
 本项目以 AGPL-3.0 发布。客户端内嵌 [OpenList](https://github.com/OpenListTeam/OpenList) 引擎（同样为 AGPL-3.0），其源码可在上游仓库获取。第三方库版权归各自作者所有。

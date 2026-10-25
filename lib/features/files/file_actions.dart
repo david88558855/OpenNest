@@ -530,6 +530,11 @@ Future<void> openItem(BuildContext context, WidgetRef ref, FileItem item) async 
     context.push('/player?path=${Uri.encodeComponent(path)}&name=${Uri.encodeComponent(item.name)}');
     return;
   }
+  if (kind == FileKind.image || kind == FileKind.text) {
+    final path = item.parent ?? joinPath(dir, item.name);
+    context.push('/preview?path=${Uri.encodeComponent(path)}&name=${Uri.encodeComponent(item.name)}');
+    return;
+  }
   await previewItem(context, ref, item);
 }
 

@@ -9,6 +9,7 @@ import '../features/boot/boot_page.dart';
 import '../features/files/favorites_page.dart';
 import '../features/files/files_page.dart';
 import '../features/media/player_page.dart';
+import '../features/preview/preview_page.dart';
 import '../features/search/search_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/sources/add_source_page.dart';
@@ -78,6 +79,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/:tab',
         pageBuilder: (context, state) => _page(state, SettingsPage(tab: state.pathParameters['tab'] ?? 'appearance')),
+      ),
+      GoRoute(
+        path: '/preview',
+        pageBuilder: (context, state) => _page(
+          state,
+          PreviewPage(
+            path: state.uri.queryParameters['path'] ?? '',
+            name: state.uri.queryParameters['name'] ?? '',
+          ),
+        ),
       ),
       GoRoute(
         path: '/player',
