@@ -59,7 +59,50 @@ try {
     $count = @($drivers.data).Count
     if ($count -lt 50) { throw "驱动数量异常：$count" }
 
-    Write-Host "OK: 引擎冒烟通过（ping + 登录 + 驱动 $count 个）"
+    # 存储源全链路：创建本地目录源 → 列根目录 → 删除。
+    $headers = @{
+        Authorization  = $login.data.token
+        "Content-Type" = "application/json"
+    }
+    $storage = @{
+        mount_path            = "/s_smoke001"
+        order                 = 0
+        driver                = "Local"
+        cache_expiration      = 30
+        custom_cache_policies = ""
+        status                = ""
+        addition              = (@{ root_folder_path = "$tmp"; show_hidden = $false } | ConvertTo-Json -Compress)
+        remark                = "冒烟测试"
+        disabled              = $false
+        disable_index         = $false
+        enable_sign           = $false
+        web_proxy             = $false
+        webdav_policy         = "302_redirect"
+        proxy_range           = $false
+        down_proxy_url        = ""
+        disable_proxy_sign    = $false
+        order_by              = ""
+        order_direction       = ""
+        extract_folder        = ""
+        seed_policy           = "inherit"
+    } | ConvertTo-Json
+
+    $created = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/admin/storage/create" `
+        -Method Post -Headers $headers -Body $storage -TimeoutSec 20
+    if (-not $created.data.id) { throw "创建存储源失败：$($created | ConvertTo-Json -Depth 4)" }
+    $storageId = $created.data.id
+    Start-Sleep -Milliseconds 800
+
+    $listing = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/fs/list" -Method Post `
+        -Headers $headers -Body (@{ path = "/s_smoke001"; page = 1; per_page = 5; refresh = $true } | ConvertTo-Json) `
+        -TimeoutSec 20
+    if ($listing.code -ne 200) { throw "列目录失败：$($listing | ConvertTo-Json -Depth 4)" }
+
+    $deleted = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/admin/storage/delete?id=$storageId" `
+        -Method Post -Headers $headers -TimeoutSec 20
+    if ($deleted.code -ne 200) { throw "删除存储源失败：$($deleted | ConvertTo-Json -Depth 4)" }
+
+    Write-Host "OK: 引擎冒烟通过（ping + 登录 + 驱动 $count 个 + 存储源增删列）"
 }
 finally {
     if (-not $proc.HasExited) { $proc.Kill() }
