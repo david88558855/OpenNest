@@ -41,12 +41,13 @@ class SettingsSidebar extends ConsumerWidget {
     }
 
     return Container(
-      width: 204,
+      // 设计稿 D8：侧栏 216、padding 18/12。
+      width: 216,
       decoration: BoxDecoration(
-        color: p.surface,
-        border: Border(right: BorderSide(color: p.line2)),
+        color: p.card,
+        border: Border(right: BorderSide(color: p.line)),
       ),
-      padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -69,14 +70,14 @@ class SettingsSidebar extends ConsumerWidget {
           _SideRow(icon: 'folder', label: '存储源', onTap: () => context.push('/sources')),
           const Spacer(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Text(
               // v1.0.20：Windows 的配置写在 <主程序目录>/userdata/prefs.json，
               // 目录搬走配置跟着走；目录不可写时才是系统存储。
               '${AppInfo.shortLabel}\n'
               '${AppInfo.shortVersion(session.profile?.version ?? session.site?.version)} · ${_platformLabel()}\n'
               '${ref.watch(prefsProvider).isPortable ? '便携数据 · userdata/' : '系统存储（程序目录不可写）'}',
-              style: TextStyle(fontSize: 8.5, height: 1.7, color: p.ink4),
+              style: TextStyle(fontSize: 10, height: 1.6, color: p.ink4),
             ),
           ),
         ],
@@ -110,23 +111,27 @@ class _SideRow extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          height: 31,
+          // 设计稿 D8 `.nav-i`：padding 9/10、圆角 9、12.5/600。
           margin: const EdgeInsets.only(bottom: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
-            color: active ? p.navOnBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            color: active ? const Color(0xFFEAF8FE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
           ),
           child: Row(
             children: [
-              OlIcon(icon, size: 15, color: active ? OlTokens.sky600 : p.navIcon),
-              const SizedBox(width: 8),
+              OlIcon(icon, size: 15, color: active ? const Color(0xFF08799F) : p.ink3),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: active ? p.navOn : p.nav),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                    color: active ? const Color(0xFF08799F) : p.ink2,
+                  ),
                 ),
               ),
             ],

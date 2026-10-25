@@ -80,11 +80,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: ColoredBox(
               color: context.ol.card,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: _SectionBody(section: _section),
-                ),
+                // 设计稿 D8 `.main`：padding 24/28，去掉 maxWidth 760 让内容铺满。
+                padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+                child: _SectionBody(section: _section),
               ),
             ),
           ),

@@ -50,9 +50,10 @@ class _SectionHead extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontSize: 14.5, letterSpacing: -0.3, fontWeight: FontWeight.w800, color: p.ink)),
-                const SizedBox(height: 3),
-                Text(subtitle, style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                // 设计稿 D8 `.h1` / `.sub`：19/800 与 11.5 副标题。
+                Text(title, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: p.ink)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(fontSize: 11.5, color: p.ink3)),
               ],
             ),
           ),
@@ -76,8 +77,9 @@ class _Card extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: p.card,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: p.line2),
+        // 设计稿 D8 `.card`：圆角 14、描边 #E3EBF3。
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.line),
       ),
       child: child,
     );
@@ -108,17 +110,18 @@ class _Row extends StatelessWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          // 设计稿 D8：行 padding 12/16、图标块 32。
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
           child: Row(
             children: [
               Container(
-                width: 23,
-                height: 23,
-                decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(6)),
-                child: Center(child: OlIcon(icon, size: 12, color: p.ink3)),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(9)),
+                child: Center(child: OlIcon(icon, size: 15, color: p.ink3)),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 11),
               Expanded(
                 flex: 3,
                 child: Column(
@@ -128,7 +131,7 @@ class _Row extends StatelessWidget {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink2),
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: p.ink),
                     ),
                     if (subtitle.isNotEmpty) ...[
                       const SizedBox(height: 2),
@@ -137,7 +140,7 @@ class _Row extends StatelessWidget {
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 10, color: p.ink4),
+                        style: TextStyle(fontSize: 10.5, color: p.ink4),
                       ),
                     ],
                   ],
