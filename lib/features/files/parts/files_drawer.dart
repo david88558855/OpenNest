@@ -228,7 +228,7 @@ class _DrawerAddButton extends StatelessWidget {
       onTap: onTap,
       child: OlDashedBox(
         radius: 12,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 13),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

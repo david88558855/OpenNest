@@ -727,16 +727,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                               ]);
                             },
                           ),
-                          const SizedBox(width: 8),
-                          _CtrlSelect(
-                            label: _subtitleOff ? '字幕：关' : '字幕：自动',
-                            onTapDown: (position) async {
-                              await showOlMenu(context, position: position, items: [
-                                OlMenuItem('字幕：关', 'x', () => _setSubtitle(false)),
-                                OlMenuItem('字幕：自动匹配', 'file-text', () => _setSubtitle(true)),
-                              ]);
-                            },
-                          ),
+                          // 窄屏一行放不下第四组控件（320dp 会溢出），字幕只在桌面出现；
+                          // 移动端字幕仍会自动匹配，只是不给手动开关。
+                          if (!narrow) ...[
+                            const SizedBox(width: 8),
+                            _CtrlSelect(
+                              label: _subtitleOff ? '字幕：关' : '字幕：自动',
+                              onTapDown: (position) async {
+                                await showOlMenu(context, position: position, items: [
+                                  OlMenuItem('字幕：关', 'x', () => _setSubtitle(false)),
+                                  OlMenuItem('字幕：自动匹配', 'file-text', () => _setSubtitle(true)),
+                                ]);
+                              },
+                            ),
+                          ],
                           if (!narrow) ...[
                             const SizedBox(width: 8),
                             _CtrlBtn(icon: 'maximize', onTap: _toggleFullscreen),
