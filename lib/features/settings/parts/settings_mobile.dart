@@ -12,6 +12,7 @@ class _MobileSectionPage extends ConsumerWidget {
   const _MobileSectionPage({required this.tab});
 
   static const _titles = {
+    'servers': '引擎状态',
     'transfer': '传输',
     'download': '下载目录',
     'playback': '播放与预览',

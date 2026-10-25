@@ -9,14 +9,15 @@ import '../../core/sidecar/sidecar_paths.dart';
 
 /// 唯一的本地存储：`userdata/opennest.db`。
 ///
-/// 表结构（版本 2）：
+/// 表结构（版本 3）：
 /// - `settings`        标量偏好与 `ol_prefs` 的每个字段（key/value/kind 三列，保留类型）
 /// - `ui_state`        每个存储源的浏览位置与排序、视图偏好
 /// - `download_dirs`   每个存储源的下载目录
 /// - `resume_positions` 播放续播位置（按源 + 路径）
 /// - `listing_cache`   离线目录快照（引擎返回的任意结构，按快照整体存放）
 /// - `transfer_tasks`  传输记录（载荷 + 排序键）
-/// - `favorites`       旧版收藏表（0.5.0 起功能已取消，表结构保留只为兼容旧库）
+///
+/// 0.5.0：收藏功能整体取消，`favorites` 表随之删除（升级到 v3 时 DROP）。
 class AppDatabase {
   AppDatabase._();
 
@@ -31,11 +32,13 @@ class AppDatabase {
     final database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: (db, version) => _createSchema(db),
         onUpgrade: (db, oldVersion, newVersion) async {
           // 旧版本只有 transfer_tasks / favorites，补齐新增表即可。
           if (oldVersion < 2) await _createV2Tables(db);
+          // 0.5.0：收藏功能取消，连带清掉遗留的收藏表。
+          if (oldVersion < 3) await db.execute('DROP TABLE IF EXISTS favorites');
         },
       ),
     );
@@ -51,9 +54,6 @@ class AppDatabase {
   static Future<void> _createSchema(Database db) async {
     await db.execute(
       'CREATE TABLE transfer_tasks (id TEXT PRIMARY KEY, sort_key INTEGER NOT NULL, payload TEXT NOT NULL)',
-    );
-    await db.execute(
-      'CREATE TABLE favorites (key TEXT PRIMARY KEY, payload TEXT NOT NULL)',
     );
     await _createV2Tables(db);
   }

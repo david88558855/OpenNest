@@ -69,6 +69,21 @@ class SidecarNotifier extends StateNotifier<SidecarState> {
     }
   }
 
+  /// 读取当前内核实例配置的管理员口令（明文）。
+  ///
+  /// 口令在首次启动引擎时随机生成并存进系统钥匙串（[kSidecarAdminKey]），
+  /// 之后每次启动都用它登录引擎。因此钥匙串里的这一份就是「当前实例
+  /// 实际使用的口令」—— 用户偶尔需要它去手工调用引擎管理接口。
+  ///
+  /// 返回 null 表示钥匙串里没有这一条目（例如换了机器或清过钥匙串）。
+  /// 注意：**不要**为了「显示」而调用 `_ensurePassword()`——那会在口令
+  /// 丢失时生成一个新的随机口令，与引擎实际使用的那个对不上。
+  Future<String?> readAdminPassword() async {
+    final value = await _secure.read(kSidecarAdminKey);
+    if (value == null || value.isEmpty) return null;
+    return value;
+  }
+
   Future<void> restart() => start(restart: true);
 
   Future<void> stop() async {

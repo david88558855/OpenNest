@@ -25,7 +25,7 @@ OpenNest 安装即用：没有注册、没有登录页、没有账号体系。�
 
 ```
 userdata/
-├── opennest.db     全部本地数据（设置/浏览位置/下载目录/续播/目录缓存/传输/收藏）
+├── opennest.db     全部本地数据（设置/浏览位置/下载目录/续播/目录缓存/传输记录）
 ├── config.json     引擎配置
 ├── data.db         引擎自身数据库（存储源与账号）
 ├── logs/           引擎日志
@@ -34,7 +34,7 @@ userdata/
 
 `opennest.db` 的表：`settings`（标量偏好）、`ui_state`（每个源的浏览位置与排序）、
 `download_dirs`、`resume_positions`、`listing_cache`（离线目录快照）、
-`transfer_tasks`、`favorites`。
+`transfer_tasks`。
 
 ## 构建
 

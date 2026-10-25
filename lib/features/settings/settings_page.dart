@@ -66,7 +66,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       // A6：/settings 是「我的」列表（tab == 'root'）；分区页带返回。
       // v1.0.14：判定从「tab 名是否等于 servers」改成显式哨兵 root，
       // 否则把默认 tab 换成 appearance 时根列表会被整段跳过（选项全部消失）。
-      final showList = _tab == 'root' || _tab == 'servers' || _tab == 'profile' || !_known.contains(_tab);
+      // 0.5.0：'servers' 不再算根列表 —— 移动端点「引擎状态」要能真正进入
+      // 引擎分区（此前被拦回列表，是个进不去的死入口）。
+      final showList = _tab == 'root' || _tab == 'profile' || !_known.contains(_tab);
       if (showList) return const AppFrame(navIndex: 3, handleBack: true, child: _MobileSettings());
       return _MobileSectionPage(tab: _tab);
     }
