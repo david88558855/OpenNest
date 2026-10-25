@@ -232,8 +232,11 @@ String driverShortTag(String key) => _driverShortTags[key] ?? _fallbackTag(key);
 
 String _fallbackTag(String key) {
   final label = driverLabel(key);
-  if (label.length <= 4) return label;
-  return '网盘';
+  if (label.contains('对象')) return '对象';
+  if (label.contains('OpenList') || label.contains('AList')) return '级联';
+  if (label.contains('目录') || label.contains('索引')) return '目录';
+  if (label.contains('网盘') || label.contains('云')) return '网盘';
+  return label.length <= 4 ? label : '其它';
 }
 
 String fieldLabel(String raw) {
