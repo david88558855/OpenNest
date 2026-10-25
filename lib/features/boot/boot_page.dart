@@ -15,6 +15,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../sources/sources_controller.dart';
+import 'boot_entry.dart';
 
 /// 启动页：先出画面，再在后台拉起内嵌引擎，失败时给出可操作错误。
 class BootPage extends ConsumerStatefulWidget {
@@ -82,9 +83,14 @@ class _BootPageState extends ConsumerState<BootPage> {
         } catch (_) {}
       }
       if (!mounted) return;
+      // 落点：有源直接进文件页；无源且没点过「稍后再说」→ 欢迎页。
+      // 判定结果写进 bootEntryProvider，路由 redirect 只读它（同步）。
+      final skipped = ref.read(prefsProvider).getBool(kOnboardDoneKey);
+      final entry = (hasSources || skipped) ? BootEntry.files : BootEntry.welcome;
+      ref.read(bootEntryProvider.notifier).state = entry;
       _ticker?.cancel();
       setState(() => _progress = 1);
-      if (mounted) context.go(hasSources ? '/files' : '/sources/add');
+      if (mounted) context.go(entry == BootEntry.files ? '/files' : '/welcome');
       return;
     }
 

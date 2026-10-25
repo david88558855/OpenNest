@@ -928,3 +928,67 @@ class OlTooltipText extends StatelessWidget {
 
 /// Copies text without any plugin.
 Future<void> copyToClipboard(String text) => Clipboard.setData(ClipboardData(text: text));
+
+/// 虚线描边容器（效果图里的「分享链接条」「添加存储源」按钮）。
+///
+/// Flutter 没有内置虚线边框：这里用 `Path.computeMetrics` 把圆角矩形拆成
+/// 5px 实线 + 4px 间隔的小段。纯绘制，不引入依赖、不加动画。
+class OlDashedBox extends StatelessWidget {
+  final Widget child;
+  final Color color;
+  final double radius;
+  final EdgeInsets padding;
+  final Color? fill;
+
+  const OlDashedBox({
+    super.key,
+    required this.child,
+    this.color = const Color(0xFFB9D8EA),
+    this.radius = 14,
+    this.padding = EdgeInsets.zero,
+    this.fill,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedRRectPainter(color: color, radius: radius, fill: fill),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+class _DashedRRectPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final Color? fill;
+
+  const _DashedRRectPainter({required this.color, required this.radius, this.fill});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.5, 0.5, size.width - 1, size.height - 1),
+      Radius.circular(radius),
+    );
+    if (fill != null) {
+      canvas.drawRRect(rrect, Paint()..color = fill!);
+    }
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, (distance + 5).clamp(0, metric.length)), stroke);
+        distance += 9;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius || oldDelegate.fill != fill;
+}

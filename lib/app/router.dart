@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../core/sidecar/sidecar_controller.dart';
 import '../core/sidecar/sidecar_state.dart';
 import '../core/theme/tokens.dart';
+import '../features/boot/boot_entry.dart';
 import '../features/boot/boot_page.dart';
 import '../features/files/favorites_page.dart';
 import '../features/files/files_page.dart';
 import '../features/media/player_page.dart';
+import '../features/onboarding/onboarding_page.dart';
 import '../features/preview/preview_page.dart';
 import '../features/search/search_page.dart';
 import '../features/settings/settings_page.dart';
@@ -21,7 +23,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
   // 引擎就绪 / 失败是唯一的路由门禁：没有账号，也就没有登录态。
   ref.listen<SidecarState>(sidecarProvider, (previous, next) {
-    if (previous?.status != next.status) refresh.value++;
+    if (previous?.status != next.status) {
+      // 引擎离开就绪（设置页重启、崩溃）时把落点判定复位：
+      // 否则重启后 redirect 会按上一次的判定抢跳 /files，而此时会话还没 boot。
+      if (next.status != SidecarStatus.ready) {
+        ref.read(bootEntryProvider.notifier).state = BootEntry.unknown;
+      }
+      refresh.value++;
+    }
   });
 
   return GoRouter(
@@ -37,13 +46,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           status == SidecarStatus.idle ||
           status == SidecarStatus.stopped;
       if (blocked && !onBoot) return '/boot';
-      if (status == SidecarStatus.ready && onBoot) return '/files';
+      if (status == SidecarStatus.ready && onBoot) {
+        // 落点由启动页判定一次后写入；判定前（unknown）留在启动页，不要抢跳。
+        switch (ref.read(bootEntryProvider)) {
+          case BootEntry.unknown:
+            return null;
+          case BootEntry.welcome:
+            return '/welcome';
+          case BootEntry.files:
+            return '/files';
+        }
+      }
       return null;
     },
     errorBuilder: (context, state) => _RouteError(message: state.error?.toString() ?? '页面不存在'),
     routes: [
       GoRoute(path: '/', redirect: (context, state) => '/boot'),
       GoRoute(path: '/boot', pageBuilder: (context, state) => _page(state, const BootPage())),
+      // 首启空状态（D1/M1）。不做 redirect 守卫：首启只在启动页判定一次，
+      // 手动进入（自测）也要能打开。
+      GoRoute(path: '/welcome', pageBuilder: (context, state) => _page(state, const OnboardingPage())),
       GoRoute(
         path: '/files',
         pageBuilder: (context, state) => _page(state, FilesPage(initialPath: state.uri.queryParameters['path'])),
@@ -52,10 +74,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/sources', pageBuilder: (context, state) => _page(state, const SourcesPage())),
       GoRoute(
         path: '/sources/add',
-        pageBuilder: (context, state) => _page(
-          state,
-          AddSourcePage(initialDriver: state.uri.queryParameters['driver']),
-        ),
+        pageBuilder: (context, state) {
+          final query = state.uri.queryParameters;
+          // 分享链接导入：把识别出的通用字段带进表单（share_id / share_pwd / url）。
+          final prefill = <String, String>{
+            for (final key in const ['share_id', 'share_pwd', 'url'])
+              if ((query[key] ?? '').trim().isNotEmpty) key: query[key]!.trim(),
+          };
+          return _page(
+            state,
+            AddSourcePage(
+              initialDriver: query['driver'],
+              initialPrefill: prefill.isEmpty ? null : prefill,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/favorites',

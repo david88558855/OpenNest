@@ -13,13 +13,18 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
+import 'share_link.dart';
 import 'sources_controller.dart';
 
 /// 添加存储源：左侧驱动分组，右侧由驱动字段定义生成的表单。
 class AddSourcePage extends ConsumerStatefulWidget {
-  const AddSourcePage({super.key, this.initialDriver});
+  const AddSourcePage({super.key, this.initialDriver, this.initialPrefill});
 
   final String? initialDriver;
+
+  /// 分享链接识别出的通用字段（share_id / share_pwd / url）。
+  /// 选中驱动后按字段别名映射进表单，用户补齐剩余字段即可保存。
+  final Map<String, String>? initialPrefill;
 
   @override
   ConsumerState<AddSourcePage> createState() => _AddSourcePageState();
@@ -37,6 +42,9 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   bool _busy = false;
   String? _error;
   bool _created = false;
+
+  /// 预填只做一次：用户改过之后重新选驱动不再覆盖。
+  bool _prefillApplied = false;
 
   @override
   void initState() {
@@ -89,6 +97,15 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     }
     if (_nameCtrl.text.trim().isEmpty) {
       _nameCtrl.text = driverLabel(info.name);
+    }
+    // 预填必须放在字段控制器重建之后（上面刚 dispose 过 _ctrls）。
+    if (!_prefillApplied && widget.initialDriver == info.name && widget.initialPrefill != null) {
+      final mapped = mapShareFields(widget.initialPrefill!, info.additional);
+      mapped.forEach((name, value) {
+        final controller = _ctrls[name];
+        if (controller != null && controller.text.trim().isEmpty) controller.text = value;
+      });
+      _prefillApplied = true;
     }
   }
 
@@ -365,7 +382,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
               onTap: _busy ? null : () => _submit(info),
             ),
             const SizedBox(width: 10),
-            OlGhostButton(label: '取消', height: 38, onTap: () => context.go('/files')),
+            OlGhostButton(label: '取消', height: 38, onTap: () => goBackOrFiles(context)),
             const Spacer(),
             if (_created)
               Text('已保存', style: TextStyle(fontSize: 10.5, color: OlTokens.ok)),

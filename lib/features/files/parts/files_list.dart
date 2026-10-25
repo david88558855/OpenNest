@@ -300,12 +300,31 @@ class _SkeletonBody extends StatelessWidget {
   }
 }
 
-class _EmptyBody extends StatelessWidget {
+class _EmptyBody extends ConsumerWidget {
   final bool filtered;
   const _EmptyBody({this.filtered = false});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 一个存储源都没有时（首启点了「稍后再说」会走到这里），把添加入口
+    // 直接摆到空态中间——否则移动端除了抽屉之外没有任何可达的入口。
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const [];
+    final files = ref.watch(filesProvider);
+    if (!filtered && sources.isEmpty && files.path == '/') {
+      return Center(
+        child: OlEmptyState(
+          icon: 'folder-plus',
+          title: '还没有存储源',
+          subtitle: '添加一个本地目录或网络存储，就能开始管理文件',
+          action: OlPrimaryButton(
+            label: '添加存储源',
+            icon: 'plus',
+            height: 34,
+            onTap: () => context.push('/sources/add'),
+          ),
+        ),
+      );
+    }
     return Center(
       child: OlEmptyState(
         icon: filtered ? 'filter' : 'folder',
