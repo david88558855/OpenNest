@@ -8,16 +8,14 @@ import '../core/storage/secure_store.dart';
 import '../core/storage/server_store.dart';
 import '../features/auth/session.dart';
 import '../features/files/files_controller.dart';
-import '../features/servers/servers_controller.dart';
 import '../features/transfers/transfers_controller.dart';
+
+/// 本机引擎的固定身份：浏览位置、下载目录、收藏都按它分桶。
+const String kLocalSourceId = 'local';
 
 final prefsProvider = Provider<Prefs>((ref) => throw UnimplementedError('prefs overridden in main'));
 final secureStoreProvider = Provider<SecureStore>((ref) => SecureStore());
 final serverStoreProvider = Provider<ServerStore>((ref) => ServerStore(ref.watch(prefsProvider)));
-
-final serverListProvider = StateNotifierProvider<ServerListNotifier, ServerListState>((ref) {
-  return ServerListNotifier(ref.watch(serverStoreProvider), ref.watch(secureStoreProvider));
-});
 
 final sessionProvider = StateNotifierProvider<SessionNotifier, SessionState>((ref) {
   return SessionNotifier(ref);
@@ -273,11 +271,9 @@ class FavoritesNotifier extends StateNotifier<List<FavoriteEntry>> {
 
   FavoritesNotifier(this._store) : super(const []) {
     final all = <FavoriteEntry>[];
-    for (final profile in _store.loadServers()) {
-      for (final raw in _store.readFavorites(profile.id)) {
-        final entry = FavoriteEntry.fromJson(profile.id, raw);
-        if (entry.path.isNotEmpty) all.add(entry);
-      }
+    for (final raw in _store.readFavorites(kLocalSourceId)) {
+      final entry = FavoriteEntry.fromJson(kLocalSourceId, raw);
+      if (entry.path.isNotEmpty) all.add(entry);
     }
     state = all;
   }

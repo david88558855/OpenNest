@@ -64,8 +64,8 @@ class SettingsSidebar extends ConsumerWidget {
             padding: EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             child: Divider(height: 1),
           ),
-          // 服务器管理是独立页面，这里只负责跳转（用 push，返回能回到设置）
-          _SideRow(icon: 'server', label: '服务器管理', onTap: () => context.push('/servers')),
+          // 引擎状态是设置分区（不再有独立的服务器管理页）
+          _SideRow(icon: 'server', label: '引擎状态', active: active == 'servers', onTap: () => context.go('/settings/servers')),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),

@@ -57,9 +57,7 @@ Future<void> main() async {
     }
   }
 
-  await container.read(sessionProvider.notifier).boot();
-  await container.read(filesProvider.notifier).attach();
-
+  // 引擎启动与首次会话放在启动页里跑：先出画面，避免冷启动白窗。
   runApp(
     UncontrolledProviderScope(
       container: container,

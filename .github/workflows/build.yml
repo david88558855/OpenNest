@@ -114,6 +114,14 @@ jobs:
           channel: stable
           cache: true
 
+      - name: 下载内嵌引擎（OpenList lite）
+        shell: bash
+        run: bash tool/fetch_openlist.sh windows
+
+      - name: 引擎冒烟（启动 + 健康检查 + 登录 + 驱动数）
+        shell: pwsh
+        run: ./tool/smoke_sidecar.ps1
+
       - name: 构建便携版 zip
         shell: pwsh
         run: ./tool/ci_build_windows.ps1

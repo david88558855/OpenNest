@@ -22,12 +22,12 @@ class _MobileHead extends ConsumerWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => context.push('/servers'),
+                  onTap: () => context.push('/settings/servers'),
                   child: Row(
                     children: [
                       Flexible(
                         child: Text(
-                          profile?.displayHost ?? '未连接',
+                          profile?.displayHost ?? '本机引擎',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink2),

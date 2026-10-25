@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
+import '../../core/sidecar/sidecar_controller.dart';
+import '../../core/sidecar/sidecar_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';

@@ -193,7 +193,7 @@ class OlTitleBar extends ConsumerWidget {
             // _NoTransitionBuilder），当初「push 会缩放转场」的顾虑不成立；
             // 而 go 会重建成整条路由栈，从设置/文件页进去后返回要重建目标页，
             // 表现为明显卡顿。
-            onTap: () => context.push('/servers'),
+            onTap: () => context.push('/settings/servers'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(
@@ -201,7 +201,7 @@ class OlTitleBar extends ConsumerWidget {
                   OlDot(color: session.signedIn ? OlTokens.ok : OlTokens.warn, size: 5),
                   const SizedBox(width: 5),
                   Text(
-                    profile?.displayHost ?? '未连接',
+                    profile?.displayHost ?? (session.connecting ? '引擎启动中' : '本机引擎'),
                     style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.isDark ? const Color(0xFF7890A6) : const Color(0xFF7C8FA3)),
                   ),
                   const SizedBox(width: 4),

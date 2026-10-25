@@ -139,9 +139,14 @@ class _MobileSettings extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _MobileGroup(
-                  title: '账户',
+                  title: '引擎',
                   children: [
-                    _MobileTile(icon: 'server', label: '服务器管理', value: '切换 / 添加 / 编辑', onTap: () => context.push('/servers')),
+                    _MobileTile(
+                      icon: 'server',
+                      label: '引擎状态',
+                      value: '端口 / 版本 / 日志',
+                      onTap: () => context.go('/settings/servers'),
+                    ),
                   ],
                 ),
                 _MobileGroup(
@@ -158,15 +163,18 @@ class _MobileSettings extends ConsumerWidget {
                   children: [
                     _MobileTile(icon: 'sun', label: '外观', value: '跟随系统', onTap: () => context.go('/settings/appearance')),
                     _MobileTile(icon: 'info', label: '关于 OpenNest', value: AppInfo.version, onTap: () => context.go('/settings/about')),
-                    // v2.1：退出登录放在「关于」下方。
                     _MobileTile(
-                      icon: 'logout',
-                      label: '退出登录',
+                      icon: 'refresh',
+                      label: '重启引擎',
                       value: '',
-                      danger: true,
                       onTap: () async {
-                        await ref.read(sessionProvider.notifier).signOut();
-                        if (context.mounted) context.go('/login');
+                        await ref.read(sidecarProvider.notifier).restart();
+                        if (!context.mounted) return;
+                        await ref.read(sessionProvider.notifier).retry();
+                        if (!context.mounted) return;
+                        try {
+                          await ref.read(filesProvider.notifier).attach();
+                        } catch (_) {}
                       },
                     ),
                   ],

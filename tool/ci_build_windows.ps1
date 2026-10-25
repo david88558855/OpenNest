@@ -51,6 +51,14 @@ if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 Copy-Item -Recurse $bundle $stage
 New-Item -ItemType Directory -Force -Path (Join-Path $stage "userdata") | Out-Null
 
+# 内嵌引擎必须与主程序同目录：启动时按 <主程序目录>/openlist.exe 查找。
+$engine = "assets\bin\windows\openlist.exe"
+if (-not (Test-Path $engine)) {
+    throw "缺少内嵌引擎：$engine（先执行 bash tool/fetch_openlist.sh windows）"
+}
+Copy-Item $engine (Join-Path $stage "openlist.exe") -Force
+Write-Host "==> 已打入内嵌引擎 openlist.exe（$([math]::Round((Get-Item $engine).Length / 1MB, 1)) MB）"
+
 $zip = Join-Path "dist" "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path "$stage\*" -DestinationPath $zip -Force
