@@ -4,50 +4,163 @@ part of '../files_page.dart';
 // 面包屑 / 工具条 / 状态栏
 // ---------------------------------------------------------------------------
 class _TopBar extends ConsumerWidget {
-  const _TopBar();
+  final FileKind? kind;
+  final ValueChanged<FileKind?> onKind;
+  final bool batch;
+  final VoidCallback onBatch;
+
+  const _TopBar({required this.kind, required this.onKind, required this.batch, required this.onBatch});
+
+  Future<void> _moreMenu(BuildContext context, WidgetRef ref, Offset position) async {
+    final state = ref.read(filesProvider);
+    final notifier = ref.read(filesProvider.notifier);
+    await showOlMenu(context, position: position, items: [
+      OlMenuItem('新建文件夹', 'folder-plus', () => createFolder(context, ref), divider: true),
+      OlMenuItem('按名称排序', 'sort', () => notifier.setSort('name')),
+      OlMenuItem('按大小排序', 'sort', () => notifier.setSort('size')),
+      OlMenuItem('按修改时间排序', 'clock', () => notifier.setSort('modified')),
+      OlMenuItem(state.desc ? '改为升序' : '改为降序', 'arrow-up', () {
+        notifier.setSort(state.orderBy, desc: !state.desc);
+      }, divider: true),
+      OlMenuItem('筛选：全部类型', 'filter', () => onKind(null)),
+      OlMenuItem('筛选：仅文件夹', 'folder', () => onKind(FileKind.folder)),
+      OlMenuItem('筛选：仅视频', 'film', () => onKind(FileKind.video)),
+      OlMenuItem('筛选：仅图片', 'image', () => onKind(FileKind.image)),
+      OlMenuItem('筛选：仅文档', 'file-text', () => onKind(FileKind.text), divider: true),
+      OlMenuItem(batch ? '退出批量选择' : '批量选择', 'check', onBatch),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final state = ref.watch(filesProvider);
+    final notifier = ref.read(filesProvider.notifier);
     final segs = state.path.split('/').where((e) => e.isNotEmpty).toList();
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+    StorageSource? current;
+    for (final source in sources) {
+      if (state.path == source.mountPath || state.path.startsWith('${source.mountPath}/')) {
+        current = source;
+        break;
+      }
+    }
+    final rootLabel = current?.displayName ?? '全部文件';
+    final atRoot = state.path == '/';
+
     return Container(
-      height: 52,
+      height: OlDesktop.topBar,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
+      decoration: BoxDecoration(
+        color: p.card,
+        border: Border(bottom: BorderSide(color: p.line)),
+      ),
       child: Row(
         children: [
-          _RoundBtn(
+          // 设计稿是「后退 / 前进 / 上一级」三颗；本项目没有历史栈，
+          // 这里落成「返回上一级」与「回到全部文件」两颗可用按钮。
+          OlIconButton(
             icon: 'chev-l',
-            tooltip: '返回上级',
-            onTap: state.path == '/' ? null : () => ref.read(filesProvider.notifier).goUp(),
+            size: OlDesktop.iconBtn,
+            squared: true,
+            iconSize: 15,
+            tooltip: '返回上一级',
+            onTap: atRoot ? null : () => notifier.goUp(),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Row(
-              children: [
-                _Crumb(text: '全部文件', current: segs.isEmpty, onTap: () => ref.read(filesProvider.notifier).open('/')),
-                for (var i = 0; i < segs.length; i++) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 2),
-                    child: OlIcon('chev-r', size: 12, color: Color(0xFFC2CFDB)),
-                  ),
-                  Flexible(
-                    child: _Crumb(
-                      text: segs[i],
-                      current: i == segs.length - 1,
-                      onTap: () => ref.read(filesProvider.notifier).open('/${segs.take(i + 1).join('/')}'),
-                    ),
-                  ),
-                ],
-              ],
+          OlIconButton(
+            icon: 'arrow-up',
+            size: OlDesktop.iconBtn,
+            squared: true,
+            iconSize: 15,
+            tooltip: '回到全部文件',
+            onTap: atRoot ? null : () => notifier.open('/'),
+          ),
+          const SizedBox(width: 8),
+          const OlIcon('cloud', size: 13, color: OlTokens.sky600, strokeWidth: 2),
+          const SizedBox(width: 6),
+          Flexible(
+            child: _Crumb(
+              text: rootLabel,
+              current: atRoot,
+              onTap: () => notifier.open('/'),
             ),
           ),
+          for (var i = 0; i < segs.length; i++) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 2),
+              child: Text('/', style: TextStyle(fontSize: 12.5, color: Color(0xFF9DB2C4))),
+            ),
+            Flexible(
+              child: _Crumb(
+                text: segs[i],
+                current: i == segs.length - 1,
+                onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
+              ),
+            ),
+          ],
+          const Spacer(),
           _SearchMini(onTap: () => context.go('/search')),
           const SizedBox(width: 8),
-          OlGhostButton(label: '新建', icon: 'plus', height: 32, fontSize: 12, onTap: () => createFolder(context, ref)),
+          OlGhostButton(
+            label: '上传',
+            icon: 'upload',
+            height: OlDesktop.btn,
+            fontSize: 12,
+            horizontalPadding: 14,
+            fgColor: p.ink,
+            onTap: () => pickAndUpload(context, ref),
+          ),
           const SizedBox(width: 8),
-          OlPrimaryButton(label: '上传', icon: 'upload', height: 32, fontSize: 12, onTap: () => pickAndUpload(context, ref)),
+          OlGhostButton(
+            label: '新建',
+            icon: 'plus',
+            height: OlDesktop.btn,
+            fontSize: 12,
+            horizontalPadding: 14,
+            fgColor: p.ink,
+            onTap: () => createFolder(context, ref),
+          ),
+          const SizedBox(width: 8),
+          OlIconButton(
+            icon: 'list',
+            size: OlDesktop.iconBtn,
+            squared: true,
+            iconSize: 15,
+            tooltip: '列表视图',
+            color: state.grid ? p.ink2 : OlTokens.sky600,
+            onTap: state.grid ? notifier.toggleGrid : null,
+          ),
+          const SizedBox(width: 8),
+          OlIconButton(
+            icon: 'grid',
+            size: OlDesktop.iconBtn,
+            squared: true,
+            iconSize: 15,
+            tooltip: '网格视图',
+            color: state.grid ? OlTokens.sky600 : p.ink2,
+            onTap: state.grid ? null : notifier.toggleGrid,
+          ),
+          const SizedBox(width: 8),
+          // OlIconButton 没有 onTapDown，这里包一层拿按钮右下角作为菜单锚点。
+          Builder(
+            builder: (btnContext) => GestureDetector(
+              onTapDown: (_) {
+                final box = btnContext.findRenderObject() as RenderBox?;
+                final position = box == null
+                    ? Offset.zero
+                    : box.localToGlobal(Offset(box.size.width, box.size.height + 4));
+                _moreMenu(context, ref, position);
+              },
+              child: OlIconButton(
+                icon: 'more-v',
+                size: OlDesktop.iconBtn,
+                squared: true,
+                iconSize: 15,
+                tooltip: '更多',
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -144,148 +257,9 @@ class _SearchMini extends StatelessWidget {
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: p.ink4),
                 ),
               ),
-              const OlKbd('Ctrl K'),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Toolbar extends ConsumerWidget {
-  final FileKind? kind;
-  final ValueChanged<FileKind?> onKind;
-  final List<String> visible;
-  final bool batch;
-  final ValueChanged<bool> onBatch;
-  const _Toolbar({
-    required this.kind,
-    required this.onKind,
-    required this.visible,
-    required this.batch,
-    required this.onBatch,
-  });
-
-  Future<void> _sortMenu(BuildContext context, WidgetRef ref, Offset pos) async {
-    final state = ref.read(filesProvider);
-    final notifier = ref.read(filesProvider.notifier);
-    await showOlMenu(
-      context,
-      position: pos,
-      items: [
-        OlMenuItem('按名称', 'sort', () => notifier.setSort('name')),
-        OlMenuItem('按大小', 'sort', () => notifier.setSort('size')),
-        OlMenuItem('按修改时间', 'clock', () => notifier.setSort('modified')),
-        OlMenuItem(state.desc ? '改为升序' : '改为降序', 'arrow-up', () {
-          notifier.setSort(state.orderBy, desc: !state.desc);
-        }),
-      ],
-    );
-  }
-
-  Future<void> _filterMenu(BuildContext context, Offset pos) async {
-    await showOlMenu(
-      context,
-      position: pos,
-      items: [
-        OlMenuItem('全部类型', 'filter', () => onKind(null)),
-        OlMenuItem('仅文件夹', 'folder', () => onKind(FileKind.folder)),
-        OlMenuItem('仅视频', 'film', () => onKind(FileKind.video)),
-        OlMenuItem('仅图片', 'image', () => onKind(FileKind.image)),
-        OlMenuItem('仅文档', 'file-text', () => onKind(FileKind.text)),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final state = ref.watch(filesProvider);
-    final selected = state.selected.length;
-    final allSelected = visible.isNotEmpty && visible.every(state.selected.contains);
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.divider))),
-      child: Row(
-        children: [
-          OlCheckbox(
-            value: allSelected,
-            onChanged: (_) {
-              final notifier = ref.read(filesProvider.notifier);
-              if (allSelected) {
-                notifier.clearSelection();
-              } else {
-                notifier.selectOnly(visible);
-              }
-            },
-          ),
-          const SizedBox(width: 9),
-          Text(
-            selected == 0 ? '${state.items.length} 个项目' : '${state.items.length} 个项目 · 已选 $selected 项',
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink4),
-          ),
-          const SizedBox(width: 10),
-          // v1.0.57：桌面端新增「返回上层目录」入口（工具条左侧、紧跟项目计数）。
-          // 根目录（state.path == '/'）时禁用置灰，没有可返回的上级。
-          //
-          // 只在桌面端存在：_Toolbar 仅被 _buildDesktop 使用，安卓端的
-          // _KindFilter 不包含此控件 —— 安卓「返回上一层」由系统返回键承担
-          // （AppFrame.onBack → filesProvider.goUp()），因此移动端既不渲染
-          // 这个按钮，也不绑定任何点击事件。
-          OlGhostButton(
-            label: '返回上层目录',
-            icon: 'arrow-up',
-            height: 28,
-            fontSize: 10.5,
-            onTap: state.path == '/' ? null : () => ref.read(filesProvider.notifier).goUp(),
-          ),
-          const Spacer(),
-          OlSeg<bool>(
-            items: const [
-              OlSegItem(false, '列表', icon: 'list'),
-              OlSegItem(true, '网格', icon: 'grid'),
-            ],
-            value: state.grid,
-            onChanged: (v) {
-              if (v != state.grid) ref.read(filesProvider.notifier).toggleGrid();
-            },
-          ),
-          const SizedBox(width: 8),
-          Builder(
-            builder: (btnContext) => OlIconButton(
-              icon: 'sort',
-              tooltip: '排序',
-              onTap: () {
-                final box = btnContext.findRenderObject() as RenderBox?;
-                final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(0, 28));
-                _sortMenu(context, ref, pos);
-              },
-            ),
-          ),
-          Builder(
-            builder: (btnContext) => OlIconButton(
-              icon: 'filter',
-              tooltip: kind == null ? '筛选类型' : '已筛选类型',
-              color: kind == null ? null : OlTokens.sky700,
-              onTap: () {
-                final box = btnContext.findRenderObject() as RenderBox?;
-                final pos = box == null ? Offset.zero : box.localToGlobal(const Offset(0, 28));
-                _filterMenu(context, pos);
-              },
-            ),
-          ),
-          OlIconButton(icon: 'folder-plus', tooltip: '新建文件夹', onTap: () => createFolder(context, ref)),
-          const SizedBox(width: 6),
-          OlGhostButton(
-            label: batch ? '完成' : '批量',
-            icon: batch ? 'check' : 'layers',
-            height: 28,
-            fontSize: 10.5,
-            onTap: () => onBatch(!batch),
-          ),
-        ],
       ),
     );
   }

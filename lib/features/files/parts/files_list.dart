@@ -23,23 +23,47 @@ class _ListView extends ConsumerWidget {
     return Column(
       children: [
         Container(
-          height: 28,
-          color: p.tableHeadBg,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: OlDesktop.listHeader,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: p.tableHeadBg,
+            border: Border(bottom: BorderSide(color: p.line)),
+          ),
           child: Row(
             children: [
               const SizedBox(width: 30),
               Expanded(
-                flex: 5,
-                child: Text('名称', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.th)),
+                child: _SortHeader(
+                  label: '名称',
+                  field: 'name',
+                  state: state,
+                  onTap: () => ref.read(filesProvider.notifier).setSort('name'),
+                ),
               ),
+              const SizedBox(width: 10),
               SizedBox(
-                width: 74,
-                child: Text('大小', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.th)),
+                width: 130,
+                child: _SortHeader(
+                  label: '大小',
+                  field: 'size',
+                  state: state,
+                  onTap: () => ref.read(filesProvider.notifier).setSort('size'),
+                ),
               ),
+              const SizedBox(width: 10),
               SizedBox(
-                width: 108,
-                child: Text('修改时间', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: p.th)),
+                width: 170,
+                child: _SortHeader(
+                  label: '修改时间',
+                  field: 'modified',
+                  state: state,
+                  onTap: () => ref.read(filesProvider.notifier).setSort('modified'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const SizedBox(
+                width: 90,
+                child: Text('类型', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: Color(0xFF6B7F94))),
               ),
               const SizedBox(width: 34),
             ],
@@ -78,6 +102,45 @@ class _ListView extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 表头单元：当前排序字段带箭头（设计稿只有「名称」示例，这里四列都可点）。
+class _SortHeader extends StatelessWidget {
+  final String label;
+  final String field;
+  final FilesState state;
+  final VoidCallback onTap;
+
+  const _SortHeader({required this.label, required this.field, required this.state, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final active = state.orderBy == field;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+                color: active ? const Color(0xFF0D1B2A) : const Color(0xFF6B7F94),
+              ),
+            ),
+            if (active) ...[
+              const SizedBox(width: 4),
+              OlIcon(state.desc ? 'chev-d' : 'chev-u', size: 10, color: OlTokens.sky600, strokeWidth: 3),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -152,20 +215,33 @@ class _FileRowState extends State<_FileRow> {
                         item.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               SizedBox(
-                width: 74,
+                width: 130,
                 child: Text(item.isDir ? '—' : formatBytes(item.size), style: TextStyle(fontSize: 11.5, color: p.ink3)),
               ),
+              const SizedBox(width: 10),
               SizedBox(
-                width: 108,
+                width: 170,
                 child: Text(formatDate(item.modified), style: TextStyle(fontSize: 11.5, color: p.ink3)),
               ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 90,
+                child: Text(
+                  typeLabelOf(item.name, item.isDir),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: p.ink3),
+                ),
+              ),
+              const SizedBox(width: 10),
               SizedBox(
                 width: 34,
                 child: (_hover || widget.selected)
@@ -211,13 +287,13 @@ class _GridView extends ConsumerWidget {
     return GridView.builder(
       controller: scroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        // v2.6：网格收紧（150→116，比例 0.92→1.06），文件名不再被大片留白推到底部。
-        maxCrossAxisExtent: 116,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1.06,
+      padding: const EdgeInsets.all(18),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 6,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        // 设计稿缩略图定高 74 + 两行名称，卡片高度固定避免行抖动。
+        mainAxisExtent: 158,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -239,16 +315,16 @@ class _GridView extends ConsumerWidget {
           onDoubleTap: item.isDir ? () => onOpen(item) : null,
           onSecondaryTapDown: (d) => onMenu(item, d.globalPosition),
           child: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
             decoration: BoxDecoration(
               color: selected ? p.rowSel : p.card,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: selected ? OlTokens.sky.withAlpha(90) : p.line2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FileGlyph(item: item, size: 30, radius: 8, iconSize: 15),
+                FileGlyph(item: item, size: 34, radius: 9, iconSize: 18),
                 const SizedBox(height: 6),
                 Expanded(
                   child: Align(
@@ -257,7 +333,8 @@ class _GridView extends ConsumerWidget {
                       item.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 10.5, height: 1.3, fontWeight: FontWeight.w700, color: p.ink),
+                      textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, height: 1.3, fontWeight: FontWeight.w700, color: p.ink),
                     ),
                   ),
                 ),

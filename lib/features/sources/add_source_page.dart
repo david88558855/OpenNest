@@ -236,7 +236,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
             child: info == null
                 ? const Center(child: _Hint(text: '从左侧选择一种存储类型'))
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(38, 26, 38, 30),
+                    padding: const EdgeInsets.fromLTRB(38, 30, 38, 26),
                     child: _buildForm(info),
                   ),
           ),
@@ -323,6 +323,25 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 设计稿 D2 的路径感：面包屑「添加存储源 › 驱动名」+ 20/800 标题。
+        Row(
+          children: [
+            Text('添加存储源', style: TextStyle(fontSize: 11.5, color: p.ink3)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: OlIcon('chev-r', size: 10, color: Color(0xFF9DB2C4), strokeWidth: 3),
+            ),
+            Flexible(
+              child: Text(
+                driverLabel(info.name),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Text('连接${driverLabel(info.name)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: p.ink)),
         const SizedBox(height: 6),
         Text(
@@ -492,22 +511,28 @@ class _DriverList extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(10, 14, 10, 20),
+      // 设计稿 D2：左栏 padding 22/14，项宽 236。
+      padding: const EdgeInsets.fromLTRB(14, 22, 14, 20),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+          padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
           child: Text(
             '存储类型',
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: p.ink4, letterSpacing: 1),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: p.ink3, letterSpacing: 1),
           ),
         ),
         for (final group in DriverGroup.values) ...[
           if (names.any((n) => driverGroupOf(n) == group))
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 5),
               child: Text(
                 driverGroupLabel(group),
-                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: p.ink4),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF9DB2C4),
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           for (final name in names.where((n) => driverGroupOf(n) == group))
@@ -522,7 +547,8 @@ class _DriverList extends StatelessWidget {
   }
 }
 
-class _DriverRow extends StatelessWidget {
+/// 驱动行（设计稿 D2）：42 高、26×26 圆角图标块、选中白底 + 蓝描边 + 轻阴影 +「✓ 已选」。
+class _DriverRow extends StatefulWidget {
   final String name;
   final bool active;
   final VoidCallback onTap;
@@ -530,44 +556,83 @@ class _DriverRow extends StatelessWidget {
   const _DriverRow({required this.name, required this.active, required this.onTap});
 
   @override
+  State<_DriverRow> createState() => _DriverRowState();
+}
+
+class _DriverRowState extends State<_DriverRow> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(9),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: active ? p.card : Colors.transparent,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: active ? p.fieldBorder : Colors.transparent),
-            ),
-            child: Row(
-              children: [
-                OlIcon(_iconForDriver(name), size: 14, color: active ? OlTokens.sky600 : p.ink3),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    driverLabel(name),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                      color: active ? p.ink : p.ink2,
-                    ),
+    final tone = _driverTone(widget.name);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 42,
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: widget.active ? p.card : (_hover ? OlTokens.hoverSoft : Colors.transparent),
+            borderRadius: BorderRadius.circular(9),
+            // 常驻透明描边：否则选中时加 1px 真边框会让行高从 42 跳到 44。
+            border: Border.all(color: widget.active ? p.chipBorder : Colors.transparent),
+            boxShadow: widget.active
+                ? const [BoxShadow(color: Color(0x1A0EA5E9), blurRadius: 8, offset: Offset(0, 2))]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(color: tone.bg, borderRadius: BorderRadius.circular(7)),
+                child: Center(
+                  child: OlIcon(_iconForDriver(widget.name), size: 14, color: tone.fg, strokeWidth: 2),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  driverLabel(widget.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: widget.active ? FontWeight.w700 : FontWeight.w400,
+                    color: widget.active ? p.ink : p.ink2,
                   ),
                 ),
+              ),
+              if (widget.active) ...[
+                const SizedBox(width: 6),
+                Text('✓ 已选', style: TextStyle(fontSize: 9.5, color: p.ink4)),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// 驱动分组的图标配色（设计稿四族）：本地 sky、对象 violet、网盘 amber、远程 teal。
+({Color bg, Color fg}) _driverTone(String name) {
+  switch (driverGroupOf(name)) {
+    case DriverGroup.local:
+      return (bg: OlTokens.tileSky, fg: OlTokens.sky600);
+    case DriverGroup.object:
+      return (bg: OlTokens.tileViolet, fg: OlTokens.violet);
+    case DriverGroup.cloud:
+      return (bg: OlTokens.tileAmber, fg: OlTokens.typeDoc);
+    case DriverGroup.server:
+      return (bg: OlTokens.tileTeal, fg: OlTokens.ok);
+    case DriverGroup.other:
+      return (bg: OlTokens.tileSlate, fg: const Color(0xFF6B7F94));
   }
 }
 
@@ -640,7 +705,7 @@ class _FieldShell extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2),
+                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink2),
               ),
             ),
             if (required)

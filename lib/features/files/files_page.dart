@@ -166,15 +166,13 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                     children: [
                       Column(
                         children: [
-                          const _TopBar(),
-                          _Toolbar(
+                          _TopBar(
                             kind: _kind,
                             onKind: (k) => setState(() => _kind = k),
-                            visible: _filtered(state.items).map((e) => e.name).toList(),
                             batch: _batch,
-                            onBatch: (v) => setState(() {
-                              _batch = v;
-                              if (!v) ref.read(filesProvider.notifier).clearSelection();
+                            onBatch: () => setState(() {
+                              _batch = !_batch;
+                              if (!_batch) ref.read(filesProvider.notifier).clearSelection();
                             }),
                           ),
                           Expanded(child: _buildBody(state)),
@@ -185,12 +183,12 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                       if (_dragging) const _DropOverlay(),
                       // v1.0.26：桌面批量模式之前只有复选框、没有任何操作条，
                       // 等于「能选不能动」。这里补上与移动端同一套 _BatchBar。
-                      // bottom 42 是为了让开 30 高的状态栏。
+                      // bottom 52 是为了让开 34 高状态栏 + 18 的呼吸位。
                       if (_batch)
                         Positioned(
                           left: 12,
                           right: 12,
-                          bottom: 42,
+                          bottom: 52,
                           child: _batchBar(state, _filtered(state.items)),
                         ),
                     ],
