@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>M1 · 首启空状态（移动端） — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.phone{width:392px;height:844px;border-radius:46px;background:#fff;border:11px solid #0D1B2A;
+box-shadow:0 30px 80px rgba(14,58,70,.22);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-size:12.5px;font-weight:700;background:linear-gradient(160deg,#0E3A46,#0EA5E9);color:#fff}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:104px;height:26px;border-radius:99px;background:#0D1B2A;z-index:20}
+.brand{background:linear-gradient(160deg,#0E3A46 0%,#0B4F63 55%,#0EA5E9 135%);color:#fff;padding:22px 24px 30px;position:relative;overflow:hidden}
+.brand::after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(56,189,248,.32),transparent 65%);right:-90px;top:-90px}
+.logo{display:flex;align-items:center;gap:10px;position:relative;z-index:1}
+.logo-mark{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#38BDF8,#2DD4BF);display:flex;align-items:center;justify-content:center}
+.logo-name{font-size:20px;font-weight:800}
+.tagline{margin-top:18px;font-size:23px;line-height:1.32;font-weight:800;position:relative;z-index:1}
+.tagline em{font-style:normal;color:#7FE7D4}
+.brand-sub{margin-top:8px;font-size:12.5px;color:#C9E4F2;line-height:1.6;position:relative;z-index:1}
+.main{flex:1;background:#fff;border-radius:22px 22px 0 0;margin-top:-16px;padding:22px 18px 18px;overflow:hidden;position:relative;z-index:2;display:flex;flex-direction:column}
+.h1{font-size:17px;font-weight:800}
+.sub{font-size:11.5px;color:#6B7F94;margin-top:4px;line-height:1.5}
+.cards{margin-top:14px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+.card{display:flex;align-items:center;gap:12px;border:1px solid #E3EBF3;border-radius:14px;padding:11px 12px;background:#fff}
+.card-ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.card-t{font-size:13.5px;font-weight:800}
+.card-d{font-size:10.5px;color:#6B7F94;margin-top:2px}
+.card .ar{margin-left:auto;color:#C4D5E4;display:flex}
+.share{margin-top:14px;border:1px dashed #B9D8EA;border-radius:14px;padding:12px;background:#F8FBFE}
+.share-t{font-size:11px;font-weight:800;color:#08799F;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.share-row{display:flex;gap:8px}
+.share input{flex:1;height:38px;border:1px solid #E3EBF3;border-radius:10px;padding:0 11px;font-size:12px;font-family:inherit;background:#fff;color:#0D1B2A}
+.btn{height:38px;border-radius:10px;padding:0 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff}
+.foot{margin-top:auto;padding-top:12px;display:flex;align-items:center;justify-content:space-between}
+.foot-note{font-size:10.5px;color:#6B7F94;display:flex;align-items:center;gap:6px;line-height:1.4}
+.homebar{height:22px;display:flex;align-items:center;justify-content:center}
+.homebar i{width:120px;height:4.5px;border-radius:99px;background:#0D1B2A;opacity:.85}
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:8;border:2px solid #fff}
+.legend{margin-top:22px;width:1080px;max-width:100%;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:330px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="statusbar"><span>9:41</span><span style="display:flex;gap:5px;align-items:center"><svg width="15" height="11" viewBox="0 0 18 12" fill="currentColor"><path d="M1 9h2v3H1zM5 6h2v6H5zM9 4h2v8H9zM13 1h2v11h-2z"/></svg><svg width="22" height="11" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1.5" width="19" height="9" rx="2.5"/><path d="M22.5 4.5v3"/><rect x="3" y="3" width="12" height="6" rx="1" fill="currentColor" stroke="none"/></svg></span></div>
+
+  <div class="brand">
+    <div class="logo">
+      <div class="logo-mark"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 12h8M12 8v8"/></svg></div>
+      <span class="logo-name">OpenNest</span>
+    </div>
+    <div class="tagline">无需注册登录<br><em>直连你的存储</em></div>
+    <div class="brand-sub">没有账号，没有密码要记。<br>连接第一个存储，30 秒开始。</div>
+  </div>
+
+  <div class="main">
+    <div class="hl">
+      <span class="cn" style="top:-4px;left:-14px">1</span>
+      <div class="h1">添加你的第一个存储</div>
+      <div class="sub">选择一种存储类型，或粘贴分享链接直接导入</div>
+    </div>
+
+    <div class="hl cards">
+      <span class="cn" style="top:-8px;left:-14px">2</span>
+      <div class="card">
+        <div class="card-ic" style="background:#EAF8FE"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 3l4 4 4-4"/></svg></div>
+        <div><div class="card-t">本地存储</div><div class="card-d">此设备上的目录</div></div>
+        <span class="ar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="card">
+        <div class="card-ic" style="background:#EAF8FE"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg></div>
+        <div><div class="card-t">WebDAV</div><div class="card-d">Nextcloud / 群晖 / AList</div></div>
+        <span class="ar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="card">
+        <div class="card-ic" style="background:#F0EDFF"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.9"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg></div>
+        <div><div class="card-t">S3 对象存储</div><div class="card-d">MinIO / 阿里云 OSS / AWS</div></div>
+        <span class="ar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="card">
+        <div class="card-ic" style="background:#E8FBF3"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="1.9"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></div>
+        <div><div class="card-t">SFTP / FTP / SMB</div><div class="card-d">Linux 服务器 / 局域网共享</div></div>
+        <span class="ar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+      <div class="card">
+        <div class="card-ic" style="background:#FFF6E8"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg></div>
+        <div><div class="card-t">更多类型</div><div class="card-d">云盘 / 分享链接 / 远程 OpenList</div></div>
+        <span class="ar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+      </div>
+    </div>
+
+    <div class="hl share">
+      <span class="cn" style="top:-12px;left:-8px">3</span>
+      <div class="share-t"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2.2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7"/></svg>粘贴分享链接直接导入</div>
+      <div class="share-row"><input placeholder="https://… （含提取码）"><button class="btn btn-primary">导入</button></div>
+    </div>
+
+    <div class="foot">
+      <div class="hl foot-note">
+        <span class="cn" style="top:-10px;left:-14px">4</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        凭据仅存本机钥匙串
+      </div>
+      <button class="btn btn-ghost">稍后再说</button>
+    </div>
+  </div>
+  <div class="homebar"><i></i></div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>首屏即添加</b>：移动端无登录页，品牌区下方直接进入「添加第一个存储」。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>协议卡片列表</b>：单列大卡片，触控区域 ≥ 44px；「更多类型」收纳其余 80+ 驱动。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>分享链接导入</b>：与桌面一致的「链接+提取码」免账户导入。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>信任声明 + 跳过</b>：随时可跳过引导，稍后在设置中添加。</div></div>
+</div>
+
+</body>
+</html>

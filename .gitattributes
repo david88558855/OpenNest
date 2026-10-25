@@ -1,0 +1,8 @@
+# 统一换行：shell 脚本必须是 LF，否则 ubuntu job 报 $'\r': command not found
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

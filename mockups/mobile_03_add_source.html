@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>M3 · 添加存储源（移动端） — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.phone{width:392px;height:844px;border-radius:46px;background:#F8FBFE;border:11px solid #0D1B2A;
+box-shadow:0 30px 80px rgba(14,58,70,.22);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:104px;height:26px;border-radius:99px;background:#0D1B2A;z-index:40}
+.statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-size:12.5px;font-weight:700;color:#0D1B2A;flex:none}
+/* 背景（置灰列表） */
+.bg{flex:1;padding:14px 16px;opacity:.45;filter:saturate(.4)}
+.bg-row{display:flex;align-items:center;gap:12px;height:62px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:0 14px;margin-bottom:10px}
+.bg-ic{width:36px;height:36px;border-radius:10px;background:#EAF8FE}
+.bg-l{height:10px;border-radius:99px;background:#EDF2F8;flex:1}
+.bg-s{height:8px;width:56px;border-radius:99px;background:#F1F6FB}
+/* 底部面板 */
+.scrim{position:absolute;inset:0;background:rgba(13,27,42,.45);z-index:10}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:26px 26px 0 0;z-index:11;
+padding:10px 18px 26px;box-shadow:0 -18px 50px rgba(14,58,70,.25);max-height:78%;display:flex;flex-direction:column}
+.handle{width:40px;height:4.5px;border-radius:99px;background:#E3EBF3;margin:2px auto 12px}
+.sheet-h{display:flex;align-items:center;gap:10px}
+.sheet-t{font-size:16px;font-weight:800}
+.sheet-x{margin-left:auto;width:32px;height:32px;border-radius:9px;border:1px solid #E3EBF3;display:flex;align-items:center;justify-content:center;color:#6B7F94;background:#fff}
+.types{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tp{border:1px solid #E3EBF3;border-radius:12px;padding:9px 4px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#42566B;background:#fff;cursor:pointer}
+.tp.on{border-color:#0EA5E9;background:#F0FAFF;color:#08799F;box-shadow:0 0 0 1px #0EA5E9 inset}
+.form{margin-top:14px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.f{display:flex;flex-direction:column;gap:5px}
+.f label{font-size:10.5px;font-weight:800;color:#42566B}
+.f input,.f select{height:42px;border:1px solid #E3EBF3;border-radius:10px;padding:0 12px;font-size:13px;font-family:inherit;background:#fff;color:#0D1B2A}
+.secret{position:relative}
+.secret input{padding-right:86px;background:#FFFDF7}
+.secret .k{position:absolute;right:10px;top:11px;font-size:9px;font-weight:800;color:#B7791F;background:#FEF3C7;border-radius:6px;padding:3px 6px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.test{margin-top:2px;border:1px solid #D3F2E6;background:#F2FCF8;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center}
+.test-ic{width:26px;height:26px;border-radius:50%;background:#0E9F6E;display:flex;align-items:center;justify-content:center;flex:none}
+.test-t{font-size:12px;font-weight:800;color:#0B6B4A}
+.test-d{font-size:10px;color:#3E7A63;margin-top:2px}
+.actions{margin-top:14px;display:flex;gap:10px}
+.btn{flex:1;height:46px;border-radius:12px;font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A;flex:none;padding:0 18px}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 8px 20px rgba(56,189,248,.35)}
+.homebar{height:22px;display:flex;align-items:center;justify-content:center;background:#fff;flex:none}
+.homebar i{width:120px;height:4.5px;border-radius:99px;background:#0D1B2A;opacity:.85}
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:30;border:2px solid #fff}
+.legend{margin-top:22px;width:1080px;max-width:100%;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:330px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="statusbar"><span>9:41</span><span style="display:flex;gap:5px;align-items:center"><svg width="15" height="11" viewBox="0 0 18 12" fill="currentColor"><path d="M1 9h2v3H1zM5 6h2v6H5zM9 4h2v8H9zM13 1h2v11h-2z"/></svg><svg width="22" height="11" viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1.5" width="19" height="9" rx="2.5"/><rect x="3" y="3" width="12" height="6" rx="1" fill="currentColor" stroke="none"/></svg></span></div>
+
+  <div class="bg">
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+    <div class="bg-row"><span class="bg-ic"></span><span class="bg-l"></span><span class="bg-s"></span></div>
+  </div>
+
+  <div class="scrim"></div>
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="hl sheet-h">
+      <span class="cn" style="top:-8px;left:-16px">1</span>
+      <div class="sheet-t">添加存储源</div>
+      <div class="sheet-x"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+    </div>
+
+    <div class="hl types">
+      <span class="cn" style="top:-10px;left:-16px">2</span>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>本地</div>
+      <div class="tp on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg>WebDAV</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg>S3</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>SFTP</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg>FTP</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>SMB</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>网盘</div>
+      <div class="tp"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>远程</div>
+    </div>
+
+    <div class="hl form">
+      <span class="cn" style="top:-8px;left:-16px">3</span>
+      <div class="f"><label>显示名称</label><input value="公司 NAS"></div>
+      <div class="f"><label>服务器地址</label><input value="https://nas.company.com/dav"></div>
+      <div class="row2">
+        <div class="f"><label>用户名</label><input value="david"></div>
+        <div class="f"><label>密码</label><div class="secret"><input value="••••••••" type="text"><span class="k">钥匙串</span></div></div>
+      </div>
+      <div class="hl test">
+        <span class="cn" style="top:-10px;left:-10px">4</span>
+        <div class="test-ic"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+        <div><div class="test-t">测试连接成功</div><div class="test-d">根目录可读 · 12 个条目 · 证书指纹已记录</div></div>
+      </div>
+    </div>
+
+    <div class="hl actions">
+      <span class="cn" style="top:-10px;left:-16px">5</span>
+      <button class="btn btn-ghost">取消</button>
+      <button class="btn btn-primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>保存并连接</button>
+    </div>
+  </div>
+  <div class="homebar"><i></i></div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>底部面板</b>：不打断当前浏览；下拉把手 + 右上关闭，符合移动端手势习惯。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>协议单选网格</b>：常用协议一屏可见，其余在「更多」中按分组展开。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>动态表单</b>：字段随所选协议由驱动 schema 生成；密码字段带「钥匙串」标记。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>测试连接</b>：内联结果反馈，成功才亮起「保存并连接」。</div></div>
+  <div class="lg"><span class="lg-b">5</span><div class="lg-t"><b>保存即用</b>：保存后自动切到新源并刷新列表。</div></div>
+</div>
+
+</body>
+</html>

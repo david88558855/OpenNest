@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D2 · 添加存储源向导 — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.win{width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3;background:#fff}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.wizard{display:grid;grid-template-columns:264px 1fr}
+/* 左：类型树 */
+.types{border-right:1px solid #E3EBF3;padding:22px 14px;background:#F8FBFE;height:600px;overflow:hidden}
+.types-h{font-size:11px;font-weight:800;color:#6B7F94;letter-spacing:1px;padding:0 10px 10px}
+.group{margin-bottom:6px}
+.group-t{font-size:10.5px;font-weight:800;color:#9DB2C4;padding:10px 10px 5px;letter-spacing:.5px}
+.item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12.5px;cursor:pointer;color:#42566B}
+.item:hover{background:#EDF6FD}
+.item.on{background:#fff;border:1px solid #BDE7FA;color:#0D1B2A;font-weight:700;box-shadow:0 2px 8px rgba(14,165,233,.10)}
+.item .sw{margin-left:auto;font-size:9.5px;color:#9DB2C4}
+.ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+/* 右：表单 */
+.form{padding:30px 38px 26px;position:relative}
+.crumb{font-size:11.5px;color:#6B7F94;display:flex;align-items:center;gap:8px}
+.crumb b{color:#0D1B2A}
+.h1{font-size:20px;font-weight:800;margin-top:8px;display:flex;align-items:center;gap:10px}
+.tag{font-size:10px;font-weight:800;color:#08799F;background:#EAF8FE;border-radius:99px;padding:3px 9px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+.f{display:flex;flex-direction:column;gap:6px}
+.f label{font-size:11.5px;font-weight:700;color:#42566B;display:flex;align-items:center;gap:6px}
+.f label .req{color:#D92D4B}
+.f input,.f select{height:40px;border:1px solid #E3EBF3;border-radius:9px;padding:0 12px;font-size:12.5px;font-family:inherit;color:#0D1B2A;background:#fff}
+.f input:focus{outline:2px solid #BDE7FA;border-color:#38BDF8}
+.f .hint{font-size:10.5px;color:#9DB2C4}
+.secret{position:relative}
+.secret input{padding-right:38px;background:#FFFDF7}
+.secret .k{position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:4px;font-size:9.5px;font-weight:800;color:#B7791F;background:#FEF3C7;border-radius:6px;padding:2px 6px}
+.adv{margin-top:16px;font-size:12px;color:#08799F;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px}
+.adv svg{transition:transform .15s}
+.test{margin-top:20px;border:1px solid #D3F2E6;background:#F2FCF8;border-radius:12px;padding:12px 16px;display:flex;gap:12px;align-items:center}
+.test-ic{width:30px;height:30px;border-radius:50%;background:#0E9F6E;display:flex;align-items:center;justify-content:center;flex:none}
+.test-t{font-size:12.5px;font-weight:800;color:#0B6B4A}
+.test-d{font-size:11px;color:#3E7A63;margin-top:2px;line-height:1.5}
+.test-mono{font-family:Consolas,monospace;font-size:10.5px;background:#fff;border:1px solid #CDEBDF;border-radius:6px;padding:1px 6px;color:#0B6B4A}
+.actions{margin-top:22px;display:flex;align-items:center;gap:12px}
+.btn{height:40px;border-radius:9px;padding:0 20px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:7px}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 6px 16px rgba(56,189,248,.35)}
+.actions .sp{margin-left:auto;font-size:11px;color:#9DB2C4}
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:5;border:2px solid #fff}
+.legend{margin-top:22px;width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:300px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest — 添加存储源</span>
+    <div class="tb-right"><span class="pill">免账户 · 凭据仅存本机</span></div>
+  </div>
+  <div class="wizard">
+    <!-- 左：类型分组树 -->
+    <div class="types">
+      <div class="types-h">存储类型 / 存储类型</div>
+      <div class="group">
+        <div class="group-t">本地与文件协议</div>
+        <div class="item"><span class="ic" style="background:#EAF8FE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg></span>本地存储</div>
+        <div class="item on"><span class="ic" style="background:#EAF8FE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg></span>WebDAV<span class="sw">✓ 已选</span></div>
+        <div class="item"><span class="ic" style="background:#EAF8FE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span>SFTP</div>
+        <div class="item"><span class="ic" style="background:#EAF8FE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5"/></svg></span>FTP / FTPS</div>
+        <div class="item"><span class="ic" style="background:#EAF8FE"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span>SMB</div>
+      </div>
+      <div class="group">
+        <div class="group-t">对象存储</div>
+        <div class="item"><span class="ic" style="background:#F0EDFF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="2"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/></svg></span>S3 / 兼容存储</div>
+        <div class="item"><span class="ic" style="background:#F0EDFF"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="2"><path d="M4 7h16v4H4zM4 13h16v4H4z"/></svg></span>Azure Blob / USS</div>
+      </div>
+      <div class="group">
+        <div class="group-t">网盘与分享</div>
+        <div class="item"><span class="ic" style="background:#FFF6E8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg></span>阿里云盘 / 百度 / 115 …</div>
+        <div class="item"><span class="ic" style="background:#FFF6E8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7"/></svg></span>分享链接 + 提取码</div>
+      </div>
+      <div class="group">
+        <div class="group-t">远程服务器</div>
+        <div class="item"><span class="ic" style="background:#E8FBF3"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="2"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg></span>OpenList / AList 级联</div>
+      </div>
+    </div>
+    <!-- 右：动态表单 -->
+    <div class="form">
+      <div class="hl">
+        <span class="cn" style="top:-2px;left:-22px">1</span>
+        <div class="crumb">添加存储源 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9DB2C4" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg> <b>WebDAV</b></div>
+      </div>
+      <div class="hl">
+        <span class="cn" style="top:-2px;left:-22px">2</span>
+        <div class="h1">连接 WebDAV 服务器 <span class="tag">表单由驱动 schema 动态生成</span></div>
+      </div>
+      <div class="row">
+        <div class="f"><label>显示名称 <span class="req">*</span></label><input value="公司 NAS"><div class="hint">侧边栏中展示的名字</div></div>
+        <div class="f"><label>服务器地址 <span class="req">*</span></label><input value="https://nas.company.com/dav"></div>
+      </div>
+      <div class="row">
+        <div class="f"><label>用户名</label><input value="david"></div>
+        <div class="f">
+          <label>密码</label>
+          <div class="secret"><input value="••••••••••" type="text"><span class="k">机密 · 钥匙串</span></div>
+          <div class="hint">仅写入系统钥匙串，导出配置时不含此字段</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="f"><label>根路径</label><input value="/" placeholder="默认整个服务器根目录"></div>
+        <div class="f"><label>跳过 TLS 证书校验</label><select><option>否（推荐）</option><option>是（自签名证书）</option></select></div>
+      </div>
+      <div class="adv"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#08799F" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>高级选项（缓存策略、代理、排序）</div>
+
+      <div class="hl test">
+        <span class="cn" style="top:-12px;left:-8px">4</span>
+        <div class="test-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg></div>
+        <div>
+          <div class="test-t">测试连接成功 · 根目录可读（12 个条目）</div>
+          <div class="test-d">TLS 证书指纹 <span class="test-mono">SHA256:9F:2C:8A:1D:…:E4</span> 已确认；保存后此源即可在侧边栏访问。</div>
+        </div>
+      </div>
+
+      <div class="hl actions">
+        <span class="cn" style="top:-8px;left:-22px">3</span>
+        <span class="cn" style="top:-8px;left:120px">5</span>
+        <button class="btn btn-ghost"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>重新测试</button>
+        <button class="btn btn-primary">保存并连接</button>
+        <span class="sp">未测试通过前无法保存 · 保存的密码进入系统钥匙串</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>类型分组树</b>：85 个驱动按协议家族分组，左侧单选、右侧表单联动。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>动态表单</b>：字段由 <i>/api/admin/driver/info</i> 反射 schema 生成，新增驱动零前端改动。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>机密字段标记</b>：密码/令牌/私钥带「钥匙串」标记，分流到系统钥匙串。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>测试连接</b>：建临时 storage → 列根目录 → 成功才允许保存；展示证书/主机指纹供确认。</div></div>
+  <div class="lg"><span class="lg-b">5</span><div class="lg-t"><b>保存即连接</b>：一次点击完成创建、挂载与跳转，无二次确认弹窗。</div></div>
+</div>
+
+</body>
+</html>

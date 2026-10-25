@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D1 · 首启空状态 — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.win{width:1180px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3;background:#fff}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94;letter-spacing:.2px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.split{display:grid;grid-template-columns:430px 1fr}
+.brand{background:linear-gradient(160deg,#0E3A46 0%,#0B4F63 55%,#0EA5E9 130%);color:#fff;padding:52px 44px;position:relative;overflow:hidden}
+.brand::after{content:"";position:absolute;width:340px;height:340px;border-radius:50%;
+background:radial-gradient(circle,rgba(56,189,248,.35),transparent 65%);right:-120px;bottom:-120px}
+.logo{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+.logo-mark{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#38BDF8,#2DD4BF);
+display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(45,212,191,.35)}
+.logo-name{font-size:24px;font-weight:800;letter-spacing:.3px}
+.tagline{margin-top:34px;font-size:30px;line-height:1.35;font-weight:800;position:relative;z-index:1}
+.tagline em{font-style:normal;color:#7FE7D4}
+.brand-sub{margin-top:14px;font-size:13.5px;line-height:1.7;color:#C9E4F2;position:relative;z-index:1}
+.feat{margin-top:36px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1}
+.feat-item{display:flex;gap:12px;align-items:flex-start}
+.feat-ic{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.12);
+border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;flex:none}
+.feat-t{font-size:13.5px;font-weight:700}
+.feat-d{font-size:11.5px;color:#A9CFDF;margin-top:2px;line-height:1.5}
+.main{padding:46px 52px}
+.h1{font-size:24px;font-weight:800}
+.sub{margin-top:8px;font-size:13px;color:#6B7F94}
+.cards{margin-top:26px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{border:1px solid #E3EBF3;border-radius:14px;padding:16px 14px;background:#fff;cursor:pointer;
+transition:border-color .12s;position:relative}
+.card:hover{border-color:#38BDF8}
+.card-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.card-t{font-size:13.5px;font-weight:800}
+.card-d{font-size:11px;color:#6B7F94;margin-top:3px;line-height:1.45}
+.card-hot{position:absolute;top:10px;right:10px;font-size:9.5px;font-weight:800;color:#08799F;background:#EAF8FE;border-radius:99px;padding:2px 7px}
+.share{margin-top:22px;border:1px dashed #B9D8EA;border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:center;background:#F8FBFE}
+.share input{flex:1;border:1px solid #E3EBF3;border-radius:9px;height:38px;padding:0 12px;font-size:12.5px;font-family:inherit;color:#0D1B2A;background:#fff}
+.share input::placeholder{color:#9DB2C4}
+.btn{height:38px;border-radius:9px;padding:0 18px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 6px 16px rgba(56,189,248,.35)}
+.foot{margin-top:26px;display:flex;align-items:center;justify-content:space-between}
+.foot-note{font-size:11.5px;color:#6B7F94;display:flex;align-items:center;gap:7px}
+/* callouts */
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;
+font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;
+box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:5;border:2px solid #fff}
+.legend{margin-top:22px;width:1180px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;
+display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:330px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}
+.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest</span>
+    <div class="tb-right"><span class="pill">免账户 · 直连存储</span></div>
+  </div>
+  <div class="split">
+    <!-- 品牌区 -->
+    <div class="brand">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 12h8M12 8v8"/></svg>
+        </div>
+        <span class="logo-name">OpenNest</span>
+      </div>
+      <div class="tagline">无需注册登录<br><em>直连你的存储</em></div>
+      <div class="brand-sub">安装即用。没有账号、没有登录页，<br>连接第一个存储，30 秒开始管理文件。</div>
+      <div class="feat">
+        <div class="feat-item">
+          <div class="feat-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7FE7D4" stroke-width="2" stroke-linecap="round"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <div><div class="feat-t">免账户</div><div class="feat-d">服务端凭据随机生成，仅存本机系统钥匙串</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7FE7D4" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+          <div><div class="feat-t">本地 + 远程</div><div class="feat-d">磁盘目录、NAS、对象存储、网盘、远程服务器</div></div>
+        </div>
+        <div class="feat-item">
+          <div class="feat-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7FE7D4" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></div>
+          <div><div class="feat-t">85+ 存储驱动</div><div class="feat-d">内嵌 OpenList 引擎，一种界面管理所有存储</div></div>
+        </div>
+      </div>
+    </div>
+    <!-- 主区域 -->
+    <div class="main">
+      <div class="hl">
+        <span class="cn" style="top:-6px;left:-30px">1</span>
+        <div class="h1">欢迎使用 OpenNest</div>
+        <div class="sub">没有账号要注册，也没有密码要登录 —— 添加你的第一个存储即可开始。</div>
+      </div>
+
+      <div class="hl" style="margin-top:24px">
+        <span class="cn" style="top:-4px;left:-18px">2</span>
+        <div class="cards">
+          <div class="card">
+            <div class="card-ic" style="background:#EAF8FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 3l4 4 4-4"/></svg></div>
+            <div class="card-t">本地存储</div><div class="card-d">此设备上的目录</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#EAF8FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9" stroke-linecap="round"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg></div>
+            <div class="card-t">WebDAV</div><div class="card-d">Nextcloud / 群晖 / AList</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#F0EDFF"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.9" stroke-linecap="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></div>
+            <div class="card-t">S3 对象存储</div><div class="card-d">MinIO / 阿里云 OSS / AWS</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#EAF8FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></div>
+            <div class="card-t">SFTP</div><div class="card-d">Linux 服务器</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#EAF8FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9" stroke-linecap="round"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg></div>
+            <div class="card-t">FTP / FTPS</div><div class="card-d">传统服务器</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#EAF8FE"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9" stroke-linecap="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+            <div class="card-t">SMB</div><div class="card-d">Windows / 局域网共享</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#E8FBF3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="1.9" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></div>
+            <div class="card-t">远程 OpenList</div><div class="card-d">级联已有 AList/OpenList</div>
+          </div>
+          <div class="card">
+            <div class="card-ic" style="background:#FFF6E8"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.9" stroke-linecap="round"><path d="M21 15V7a2 2 0 0 0-2-2H9L7 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2z"/></svg></div>
+            <div class="card-t">更多类型</div><div class="card-d">云盘 / 分享链接 / 70+ 驱动</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hl share" style="margin-top:22px">
+        <span class="cn" style="top:-12px;left:-6px">3</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+        <input placeholder="或粘贴分享链接（含提取码），直接作为存储源导入…">
+        <button class="btn btn-ghost">导入</button>
+      </div>
+
+      <div class="foot">
+        <div class="hl foot-note">
+          <span class="cn" style="top:-8px;left:-14px">4</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          所有密码与令牌仅保存在本机系统钥匙串，永不上传
+        </div>
+        <div class="hl"><span class="cn" style="top:-6px;left:-24px">5</span><button class="btn btn-ghost">稍后再说</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>零账户入口</b>：首屏无登录/注册，唯一动作是「添加存储」。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>协议卡片</b>：按类型分组；点击进入由驱动 schema 生成的动态表单。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>分享链接导入</b>：粘贴「链接 + 提取码」即成为存储源，无需账号。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>信任声明</b>：明示凭据只进本机钥匙串，强化免账户安全感。</div></div>
+  <div class="lg"><span class="lg-b">5</span><div class="lg-t"><b>可跳过</b>：允许空态进入主界面，随时再添加源。</div></div>
+</div>
+
+</body>
+</html>

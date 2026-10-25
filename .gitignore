@@ -1,0 +1,49 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/*
+!.vscode/settings.json
+pubspec.lock
+
+# Desktop / mobile generated
+windows/flutter/ephemeral/
+android/local.properties
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/key.properties
+*.jks
+*.keystore
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Generated plugin registrant
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Flutter 官方模板生成的 Windows runner（构建时现场生成，不入库；只忽略根目录）
+/windows/
+
+# 本地临时文件
+run.json
+jobs.json
+runs.json
+rel.json
+
+# OpenNest 追加
+.workbuddy/
+userdata/
+dist/
+assets/bin/
+android/app/src/main/jniLibs/
+*.tar.gz
+openlist.exe

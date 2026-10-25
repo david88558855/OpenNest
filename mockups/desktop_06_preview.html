@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D6 · 文件预览（图片/文本） — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.win{width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3;background:#fff}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.body{height:600px;display:flex;flex-direction:column;background:#F8FBFE}
+.topbar{height:54px;background:#fff;border-bottom:1px solid #E3EBF3;display:flex;align-items:center;gap:10px;padding:0 16px}
+.fname{font-size:13.5px;font-weight:800;display:flex;align-items:center;gap:9px}
+.fbadge{font-size:9.5px;font-weight:800;color:#08799F;background:#EAF8FE;border-radius:99px;padding:2px 8px}
+.btn{height:32px;border-radius:8px;padding:0 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 4px 12px rgba(56,189,248,.30)}
+.sp{flex:1}
+.ib{width:32px;height:32px;border-radius:8px;border:1px solid #E3EBF3;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#42566B}
+.ib:hover{border-color:#38BDF8;color:#0EA5E9}
+.content{flex:1;display:grid;grid-template-columns:1fr 264px;min-height:0}
+.stage{display:flex;align-items:center;justify-content:center;padding:26px;position:relative;overflow:hidden}
+.canvas{width:640px;height:420px;border-radius:14px;background:#fff;border:1px solid #E3EBF3;
+box-shadow:0 18px 50px rgba(14,58,70,.14);overflow:hidden;position:relative}
+.canvas-h{height:38px;border-bottom:1px solid #E3EBF3;display:flex;align-items:center;gap:7px;padding:0 12px}
+.cd{width:9px;height:9px;border-radius:50%}
+.canvas-t{font-size:10.5px;color:#9DB2C4;margin-left:6px}
+.mock{padding:18px;display:flex;flex-direction:column;gap:12px}
+.mock-row{display:flex;gap:12px;align-items:flex-end}
+.bar{flex:1;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#7DD9F8,#38BDF8)}
+.kpi{display:flex;gap:10px}
+.kpi-c{flex:1;border:1px solid #E3EBF3;border-radius:10px;padding:10px}
+.kpi-v{font-size:17px;font-weight:800;color:#0D1B2A}
+.kpi-l{font-size:9.5px;color:#9DB2C4;margin-top:2px}
+.line{height:1px;background:#F1F6FB}
+.skel{height:8px;border-radius:99px;background:#EDF2F8}
+/* 信息侧栏 */
+.info{border-left:1px solid #E3EBF3;background:#fff;padding:20px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.info-h{font-size:11px;font-weight:800;color:#9DB2C4;letter-spacing:1px}
+.preview-box{width:100%;height:120px;border-radius:10px;background:linear-gradient(135deg,#DDF6F2,#BDE7FA);
+display:flex;align-items:center;justify-content:center;border:1px solid #D8ECF8}
+.kv{display:flex;flex-direction:column;gap:3px}
+.kv .k{font-size:10px;color:#9DB2C4;font-weight:700}
+.kv .v{font-size:12px;color:#0D1B2A;font-weight:600;word-break:break-all}
+.kv .v.mono{font-family:Consolas,monospace;font-size:11px;color:#42566B}
+.divider{height:1px;background:#F1F6FB}
+.acts{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.btn-full{width:100%;justify-content:center}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;background:rgba(13,27,42,.82);color:#fff;
+font-size:11px;border-radius:99px;padding:6px 14px;display:flex;gap:12px;align-items:center;backdrop-filter:blur(4px)}
+.hint kbd{font-family:inherit;background:rgba(255,255,255,.18);border-radius:5px;padding:1px 6px;font-size:10px}
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:8;border:2px solid #fff}
+.legend{margin-top:22px;width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:300px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest — 预览</span>
+    <div class="tb-right"><span class="pill">免账户 · 直连存储</span></div>
+  </div>
+  <div class="body">
+    <div class="hl topbar">
+      <span class="cn" style="top:-8px;left:-22px">1</span>
+      <div class="fname">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>
+        年度总结_2026.png <span class="fbadge">快速预览</span>
+      </div>
+      <div class="sp"></div>
+      <button class="btn btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg>下载</button>
+      <button class="btn btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7"/></svg>打开方式</button>
+      <div class="hl ib"><span class="cn" style="top:-10px;left:4px">4</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/></svg></div>
+      <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+    </div>
+
+    <div class="content">
+      <div class="stage">
+        <div class="canvas">
+          <div class="canvas-h">
+            <span class="cd" style="background:#F87C6E"></span><span class="cd" style="background:#F9C25B"></span><span class="cd" style="background:#5FD08A"></span>
+            <span class="canvas-t">年度总结_2026.png · 1920 × 1080</span>
+          </div>
+          <div class="mock">
+            <div class="kpi">
+              <div class="kpi-c"><div class="kpi-v">¥ 1,284,300</div><div class="kpi-l">年度营收</div></div>
+              <div class="kpi-c"><div class="kpi-v">+ 18.6%</div><div class="kpi-l">同比增长</div></div>
+              <div class="kpi-c"><div class="kpi-v">42</div><div class="kpi-l">交付项目</div></div>
+            </div>
+            <div class="mock-row" style="height:180px;align-items:flex-end">
+              <div class="bar" style="height:38%"></div><div class="bar" style="height:55%"></div>
+              <div class="bar" style="height:47%"></div><div class="bar" style="height:72%"></div>
+              <div class="bar" style="height:63%"></div><div class="bar" style="height:88%"></div>
+              <div class="bar" style="height:79%"></div><div class="bar" style="height:100%"></div>
+            </div>
+            <div class="line"></div>
+            <div class="skel" style="width:82%"></div>
+            <div class="skel" style="width:64%"></div>
+            <div class="skel" style="width:71%"></div>
+          </div>
+        </div>
+        <div class="hl hint">
+          <span class="cn" style="top:-12px;left:-16px">2</span>
+          <span><kbd>空格</kbd> 关闭</span><span><kbd>←</kbd><kbd>→</kbd> 切换文件</span><span>流式加载 · 无需下载完整文件</span>
+        </div>
+      </div>
+
+      <div class="hl info">
+        <span class="cn" style="top:-6px;left:-22px">3</span>
+        <div class="info-h">文件信息 / 文件信息</div>
+        <div class="preview-box">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="1.4"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>
+        </div>
+        <div class="kv"><span class="k">名称</span><span class="v">年度总结_2026.png</span></div>
+        <div class="kv"><span class="k">类型</span><span class="v">PNG 图片 · 1920 × 1080</span></div>
+        <div class="kv"><span class="k">大小</span><span class="v">2.4 MB</span></div>
+        <div class="kv"><span class="k">修改时间</span><span class="v">2026-10-24 21:15</span></div>
+        <div class="divider"></div>
+        <div class="kv"><span class="k">所在存储源</span><span class="v">公司 NAS · WebDAV</span></div>
+        <div class="kv"><span class="k">路径</span><span class="v mono">/文档/2026/年度总结_2026.png</span></div>
+        <div class="kv"><span class="k">直链</span><span class="v mono">/d/文档/2026/…?sign=…</span></div>
+        <div class="acts">
+          <button class="btn btn-primary btn-full"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg>下载到本地</button>
+          <button class="btn btn-ghost btn-full">在文件管理器中显示</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>快速预览 顶栏</b>：文件名 + 类型徽章常驻；下载/打开方式/收藏一键可达。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>键盘优先</b>：空格唤出/关闭预览，左右方向键在目录内切换文件。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>信息侧栏</b>：元数据 + 存储源 + 签名直链，全部本地渲染，零等待。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>收藏入口</b>：任意文件可加入收藏，按源隔离保存。</div></div>
+</div>
+
+</body>
+</html>

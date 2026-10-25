@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>F1 · 页面流转图 — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.wrap{width:1280px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.head{padding:22px 28px 6px;display:flex;align-items:flex-end;gap:18px}
+.h1{font-size:19px;font-weight:800}
+.sub{font-size:11.5px;color:#6B7F94;margin-top:4px}
+.legend-box{margin-left:auto;display:flex;gap:16px;font-size:11px;color:#42566B}
+.legend-box span{display:flex;align-items:center;gap:6px}
+.ln{width:26px;height:0;border-top:2px solid #0EA5E9}
+.ln.d{border-top-style:dashed}
+svg{display:block}
+.node{cursor:pointer}
+.node:hover rect{stroke:#0EA5E9}
+a{text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest — 页面流转图</span>
+    <div class="tb-right"><span class="pill">免账户 · 直连存储</span></div>
+  </div>
+
+  <div class="head">
+    <div>
+      <div class="h1">页面流转图 / 页面流转</div>
+      <div class="sub">点击任意节点打开对应高保真效果图 · 实线为主流程，虚线为备选/返回路径</div>
+    </div>
+    <div class="legend-box">
+      <span><span class="ln"></span>主流程</span>
+      <span><span class="ln d"></span>备选 / 返回</span>
+      <span><span style="width:10px;height:10px;border-radius:3px;background:#0EA5E9;display:inline-block"></span>点击跳转</span>
+    </div>
+  </div>
+
+  <svg width="1280" height="720" viewBox="0 0 1280 720" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#0EA5E9"/>
+      </marker>
+      <marker id="ard" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9DB2C4"/>
+      </marker>
+    </defs>
+
+    <!-- ============ 连线（先画线，节点盖上） ============ -->
+    <!-- start → onboarding -->
+    <path d="M168 378 L208 378" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <!-- onboarding → wizard -->
+    <path d="M406 378 L448 378" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <!-- wizard → browser -->
+    <path d="M644 378 L688 372" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <text x="646" y="360" font-size="10.5" fill="#08799F" font-weight="700">测试通过 · 保存</text>
+    <!-- browser → transfers -->
+    <path d="M896 352 C 950 300, 950 260, 968 208" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <text x="906" y="252" font-size="10.5" fill="#6B7F94">上传 / 下载</text>
+    <!-- browser → preview -->
+    <path d="M896 404 C 950 450, 950 480, 968 502" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <text x="906" y="478" font-size="10.5" fill="#6B7F94">打开 / 空格预览</text>
+    <!-- browser → settings -->
+    <path d="M788 424 L788 586" stroke="#0EA5E9" stroke-width="2" marker-end="url(#ar)" fill="none"/>
+    <text x="800" y="510" font-size="10.5" fill="#6B7F94">管理源 / 设置</text>
+    <!-- settings → wizard (edit source) -->
+    <path d="M690 626 C 620 626, 600 430, 546 424" stroke="#9DB2C4" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ard)" fill="none"/>
+    <text x="586" y="540" font-size="10.5" fill="#9DB2C4">编辑源</text>
+    <!-- onboarding → skip (empty main) -->
+    <path d="M300 424 C 330 560, 420 590, 448 596" stroke="#9DB2C4" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ard)" fill="none"/>
+    <text x="300" y="520" font-size="10.5" fill="#9DB2C4">稍后再说</text>
+    <!-- empty main → browser -->
+    <path d="M644 626 C 700 620, 730 500, 748 424" stroke="#9DB2C4" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ard)" fill="none"/>
+    <text x="640" y="560" font-size="10.5" fill="#9DB2C4">随时添加</text>
+    <!-- transfers → browser (back) -->
+    <path d="M968 176 C 930 140, 860 300, 838 330" stroke="#9DB2C4" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ard)" fill="none"/>
+    <text x="900" y="200" font-size="10.5" fill="#9DB2C4">查看目录</text>
+
+    <!-- ============ 节点 ============ -->
+    <!-- N0 start -->
+    <g class="node">
+      <rect x="40" y="350" width="128" height="56" rx="14" fill="#0E3A46"/>
+      <text x="104" y="374" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">安装 / 启动</text>
+      <text x="104" y="392" text-anchor="middle" font-size="9.5" fill="#9FC6D8">无登录 · 无账号</text>
+    </g>
+
+    <!-- N1 onboarding -->
+    <a href="desktop_01_onboarding.html" class="node">
+      <rect x="208" y="340" width="198" height="84" rx="16" fill="#fff" stroke="#BDE7FA" stroke-width="1.5"/>
+      <rect x="208" y="340" width="198" height="22" rx="11" fill="#EAF8FE"/>
+      <text x="222" y="355" font-size="10" font-weight="800" fill="#08799F">D1 / M1</text>
+      <text x="307" y="374" text-anchor="middle" font-size="13.5" font-weight="800" fill="#0D1B2A">首启空状态</text>
+      <text x="307" y="394" text-anchor="middle" font-size="10" fill="#6B7F94">添加第一个存储 · 分享链接导入</text>
+      <text x="307" y="410" text-anchor="middle" font-size="9.5" fill="#9DB2C4">桌面品牌双栏 / 移动单列卡片</text>
+    </a>
+
+    <!-- N7 empty main -->
+    <a href="desktop_03_browser.html" class="node">
+      <rect x="448" y="588" width="196" height="76" rx="16" fill="#fff" stroke="#E3EBF3" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="546" y="612" text-anchor="middle" font-size="12.5" font-weight="800" fill="#42566B">主界面（空态）</text>
+      <text x="546" y="630" text-anchor="middle" font-size="10" fill="#6B7F94">引导条常驻，随时添加源</text>
+      <text x="546" y="646" text-anchor="middle" font-size="9.5" fill="#9DB2C4">跳转至文件浏览框架</text>
+    </a>
+
+    <!-- N2 wizard -->
+    <a href="desktop_02_add_source.html" class="node">
+      <rect x="448" y="336" width="196" height="88" rx="16" fill="#fff" stroke="#BDE7FA" stroke-width="1.5"/>
+      <rect x="448" y="336" width="196" height="22" rx="11" fill="#EAF8FE"/>
+      <text x="462" y="351" font-size="10" font-weight="800" fill="#08799F">D2 / M3</text>
+      <text x="546" y="372" text-anchor="middle" font-size="13.5" font-weight="800" fill="#0D1B2A">添加存储源向导</text>
+      <text x="546" y="390" text-anchor="middle" font-size="10" fill="#6B7F94">类型树 + 动态表单 + 测试连接</text>
+      <text x="546" y="406" text-anchor="middle" font-size="9.5" fill="#9DB2C4">桌面双栏向导 / 移动底部面板</text>
+    </a>
+
+    <!-- N3 browser hub -->
+    <a href="desktop_03_browser.html" class="node">
+      <rect x="688" y="328" width="208" height="96" rx="18" fill="#F0FAFF" stroke="#0EA5E9" stroke-width="2"/>
+      <rect x="688" y="328" width="208" height="22" rx="11" fill="#0EA5E9"/>
+      <text x="702" y="343" font-size="10" font-weight="800" fill="#fff">D3 / D4 · M2</text>
+      <text x="792" y="366" text-anchor="middle" font-size="14" font-weight="800" fill="#0D1B2A">文件浏览（核心）</text>
+      <text x="792" y="384" text-anchor="middle" font-size="10" fill="#42566B">侧边栏源 · 面包屑 · 列表 / 网格</text>
+      <text x="792" y="400" text-anchor="middle" font-size="10" fill="#42566B">多选 · 拖拽上传 · 排序过滤</text>
+      <text x="792" y="415" text-anchor="middle" font-size="9.5" fill="#6B7F94">桌面三栏 / 移动抽屉 + 底部导航</text>
+    </a>
+
+    <!-- N4 transfers -->
+    <a href="desktop_05_transfers.html" class="node">
+      <rect x="968" y="170" width="200" height="76" rx="16" fill="#fff" stroke="#BDE7FA" stroke-width="1.5"/>
+      <rect x="968" y="170" width="200" height="22" rx="11" fill="#EAF8FE"/>
+      <text x="982" y="185" font-size="10" font-weight="800" fill="#08799F">D5 / M4</text>
+      <text x="1068" y="208" text-anchor="middle" font-size="13.5" font-weight="800" fill="#0D1B2A">传输队列</text>
+      <text x="1068" y="226" text-anchor="middle" font-size="10" fill="#6B7F94">并发 3 · 断点续传 · 失败重试</text>
+      <text x="1068" y="240" text-anchor="middle" font-size="9.5" fill="#9DB2C4">桌面面板 / 移动任务卡片</text>
+    </a>
+
+    <!-- N5 preview -->
+    <a href="desktop_06_preview.html" class="node">
+      <rect x="968" y="464" width="200" height="76" rx="16" fill="#fff" stroke="#BDE7FA" stroke-width="1.5"/>
+      <rect x="968" y="464" width="200" height="22" rx="11" fill="#EAF8FE"/>
+      <text x="982" y="479" font-size="10" font-weight="800" fill="#08799F">D6 / D7</text>
+      <text x="1068" y="502" text-anchor="middle" font-size="13.5" font-weight="800" fill="#0D1B2A">预览 / 播放</text>
+      <text x="1068" y="520" text-anchor="middle" font-size="10" fill="#6B7F94">图片文本 快速预览 · 视频 Range 流式</text>
+      <text x="1068" y="534" text-anchor="middle" font-size="9.5" fill="#9DB2C4">同目录播放列表 · 续播记忆</text>
+    </a>
+
+    <!-- N6 settings -->
+    <a href="desktop_08_settings.html" class="node">
+      <rect x="690" y="586" width="204" height="76" rx="16" fill="#fff" stroke="#BDE7FA" stroke-width="1.5"/>
+      <rect x="690" y="586" width="204" height="22" rx="11" fill="#EAF8FE"/>
+      <text x="704" y="601" font-size="10" font-weight="800" fill="#08799F">D8</text>
+      <text x="792" y="624" text-anchor="middle" font-size="13.5" font-weight="800" fill="#0D1B2A">设置 / 存储源管理</text>
+      <text x="792" y="642" text-anchor="middle" font-size="10" fill="#6B7F94">源 CRUD · 导入导出（无密码）</text>
+      <text x="792" y="656" text-anchor="middle" font-size="9.5" fill="#9DB2C4">数据目录 · 凭据管理 · 关于</text>
+    </a>
+
+    <!-- 底部注释 -->
+    <rect x="40" y="672" width="1200" height="34" rx="10" fill="#F8FBFE" stroke="#E3EBF3"/>
+    <text x="60" y="693" font-size="10.5" fill="#6B7F94">全流程无登录态：从启动到浏览仅经过「空状态 → 向导 → 浏览」三步；凭据写入系统钥匙串（cred:&lt;sourceId&gt;:&lt;type&gt;），配置与密码分离，导出分享不含机密。</text>
+  </svg>
+</div>
+
+</body>
+</html>

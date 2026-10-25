@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D3 · 文件浏览（列表） — OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 24px;color:#0D1B2A}
+.win{width:1180px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3;background:#fff}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.body{display:grid;grid-template-columns:236px 1fr;height:620px}
+/* 侧边栏 */
+.side{border-right:1px solid #E3EBF3;background:#F8FBFE;padding:16px 10px;display:flex;flex-direction:column}
+.sec-t{font-size:10.5px;font-weight:800;color:#9DB2C4;letter-spacing:1px;padding:6px 10px}
+.src{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12.5px;cursor:pointer;color:#42566B}
+.src:hover{background:#EDF6FD}
+.src.on{background:#fff;border:1px solid #BDE7FA;color:#0D1B2A;font-weight:700;box-shadow:0 2px 8px rgba(14,165,233,.10)}
+.src .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:118px}
+.pt{font-size:9px;font-weight:800;border-radius:99px;padding:2px 6px;margin-left:auto;flex:none}
+.pt-local{color:#08799F;background:#EAF8FE}
+.pt-webdav{color:#08799F;background:#EAF8FE}
+.pt-cloud{color:#B7791F;background:#FEF3C7}
+.pt-sftp{color:#0B6B4A;background:#D3F2E6}
+.fav{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:9px;font-size:12px;color:#42566B;cursor:pointer}
+.fav:hover{background:#EDF6FD}
+.side-b{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.addsrc{display:flex;align-items:center;justify-content:center;gap:7px;height:34px;border:1px dashed #B9D8EA;border-radius:9px;color:#08799F;font-size:12px;font-weight:700;cursor:pointer;background:#fff}
+.addsrc:hover{border-color:#38BDF8;background:#F5FBFF}
+.side-row{display:flex;gap:8px}
+.mini{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border:1px solid #E3EBF3;border-radius:9px;background:#fff;font-size:11.5px;font-weight:700;color:#42566B;cursor:pointer;position:relative}
+.mini .bdg{position:absolute;top:-6px;right:-6px;min-width:17px;height:17px;border-radius:99px;background:#0EA5E9;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #F8FBFE}
+/* 主区 */
+.main{display:flex;flex-direction:column;min-width:0}
+.toolbar{height:52px;border-bottom:1px solid #E3EBF3;display:flex;align-items:center;gap:8px;padding:0 14px;background:#fff}
+.ib{width:32px;height:32px;border-radius:8px;border:1px solid #E3EBF3;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#42566B}
+.ib:hover{border-color:#38BDF8;color:#0EA5E9}
+.ib.dis{opacity:.45;cursor:not-allowed}
+.crumb{display:flex;align-items:center;gap:2px;font-size:12.5px;margin-left:4px;min-width:0}
+.crumb .seg{padding:5px 9px;border-radius:7px;cursor:pointer;color:#42566B;white-space:nowrap}
+.crumb .seg:hover{background:#EDF6FD;color:#0D1B2A}
+.crumb .sep{color:#9DB2C4}
+.crumb .cur{font-weight:800;color:#0D1B2A}
+.tb-sp{flex:1}
+.search{display:flex;align-items:center;gap:7px;height:32px;border:1px solid #E3EBF3;border-radius:99px;padding:0 12px;color:#9DB2C4;font-size:11.5px;width:170px;background:#fff}
+.btn{height:32px;border-radius:8px;padding:0 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 4px 12px rgba(56,189,248,.30)}
+.btn-soft{background:#EAF8FE;color:#08799F;border-color:#BDE7FA}
+/* 列表 */
+.list{flex:1;overflow:hidden;background:#fff}
+.lh{display:grid;grid-template-columns:38px 1fr 130px 170px 90px;align-items:center;height:36px;
+border-bottom:1px solid #E3EBF3;font-size:11px;font-weight:800;color:#6B7F94;padding:0 14px;gap:10px}
+.lh .sortable{cursor:pointer;display:flex;align-items:center;gap:4px}
+.lh .sortable:hover{color:#0D1B2A}
+.lr{display:grid;grid-template-columns:38px 1fr 130px 170px 90px;align-items:center;height:44px;padding:0 14px;gap:10px;
+font-size:12.5px;border-bottom:1px solid #F1F6FB;cursor:default}
+.lr:hover{background:#F8FBFE}
+.lr.sel{background:#EAF8FE}
+.lr .nm{display:flex;align-items:center;gap:10px;min-width:0}
+.lr .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mut{color:#6B7F94;font-size:12px}
+.mono{color:#42566B;font-size:12px}
+.cb{width:16px;height:16px;border:1.5px solid #C4D5E4;border-radius:5px;background:#fff}
+.cb.on{background:#0EA5E9;border-color:#0EA5E9;position:relative}
+.cb.on::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+.acts{display:flex;gap:4px;opacity:0}
+.lr:hover .acts,.lr.sel .acts{opacity:1}
+.ia{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#6B7F94;border:1px solid transparent;cursor:pointer}
+.ia:hover{background:#fff;border-color:#E3EBF3;color:#0EA5E9}
+.status{height:34px;border-top:1px solid #E3EBF3;display:flex;align-items:center;gap:14px;padding:0 14px;font-size:11px;color:#6B7F94;background:#F8FBFE}
+.dotg{width:7px;height:7px;border-radius:50%;background:#0E9F6E}
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:5;border:2px solid #fff}
+.legend{margin-top:22px;width:1180px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:330px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest</span>
+    <div class="tb-right"><span class="pill">免账户 · 直连存储</span></div>
+  </div>
+  <div class="body">
+    <!-- 侧边栏：源 -->
+    <div class="side">
+      <div class="hl"><span class="cn" style="top:-4px;left:206px">1</span><div class="sec-t">存储源 / 存储源</div></div>
+      <div class="src"><span class="ic" style="background:#EAF8FE"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg></span><span class="nm">本地磁盘 D:</span><span class="pt pt-local">本地</span></div>
+      <div class="src on"><span class="ic" style="background:#EAF8FE"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg></span><span class="nm">公司 NAS</span><span class="pt pt-webdav">WebDAV</span></div>
+      <div class="src"><span class="ic" style="background:#FFF6E8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg></span><span class="nm">阿里云盘</span><span class="pt pt-cloud">网盘</span></div>
+      <div class="src"><span class="ic" style="background:#E8FBF3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="1.9"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nm">家庭服务器</span><span class="pt pt-sftp">SFTP</span></div>
+
+      <div class="sec-t" style="margin-top:14px">收藏 / 收藏</div>
+      <div class="fav"><svg width="13" height="13" viewBox="0 0 24 24" fill="#F9C25B" stroke="#F9C25B" stroke-width="1.5"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/></svg>NAS / 文档 / 常用</div>
+      <div class="fav"><svg width="13" height="13" viewBox="0 0 24 24" fill="#F9C25B" stroke="#F9C25B" stroke-width="1.5"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-3-5.4 3 1.1-6L3.2 9.4l6.1-.8z"/></svg>阿里云盘 / 相册备份</div>
+
+      <div class="side-b">
+        <div class="addsrc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>添加存储源</div>
+        <div class="side-row">
+          <div class="hl mini"><span class="cn" style="top:-8px;right:-8px;left:auto">6</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg>传输<span class="bdg">2</span></div>
+          <div class="mini"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 3.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 20.4 9H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 2z"/></svg>设置</div>
+        </div>
+      </div>
+    </div>
+    <!-- 主区 -->
+    <div class="main">
+      <div class="toolbar">
+        <div class="ib dis"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg></div>
+        <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg></div>
+        <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></div>
+        <div class="hl crumb">
+          <span class="cn" style="top:26px;left:-30px">2</span>
+          <span class="seg" style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M4 17a4 4 0 0 1 .6-8A6 6 0 0 1 18 10.5 3.5 3.5 0 0 1 17.5 17z"/></svg>公司 NAS</span>
+          <span class="sep">/</span><span class="seg">文档</span>
+          <span class="sep">/</span><span class="seg cur">2026</span>
+        </div>
+        <div class="tb-sp"></div>
+        <div class="search"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>搜索当前目录</div>
+        <div class="hl"><span class="cn" style="top:28px;left:-24px">3</span>
+          <button class="btn btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M12 21V9M7 14l5-5 5 5M4 4h16"/></svg>上传</button></div>
+        <button class="btn btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>新建</button>
+        <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+        <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></div>
+        <div class="ib"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></div>
+      </div>
+
+      <div class="list">
+        <div class="lh">
+          <span></span>
+          <span class="hl sortable"><span class="cn" style="top:16px;left:-30px">4</span>名称 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg></span>
+          <span class="sortable">大小</span>
+          <span class="sortable">修改时间</span>
+          <span class="sortable">类型</span>
+        </div>
+
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#EAF8FE"><svg width="15" height="15" viewBox="0 0 24 24" fill="#38BDF8" stroke="#38BDF8" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>项目交付</span></span>
+          <span class="mut">—</span><span class="mono">2026-10-20 14:02</span><span class="mut">文件夹</span>
+        </div>
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#EAF8FE"><svg width="15" height="15" viewBox="0 0 24 24" fill="#38BDF8" stroke="#38BDF8" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span>财务报表</span></span>
+          <span class="mut">—</span><span class="mono">2026-10-18 09:31</span><span class="mut">文件夹</span>
+        </div>
+        <div class="lr sel">
+          <span class="hl"><span class="cn" style="top:10px;left:9px">5</span><span class="cb on"></span></span>
+          <span class="nm"><span class="ic" style="background:#E8FBF3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="1.9"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg></span><span>年度总结_2026.png</span></span>
+          <span class="mut">2.4 MB</span><span class="mono">2026-10-24 21:15</span><span class="mut">PNG 图片</span>
+        </div>
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#F0EDFF"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span><span>产品发布会.mp4</span></span>
+          <span class="mut">184 MB</span><span class="mono">2026-10-22 16:40</span><span class="mut">视频</span>
+        </div>
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#FFF6E8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.9"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><span>技术方案.docx</span></span>
+          <span class="mut">856 KB</span><span class="mono">2026-10-21 11:07</span><span class="mut">Word 文档</span>
+        </div>
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#EAF8FE"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><path d="M4 8v8h16V8z"/><path d="M4 8l2-3h12l2 3M12 12v.01"/></svg></span><span>源码归档.zip</span></span>
+          <span class="mut">45.2 MB</span><span class="mono">2026-10-19 15:55</span><span class="mut">压缩包</span>
+        </div>
+        <div class="lr">
+          <span></span>
+          <span class="nm"><span class="ic" style="background:#FCE7F3"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EC4899" stroke-width="1.9"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span><span>会议录音.m4a</span></span>
+          <span class="mut">12.8 MB</span><span class="mono">2026-10-17 10:22</span><span class="mut">音频</span>
+        </div>
+      </div>
+
+      <div class="status">
+        <span class="dotg"></span><span>已连接 · 公司 NAS (WebDAV)</span>
+        <span>·</span><span>7 个项目</span>
+        <span>·</span><span>已选 1 项（2.4 MB）</span>
+        <span style="margin-left:auto">列表缓存 5 分钟 · 双击打开 · 空格预览</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>源侧边栏</b>：全部存储源带协议标签；「+ 添加源」常驻；收藏按源隔离。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>面包屑</b>：分段可点击，长按任一段弹出「同级目录」快捷菜单；根节点显示「源名 · 协议」。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>幽灵按钮工具条</b>：白底 1px 描边，与既有设计体系统一；悬停才显示行内操作。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>列头排序</b>：名称/大小/修改时间/类型点击排序，箭头指示方向。</div></div>
+  <div class="lg"><span class="lg-b">5</span><div class="lg-t"><b>多选与行操作</b>：勾选后出现批量操作栏（下载/移动/复制/删除）。</div></div>
+  <div class="lg"><span class="lg-b">6</span><div class="lg-t"><b>传输指示器</b>：角标显示进行中任务数，点击展开传输队列。</div></div>
+</div>
+
+</body>
+</html>
