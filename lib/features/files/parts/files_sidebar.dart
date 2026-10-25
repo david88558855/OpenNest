@@ -65,7 +65,7 @@ class _Sidebar extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: p.card,
                         borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: p.softBorder, style: BorderStyle.solid),
+                        border: Border.all(color: const Color(0xFFBDE7FA), style: BorderStyle.solid),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -154,7 +154,7 @@ class _SourceRow extends StatelessWidget {
               color: active ? p.card : Colors.transparent,
               borderRadius: BorderRadius.circular(9),
               // 常驻 1px 描边：选中/悬停时不会因为多出边框而跳动
-              border: Border.all(color: active ? p.softBorder : Colors.transparent),
+              border: Border.all(color: active ? const Color(0xFFBDE7FA) : Colors.transparent),
             ),
             child: Row(
               children: [
