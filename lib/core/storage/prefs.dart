@@ -187,7 +187,7 @@ class Prefs {
   }
 
   Future<void> setJsonList(String key, List<dynamic> value) async {
-    // 收藏与传输记录已迁移到独立表（FavoriteDao / TransferDao），这里不再落盘。
+    // 传输记录已迁移到独立表（TransferDao），这里不再落盘。
   }
 
   Map<String, dynamic> getJsonMap(String key) {

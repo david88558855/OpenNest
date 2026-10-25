@@ -66,7 +66,6 @@ class _TransferSettings extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text('完成后', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: p.ink4)),
-          _SwitchRow(label: '任务完成通知', value: settings.trayNotify, onChanged: notifier.setTrayNotify),
           _SwitchRow(
             label: '后台保持传输',
             value: settings.backgroundTransfer,

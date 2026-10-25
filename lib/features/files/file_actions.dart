@@ -701,25 +701,13 @@ Future<void> showItemMenu(
   final files = ref.read(filesProvider);
   final profile = ref.read(sessionProvider).profile;
   final path = item.parent ?? joinPath(files.path, item.name);
-  final isFavorite = profile != null && ref.read(favoritesProvider).any((e) => e.serverId == profile.id && e.path == path);
   final targets = (selection != null && selection.length > 1) ? selection : [item];
 
-  OlMenuItem favoriteItem() => OlMenuItem(
-        isFavorite ? '取消收藏' : '收藏',
-        'star',
-        () async {
-          if (profile == null) return;
-          await ref.read(favoritesProvider.notifier).toggle(profile.id, item, files.path);
-          if (context.mounted) olToast(context, isFavorite ? '已取消收藏' : '已加入收藏');
-        },
-      );
-
   final openAction = _openAction(context, ref, item);
-  // v1.0.26：分享功能整体移除，菜单固定为
-  // 打开 / 收藏 / 下载 / 重命名 / 移动 / 复制 / 删除。
+  // v1.0.26：分享功能整体移除；0.5.0：收藏功能整体取消。
+  // 菜单固定为 打开 / 下载 / 重命名 / 移动 / 复制 / 删除。
   final entries = <OlMenuItem>[
     if (openAction != null) openAction,
-    favoriteItem(),
     // v1.0.33：文件夹也提供「下载」—— 走递归下载（含子目录全部文件）。
     OlMenuItem(
       '下载',
@@ -734,7 +722,7 @@ Future<void> showItemMenu(
 
   // A7：Android 用底部操作面板；Windows 用右键浮层。动作集合完全一致。
   if (Platform.isAndroid || context.isNarrow) {
-    const quickLabels = {'播放', '预览', '收藏', '取消收藏', '下载'};
+    const quickLabels = {'播放', '预览', '下载'};
     final quick = entries.where((e) => quickLabels.contains(e.label)).toList();
     await showOlActionSheet(
       context,

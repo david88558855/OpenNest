@@ -69,14 +69,6 @@ class ServerStore {
 
   Future<void> clearDownloadDir(String id) => prefs.remove('ol_srv_${id}_download');
 
-  Future<void> saveFavorites(String id, List<Map<String, dynamic>> items) =>
-      prefs.setJsonList('ol_srv_${id}_favorites', items);
-
-  List<Map<String, dynamic>> readFavorites(String id) {
-    final raw = prefs.getJsonList('ol_srv_${id}_favorites');
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
-  }
-
   Future<void> saveResume(String id, String path, int seconds) async {
     final all = prefs.getJsonMap('ol_srv_${id}_resume');
     all[path] = seconds;

@@ -106,9 +106,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
   Widget build(BuildContext context) {
     final p = context.ol;
     final item = _item;
-    final favorites = ref.watch(favoritesProvider);
-    final profile = ref.watch(sessionProvider).profile;
-    final isFavorite = item != null && favorites.any((e) => e.path == widget.path);
 
     return CallbackShortcuts(
       bindings: {
@@ -154,22 +151,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                     height: 32,
                     fontSize: 12,
                     onTap: item == null ? null : () => downloadItem(context, ref, item),
-                  ),
-                  const SizedBox(width: 8),
-                  OlGhostButton(
-                    label: isFavorite ? '已收藏' : '收藏',
-                    icon: 'star',
-                    height: 32,
-                    fontSize: 12,
-                    onTap: item == null
-                        ? null
-                        : () async {
-                            await ref.read(favoritesProvider.notifier).toggle(
-                                  profile?.id ?? 'local',
-                                  item,
-                                  _parentDir(),
-                                );
-                          },
                   ),
                 ],
               ),

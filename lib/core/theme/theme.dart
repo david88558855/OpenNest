@@ -111,7 +111,7 @@ ThemeData olTheme() {
 
 /// 无转场：直接返回子组件，不淡入、不上滑、不缩放。
 ///
-/// 应用的主导航（文件 / 传输 / 收藏 / 分享 / 设置）都是平级页面，
+/// 应用的主导航（文件 / 传输 / 设置）都是平级页面，
 /// 任何"过渡动作"都会被感知成页面在跳。这里统一关掉，交给系统让新页面立即出现。
 class _NoTransitionBuilder extends PageTransitionsBuilder {
   const _NoTransitionBuilder();

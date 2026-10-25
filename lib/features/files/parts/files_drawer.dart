@@ -16,7 +16,6 @@ class _SourceDrawer extends ConsumerWidget {
     final p = context.ol;
     final state = ref.watch(filesProvider);
     final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
-    final favorites = ref.watch(favoritesProvider);
     return Container(
       decoration: BoxDecoration(
         color: p.card,
@@ -72,21 +71,6 @@ class _SourceDrawer extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                     child: Text('还没有存储源', style: TextStyle(fontSize: 11.5, color: p.ink4)),
-                  ),
-                const SizedBox(height: 8),
-                const _DrawerSection('收藏'),
-                for (final entry in favorites.take(8))
-                  _DrawerFavRow(
-                    entry: entry,
-                    onTap: () {
-                      onClose();
-                      context.go('/files?path=${Uri.encodeComponent(entry.path)}');
-                    },
-                  ),
-                if (favorites.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-                    child: Text('在文件上长按即可收藏', style: TextStyle(fontSize: 11.5, color: p.ink4)),
                   ),
               ],
             ),
@@ -176,39 +160,6 @@ class _DrawerSourceRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: tagBg, borderRadius: BorderRadius.circular(99)),
               child: Text(tag, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: tagFg)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerFavRow extends StatelessWidget {
-  final FavoriteEntry entry;
-  final VoidCallback onTap;
-
-  const _DrawerFavRow({required this.entry, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        margin: const EdgeInsets.only(bottom: 2),
-        child: Row(
-          children: [
-            const OlIcon('star', size: 14, color: Color(0xFFF9C25B), filled: true),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                entry.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, color: p.ink2),
-              ),
             ),
           ],
         ),

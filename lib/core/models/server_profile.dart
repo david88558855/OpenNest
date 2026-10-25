@@ -54,7 +54,6 @@ class ServerProfile {
   String get downloadKey => 'ol_srv_${id}_download';
   String get browseKey => 'ol_srv_${id}_browse';
   String get cacheKey => 'ol_srv_${id}_cache';
-  String get favoritesKey => 'ol_srv_${id}_favorites';
 
   ServerProfile copyWith({
     String? name,

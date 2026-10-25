@@ -12,7 +12,7 @@ import '../../core/storage/secure_store.dart';
 /// 本机会话：不再有账号与登录页，只有「内嵌引擎是否就绪」。
 ///
 /// `profile` 保留下来作为一个稳定的本机身份（id 固定为 `local`），
-/// 浏览位置、下载目录、收藏等按它分桶。
+/// 浏览位置、下载目录等按它分桶。
 class SessionState {
   final ServerProfile? profile;
   final UserInfo? user;

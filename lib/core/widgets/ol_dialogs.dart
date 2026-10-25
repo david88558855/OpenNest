@@ -19,7 +19,7 @@ class OlMenuItem {
 /// A7 · Android 长按操作面板。
 ///
 /// 结构按设计稿：顶部拖拽条 → 「已选择 N 个项目 / 取消」→ 文件行 →
-/// 四个高频动作（播放 / 下载 / 分享 / 收藏）→ 次级动作列表（含删除）。
+/// 高频动作（播放 / 下载）→ 次级动作列表（含删除）。
 /// 桌面端继续用 [showOlMenu] 的右键浮层，两端动作集合一致。
 Future<void> showOlActionSheet(
   BuildContext context, {

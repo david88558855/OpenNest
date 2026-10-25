@@ -284,7 +284,7 @@ class _MobileRow extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
-  /// 右侧三点：打开竖向操作菜单（收藏 / 分享 / 下载 / 移动 / 复制 / 删除）。
+  /// 右侧三点：打开竖向操作菜单（打开 / 下载 / 移动 / 复制 / 删除）。
   final ValueChanged<Offset> onMenu;
 
   const _MobileRow({

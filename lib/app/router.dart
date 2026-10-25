@@ -7,7 +7,6 @@ import '../core/sidecar/sidecar_state.dart';
 import '../core/theme/tokens.dart';
 import '../features/boot/boot_entry.dart';
 import '../features/boot/boot_page.dart';
-import '../features/files/favorites_page.dart';
 import '../features/files/files_page.dart';
 import '../features/media/player_page.dart';
 import '../features/onboarding/onboarding_page.dart';
@@ -89,15 +88,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           );
         },
-      ),
-      GoRoute(
-        path: '/favorites',
-        redirect: (context, state) {
-          final tab = state.uri.queryParameters['tab'];
-          if (tab == 'recent' || tab == 'share') return '/favorites';
-          return null;
-        },
-        pageBuilder: (context, state) => _page(state, const FavoritesPage()),
       ),
       GoRoute(
         path: '/search',

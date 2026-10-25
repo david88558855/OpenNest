@@ -104,7 +104,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       String? sign;
       for (final item in files.items) {
         // 只按完整路径匹配。之前还有 `item.name == _currentName` 兜底，
-        // 从搜索/收藏打开其它目录的同名文件时会取到那份文件的 sign。
+        // 从搜索打开其它目录的同名文件时会取到那份文件的 sign。
         if (joinPath(files.path, item.name) == _currentPath) {
           sign = item.sign;
           break;

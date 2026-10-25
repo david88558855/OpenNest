@@ -16,7 +16,7 @@ import '../../core/sidecar/sidecar_paths.dart';
 /// - `resume_positions` 播放续播位置（按源 + 路径）
 /// - `listing_cache`   离线目录快照（引擎返回的任意结构，按快照整体存放）
 /// - `transfer_tasks`  传输记录（载荷 + 排序键）
-/// - `favorites`       收藏（按源 + 路径唯一）
+/// - `favorites`       旧版收藏表（0.5.0 起功能已取消，表结构保留只为兼容旧库）
 class AppDatabase {
   AppDatabase._();
 
@@ -118,43 +118,5 @@ class TransferDao {
         );
       }
     });
-  }
-}
-
-class FavoriteDao {
-  FavoriteDao._();
-
-  static final FavoriteDao instance = FavoriteDao._();
-
-  Future<List<Map<String, dynamic>>> loadAll() async {
-    final db = await AppDatabase.instance();
-    final rows = await db.query('favorites', orderBy: 'rowid DESC');
-    final result = <Map<String, dynamic>>[];
-    for (final row in rows) {
-      try {
-        final decoded = jsonDecode('${row['payload']}');
-        if (decoded is Map) result.add(Map<String, dynamic>.from(decoded));
-      } catch (_) {}
-    }
-    return result;
-  }
-
-  Future<void> put(String serverId, Map<String, dynamic> payload) async {
-    final db = await AppDatabase.instance();
-    await db.insert(
-      'favorites',
-      {'key': '$serverId|${payload['path']}', 'payload': jsonEncode(payload)},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  Future<void> remove(String serverId, String path) async {
-    final db = await AppDatabase.instance();
-    await db.delete('favorites', where: 'key = ?', whereArgs: ['$serverId|$path']);
-  }
-
-  Future<void> clearAll() async {
-    final db = await AppDatabase.instance();
-    await db.delete('favorites');
   }
 }

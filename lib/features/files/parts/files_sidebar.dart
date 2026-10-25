@@ -1,7 +1,7 @@
 part of '../files_page.dart';
 
 // ---------------------------------------------------------------------------
-// 左侧栏：存储源 + 收藏 + 底部动作（对齐效果图 D3）
+// 左侧栏：存储源 + 底部动作（对齐效果图 D3）
 // ---------------------------------------------------------------------------
 class _Sidebar extends ConsumerWidget {
   const _Sidebar();
@@ -10,7 +10,6 @@ class _Sidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
-    final favorites = ref.watch(favoritesProvider);
     final transfers = ref.watch(transfersProvider);
     final currentPath = ref.watch(filesProvider).path;
 
@@ -38,15 +37,6 @@ class _Sidebar extends ConsumerWidget {
                     source: source,
                     active: currentPath == source.mountPath || currentPath.startsWith('${source.mountPath}/'),
                   ),
-                const SizedBox(height: 14),
-                _SideLabel(text: '收藏'),
-                if (favorites.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-                    child: Text('在文件上右键即可收藏', style: TextStyle(fontSize: 10.5, color: p.ink4)),
-                  ),
-                for (final entry in favorites.take(6))
-                  _FavoriteRow(entry: entry),
               ],
             ),
           ),
@@ -204,41 +194,6 @@ class _SourceRow extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FavoriteRow extends StatelessWidget {
-  final FavoriteEntry entry;
-
-  const _FavoriteRow({required this.entry});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => context.go('/files?path=${Uri.encodeComponent(entry.path)}'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-          child: Row(
-            children: [
-              const OlIcon('star', size: 12, color: Color(0xFFF9C25B), filled: true),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  entry.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: p.ink2),
-                ),
-              ),
-            ],
           ),
         ),
       ),

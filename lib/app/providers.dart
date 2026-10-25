@@ -10,7 +10,7 @@ import '../features/auth/session.dart';
 import '../features/files/files_controller.dart';
 import '../features/transfers/transfers_controller.dart';
 
-/// 本机引擎的固定身份：浏览位置、下载目录、收藏都按它分桶。
+/// 本机引擎的固定身份：浏览位置、下载目录都按它分桶。
 const String kLocalSourceId = 'local';
 
 final prefsProvider = Provider<Prefs>((ref) => throw UnimplementedError('prefs overridden in main'));
@@ -33,10 +33,6 @@ final appSettingsProvider = StateNotifierProvider<AppSettingsNotifier, AppSettin
   return AppSettingsNotifier(ref.watch(prefsProvider));
 });
 
-final favoritesProvider = StateNotifierProvider<FavoritesNotifier, List<FavoriteEntry>>((ref) {
-  return FavoritesNotifier(ref.watch(serverStoreProvider));
-});
-
 /// Read-only admin surface (decision A): mount health and capacity only.
 final storagesProvider = FutureProvider<List<StorageMount>>((ref) async {
   final session = ref.watch(sessionProvider);
@@ -54,7 +50,6 @@ class AppSettings {
   final int downLimitKbps;
   final int upLimitKbps;
   final bool closeToTray;
-  final bool trayNotify;
   final bool resumePlayback;
   final bool autoPlayNext;
   final bool pauseOnSwitch;
@@ -68,7 +63,6 @@ class AppSettings {
     this.downLimitKbps = 0,
     this.upLimitKbps = 0,
     this.closeToTray = true,
-    this.trayNotify = true,
     this.resumePlayback = true,
     this.autoPlayNext = true,
     this.pauseOnSwitch = true,
@@ -83,7 +77,6 @@ class AppSettings {
     int? downLimitKbps,
     int? upLimitKbps,
     bool? closeToTray,
-    bool? trayNotify,
     bool? resumePlayback,
     bool? autoPlayNext,
     bool? pauseOnSwitch,
@@ -97,7 +90,6 @@ class AppSettings {
         downLimitKbps: downLimitKbps ?? this.downLimitKbps,
         upLimitKbps: upLimitKbps ?? this.upLimitKbps,
         closeToTray: closeToTray ?? this.closeToTray,
-        trayNotify: trayNotify ?? this.trayNotify,
         resumePlayback: resumePlayback ?? this.resumePlayback,
         autoPlayNext: autoPlayNext ?? this.autoPlayNext,
         pauseOnSwitch: pauseOnSwitch ?? this.pauseOnSwitch,
@@ -112,7 +104,6 @@ class AppSettings {
         'down_limit_kbps': downLimitKbps,
         'up_limit_kbps': upLimitKbps,
         'close_to_tray': closeToTray,
-        'tray_notify': trayNotify,
         'resume_playback': resumePlayback,
         'autoplay_next': autoPlayNext,
         'pause_on_switch': pauseOnSwitch,
@@ -135,7 +126,6 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
         downLimitKbps: (raw['down_limit_kbps'] as num?)?.toInt() ?? 0,
         upLimitKbps: (raw['up_limit_kbps'] as num?)?.toInt() ?? 0,
         closeToTray: raw['close_to_tray'] as bool? ?? true,
-        trayNotify: raw['tray_notify'] as bool? ?? true,
         resumePlayback: raw['resume_playback'] as bool? ?? true,
         autoPlayNext: raw['autoplay_next'] as bool? ?? true,
         pauseOnSwitch: raw['pause_on_switch'] as bool? ?? true,
@@ -166,11 +156,6 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   void setCloseToTray(bool value) {
     state = state.copyWith(closeToTray: value);
-    _persist();
-  }
-
-  void setTrayNotify(bool value) {
-    state = state.copyWith(trayNotify: value);
     _persist();
   }
 
@@ -206,112 +191,5 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   void rememberLatency(int ms) {
     state = state.copyWith(lastLatency: ms);
-  }
-}
-
-class FavoriteEntry {
-  final String serverId;
-  final String path;
-  final String name;
-  final bool isDir;
-  final int size;
-  final DateTime addedAt;
-
-  const FavoriteEntry({
-    required this.serverId,
-    required this.path,
-    required this.name,
-    required this.isDir,
-    this.size = 0,
-    required this.addedAt,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'path': path,
-        'name': name,
-        'is_dir': isDir,
-        'size': size,
-        'added_at': addedAt.toIso8601String(),
-      };
-
-  factory FavoriteEntry.fromJson(String serverId, Map<String, dynamic> j) => FavoriteEntry(
-        serverId: serverId,
-        path: (j['path'] ?? '').toString(),
-        name: (j['name'] ?? '').toString(),
-        isDir: j['is_dir'] == true,
-        size: (j['size'] as num?)?.toInt() ?? 0,
-        addedAt: DateTime.tryParse((j['added_at'] ?? '').toString()) ?? DateTime.now(),
-      );
-
-  FileItem toItem() => FileItem(
-        name: name,
-        size: size,
-        isDir: isDir,
-        parent: path.contains('/') ? path.substring(0, path.lastIndexOf('/')) : '/',
-      );
-}
-
-class FavoritesNotifier extends StateNotifier<List<FavoriteEntry>> {
-  final ServerStore _store;
-
-  FavoritesNotifier(this._store) : super(const []) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final rows = await FavoriteDao.instance.loadAll();
-      final entries = <FavoriteEntry>[];
-      for (final raw in rows) {
-        final entry = FavoriteEntry.fromJson(kLocalSourceId, raw);
-        if (entry.path.isNotEmpty) entries.add(entry);
-      }
-      if (mounted) state = entries;
-    } catch (_) {
-      // 数据库不可用时保持空列表，不影响浏览
-    }
-  }
-
-  List<FavoriteEntry> forServer(String? serverId) =>
-      state.where((e) => e.serverId == serverId).toList();
-
-  bool isFavorite(String? serverId, String path) =>
-      state.any((e) => e.serverId == serverId && e.path == path);
-
-  Future<void> toggle(String serverId, FileItem item, String dir) async {
-    final fullPath = item.parent ?? (dir == '/' ? '/${item.name}' : '$dir/${item.name}');
-    final exists = state.any((e) => e.serverId == serverId && e.path == fullPath);
-    List<FavoriteEntry> next;
-    if (exists) {
-      next = state.where((e) => !(e.serverId == serverId && e.path == fullPath)).toList();
-    } else {
-      next = [
-        ...state,
-        FavoriteEntry(
-          serverId: serverId,
-          path: fullPath,
-          name: item.name,
-          isDir: item.isDir,
-          size: item.size,
-          addedAt: DateTime.now(),
-        ),
-      ];
-    }
-    state = next;
-    try {
-      if (exists) {
-        await FavoriteDao.instance.remove(serverId, fullPath);
-      } else {
-        await FavoriteDao.instance.put(serverId, next.last.toJson());
-      }
-    } catch (_) {}
-  }
-
-  Future<void> removeEntry(FavoriteEntry entry) async {
-    final next = state.where((e) => !(e.serverId == entry.serverId && e.path == entry.path)).toList();
-    state = next;
-    try {
-      await FavoriteDao.instance.remove(entry.serverId, entry.path);
-    } catch (_) {}
   }
 }
