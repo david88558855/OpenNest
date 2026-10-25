@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/secure_store.dart';
+import 'sidecar_factory.dart';
 import 'sidecar_manager.dart';
 import 'sidecar_paths.dart';
 import 'sidecar_state.dart';

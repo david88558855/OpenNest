@@ -77,12 +77,28 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      - name: 下载内嵌引擎（Android arm64 lite）
+        run: bash tool/fetch_openlist.sh android
+
       - name: flutter analyze（提示性）
         continue-on-error: true
         run: flutter analyze
 
       - name: 构建 APK
         run: bash tool/ci_build_android.sh
+
+      - name: 校验 APK 内含引擎
+        run: |
+          set -e
+          apk=$(ls dist/*.apk | head -1)
+          echo "APK: $apk"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libopenlist.so" || { echo "FAIL: APK 内缺少 libopenlist.so"; exit 1; }
+          echo "OK: APK 含 lib/arm64-v8a/libopenlist.so"
+          if command -v llvm-readelf >/dev/null 2>&1; then
+            echo "== 程序头对齐（16KB 页要求 Align >= 0x4000）=="
+            unzip -p "$apk" lib/arm64-v8a/libopenlist.so > /tmp/libopenlist.so
+            llvm-readelf -l /tmp/libopenlist.so | awk '/LOAD/ {print "  " $0}'
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

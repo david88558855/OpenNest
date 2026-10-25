@@ -26,6 +26,20 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         resConfigs "zh", "en"
+        // 内嵌引擎以 arm64 原生库形式随包分发，其它 ABI 一并裁掉。
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    // 引擎二进制放进 jniLibs 后由系统解压到 nativeLibraryDir（可执行目录）。
+    // useLegacyPackaging 必须为 true：否则 AGP 不压缩也不解压，.so 留在 APK 内，
+    // nativeLibraryDir 里没有实体文件，Process.start 直接失败。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+            keepDebugSymbols.add("**/libopenlist.so")
+        }
     }
 
     buildTypes {

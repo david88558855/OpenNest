@@ -10,15 +10,21 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * 文件访问权限桥：Android 11+ 写公共下载目录需要 MANAGE_EXTERNAL_STORAGE，
- * 这里只做「查询 + 跳转系统授权页」，真正的读写仍走 SAF/文件 API。
+ * 两条原生通道：
+ * - storage：公共下载目录的「所有文件访问」授权查询与跳转；
+ * - sidecar：内嵌引擎的启动与停止。
+ *
+ * 注意：不在 onDestroy 里停引擎——配置变更也会触发它；进程被杀后引擎会成为
+ * 孤儿进程，下次启动由 Dart 侧的端口文件 + 健康检查复用，不会重复拉起。
  */
 class MainActivity : FlutterActivity() {
-    private val channelName = "com.opennest.app/storage"
+    private val storageChannel = "com.opennest.app/storage"
+    private val sidecarChannel = "com.opennest.app/sidecar"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, storageChannel)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "hasAllFilesAccess" -> result.success(hasAllFilesAccess())
@@ -28,6 +34,11 @@ class MainActivity : FlutterActivity() {
                     }
                     else -> result.notImplemented()
                 }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, sidecarChannel)
+            .setMethodCallHandler { call, result ->
+                SidecarBridge.handle(this, call, result)
             }
     }
 

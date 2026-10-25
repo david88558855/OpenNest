@@ -46,30 +46,6 @@ abstract class SidecarManager {
   bool get isRunning;
 }
 
-SidecarManager createSidecarManager(SecureStore secure, {void Function()? onExit}) {
-  if (Platform.isAndroid) return AndroidSidecarManager();
-  return DesktopSidecarManager(secure, onExit: onExit);
-}
-
-/// 移动端实现由原生桥提供（下一阶段接入）；在此之前保持可编译并给出明确提示。
-class AndroidSidecarManager implements SidecarManager {
-  @override
-  bool get isRunning => false;
-
-  @override
-  Future<SidecarLaunch> start({void Function(String step)? onStep}) async {
-    throw SidecarException('移动端引擎尚未接入，请使用 Windows 版。');
-  }
-
-  @override
-  Future<void> stop() async {}
-
-  @override
-  Future<SidecarLaunch> relogin() async {
-    throw SidecarException('移动端引擎尚未接入，请使用 Windows 版。');
-  }
-}
-
 /// 桌面实现：守护 `openlist server` 子进程。
 class DesktopSidecarManager implements SidecarManager {
   DesktopSidecarManager(this._secure, {this.onExit});
