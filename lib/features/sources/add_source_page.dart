@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
+import '../../core/i18n/zh.dart';
 import '../../core/models/driver_schema.dart';
 import '../../core/models/storage_source.dart';
 import '../../core/theme/tokens.dart';
@@ -87,7 +88,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       }
     }
     if (_nameCtrl.text.trim().isEmpty) {
-      _nameCtrl.text = info.name;
+      _nameCtrl.text = driverLabel(info.name);
     }
   }
 
@@ -106,7 +107,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
               ? (_selects[item.name] ?? '')
               : (_ctrls[item.name]?.text ?? '');
       if (value.trim().isEmpty) {
-        setState(() => _error = '「${item.name}」为必填项');
+        setState(() => _error = '「${fieldLabel(item.name)}」为必填项');
         return;
       }
     }
@@ -276,7 +277,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          info.name,
+                          driverLabel(info.name),
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: p.ink),
                         ),
                       ),
@@ -297,7 +298,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('连接 ${info.name}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: p.ink)),
+        Text('连接${driverLabel(info.name)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: p.ink)),
         const SizedBox(height: 6),
         Text(
           '字段由驱动自身定义生成，共 ${info.additional.length} 项',
@@ -382,16 +383,16 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   Widget _buildItem(DriverItem item) {
     if (item.isBool) {
       return _SwitchField(
-        label: item.name,
-        help: item.help,
+        label: fieldLabel(item.name),
+        help: fieldHelp(item.help),
         value: _bools[item.name] ?? false,
         onChanged: (value) => setState(() => _bools[item.name] = value),
       );
     }
     if (item.isSelect) {
       return _SelectField(
-        label: item.name,
-        help: item.help,
+        label: fieldLabel(item.name),
+        help: fieldHelp(item.help),
         value: _selects[item.name] ?? (item.options.isEmpty ? '' : item.options.first),
         options: item.options,
         onChanged: (value) => setState(() => _selects[item.name] = value),
@@ -400,10 +401,10 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     final controller = _ctrls[item.name];
     if (controller == null) return const SizedBox.shrink();
     return _textField(
-      label: item.name,
+      label: fieldLabel(item.name),
       required: item.required,
       controller: controller,
-      hint: item.help,
+      hint: fieldHelp(item.help),
       secret: item.isSecret,
       multiline: item.isMultiline,
       keyboardType: item.isNumber ? TextInputType.number : null,
@@ -527,7 +528,7 @@ class _DriverRow extends StatelessWidget {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    name,
+                    driverLabel(name),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -573,7 +574,7 @@ class _MobileDriverCard extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  name,
+                  driverLabel(name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p.ink),
@@ -736,7 +737,7 @@ class _SelectField extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    value,
+                    optionLabel(value),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: p.ink),
@@ -796,7 +797,7 @@ class _OptionDialog extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                option,
+                                optionLabel(option),
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: option == current ? FontWeight.w700 : FontWeight.w500,

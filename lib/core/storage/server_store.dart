@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../models/server_profile.dart';
 import 'prefs.dart';
 
@@ -105,40 +103,15 @@ class ServerStore {
   Future<void> cacheListing(String id, String path, List<Map<String, dynamic>> items) async {
     final key = 'ol_srv_${id}_cache|$path';
     final map = <String, dynamic>{'items': items, 'at': DateTime.now().toIso8601String()};
+    // 淘汰逻辑已下沉到 Prefs（listing_cache 按时间序保留最近 24 个目录）。
     await prefs.setJsonMap(key, map);
-    await _touchCacheIndex(key, jsonEncode(map).length);
   }
 
   Map<String, dynamic> readCachedListing(String id, String path) =>
       prefs.getJsonMap('ol_srv_${id}_cache|$path');
 
-  /// 维护 LRU 索引：把 [key] 提到队尾，再从队首淘汰超额条目。
-  Future<void> _touchCacheIndex(String key, int bytes) async {
-    final entries = <Map<String, dynamic>>[];
-    for (final raw in prefs.getJsonList(keyCacheIndex)) {
-      if (raw is! Map) continue;
-      final k = raw['k'];
-      if (k is! String || k.isEmpty || k == key) continue;
-      final n = raw['n'];
-      entries.add({'k': k, 'n': n is num ? n.toInt() : 0});
-    }
-    entries.add({'k': key, 'n': bytes});
-
-    var total = entries.fold<int>(0, (sum, e) => sum + ((e['n'] as int?) ?? 0));
-    while (entries.length > cacheMaxEntries || (total > cacheMaxBytes && entries.length > 1)) {
-      final evicted = entries.removeAt(0);
-      total -= (evicted['n'] as int?) ?? 0;
-      final victim = evicted['k'];
-      if (victim is String) await prefs.remove(victim);
-    }
-    await prefs.setJsonList(keyCacheIndex, entries);
-  }
-
   /// 清空全部离线目录缓存（设置里的「清除缓存」/ 退出登录时调用）。
   Future<void> clearListingCache() async {
-    for (final raw in prefs.getJsonList(keyCacheIndex)) {
-      if (raw is Map && raw['k'] is String) await prefs.remove(raw['k'] as String);
-    }
-    await prefs.remove(keyCacheIndex);
+    await prefs.clearListingCache();
   }
 }

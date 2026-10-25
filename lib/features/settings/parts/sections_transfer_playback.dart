@@ -171,7 +171,7 @@ class _PlaybackSection extends ConsumerWidget {
               _Row(
                 icon: 'film',
                 title: '优先直连播放',
-                subtitle: 'Range 直读，不落地缓存',
+                subtitle: '边下边播，不落地缓存',
                 trailing: Text('固定', style: TextStyle(fontSize: 9.5, color: context.ol.ink4)),
               ),
             ],

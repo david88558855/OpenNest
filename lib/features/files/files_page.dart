@@ -10,6 +10,7 @@ import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
 import '../../core/format.dart';
+import '../../core/i18n/zh.dart';
 import '../../core/models/api_types.dart';
 import '../../core/models/storage_source.dart';
 import '../../core/theme/tokens.dart';

@@ -1,285 +1,437 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 
-/// Key/value store.
+import '../../data/db/app_database.dart';
+import '../sidecar/sidecar_paths.dart';
+
+/// 本地偏好存储（单一 SQLite）。
 ///
-/// v1.0.20 起 Windows 走**真正的便携存储**，v1.0.29 起配置来源唯一化：
-///   - 权威文件：`<主程序目录>/userdata/prefs.json`（相对 exe 解析，
-///     整个目录拷走/搬走，配置跟着走）；
-///   - **唯一判定依据**：仅当主程序目录下存在 prefs.json 才加载使用；
-///     目录下没有该文件即视为无配置（**不从旧版 / 系统用户目录移植任何数据**）；
-///   - 所有读写都在内存 Map 上完成，写操作合并后 250ms 落盘（tmp → rename 原子写），
-///     进程退出前 `flush()` 保证最后一次写入不丢；
-///   - 主程序目录不可写（例如装在 Program Files）时退到
-///     `%LOCALAPPDATA%/OpenNest/userdata/prefs.json`。
+/// 历史实现是 `userdata/prefs.json` 便携文件 + 原子写；现在全部并入
+/// `userdata/opennest.db`，按数据形状拆表：
 ///
-/// 其它平台（Android）仍然用 SharedPreferences，行为不变。
+/// | 数据 | 表 |
+/// |---|---|
+/// | 标量偏好、`ol_prefs` 的每个字段 | `settings(key, value, kind)` |
+/// | 每个源的浏览位置/排序 | `ui_state` |
+/// | 每个源的下载目录 | `download_dirs` |
+/// | 播放续播位置 | `resume_positions` |
+/// | 离线目录快照 | `listing_cache` |
 ///
-/// 键名沿用固定约定：ol_servers_index / ol_active_server_id / ol_srv_<id>_* /
-/// ol_prefs / ol_transfers。密钥（密码 / Token）永远不进这个文件，只在系统安全存储。
+/// 对外 API 保持不变（同步读、异步写、250ms 合并落库），调用方无需改动。
 class Prefs {
-  final Map<String, Object?> _data;
-  final File? _file;
-  final SharedPreferences? _sp;
-  Timer? _flushTimer;
-  bool _dirty = false;
+  Prefs._(this._db, this._path);
 
-  /// 落盘互斥：同一时刻只允许一路写 `.tmp`（见 `_flushNow`）。
+  static const _keyPrefs = 'ol_prefs';
+  static const _cacheMaxEntries = 24;
+
+  final Database _db;
+  final String _path;
+
+  final Map<String, _Setting> _settings = {};
+  final Map<String, Map<String, String>> _browse = {};
+  final Map<String, String> _downloads = {};
+  final Map<String, Map<String, int>> _resume = {};
+  final Map<String, Map<String, dynamic>> _cache = {};
+
+  final Set<String> _dirtySettings = {};
+  final Set<String> _dirtyBrowse = {};
+  final Set<String> _dirtyDownloads = {};
+  final Set<String> _dirtyResume = {};
+  final Set<String> _dirtyCache = {};
+  final Set<String> _deletedCache = {};
+
+  Timer? _timer;
   bool _flushing = false;
   bool _pending = false;
 
-  Prefs._file(this._data, this._file) : _sp = null;
-  Prefs._sp(this._sp)
-      : _data = <String, Object?>{},
-        _file = null;
+  /// 单一数据库固定落在程序目录，恒为便携模式。
+  bool get isPortable => true;
 
-  /// 便携存储是否生效（Windows 且拿到了可写路径）。
-  bool get isPortable => _file != null;
-
-  /// 数据文件位置，设置页展示用。
-  String get storagePath => _file?.path ?? '系统存储（SharedPreferences）';
+  String get storagePath => _path;
 
   static Future<Prefs> load() async {
-    if (!Platform.isWindows) {
-      final sp = await SharedPreferences.getInstance();
-      return Prefs._sp(sp);
-    }
-    final file = _portablePath();
-    if (file == null) {
-      // 程序目录不可写（极端情况）：退回系统存储，至少不让数据只停留在内存里。
-      debugPrint('prefs: no writable portable dir, falling back to shared_preferences');
-      final sp = await SharedPreferences.getInstance();
-      return Prefs._sp(sp);
-    }
-    final data = <String, Object?>{};
+    final db = await AppDatabase.instance();
+    final prefs = Prefs._(db, await AppDatabase.filePath());
+    await prefs._hydrate();
+    return prefs;
+  }
 
-    // v1.0.29：配置的唯一判定依据是「主程序目录下是否存在 prefs.json」。
-    // 只读这个文件；不再从旧版 / 系统用户目录（SharedPreferences）移植任何数据。
-    // 目录下没有该文件就当作无配置，运行时把首次改动写回该文件。
-    if (file.existsSync()) {
+  Future<void> _hydrate() async {
+    final settings = await _db.query('settings');
+    for (final row in settings) {
+      _settings['${row['key']}'] = _Setting('${row['value']}', '${row['kind']}');
+    }
+    final browse = await _db.query('ui_state');
+    for (final row in browse) {
+      _browse['${row['source_id']}'] = {
+        'path': '${row['path']}',
+        'order_by': '${row['order_by']}',
+        'order_direction': '${row['order_direction']}',
+        'saved_at': '${row['saved_at']}',
+      };
+    }
+    final downloads = await _db.query('download_dirs');
+    for (final row in downloads) {
+      _downloads['${row['source_id']}'] = '${row['dir']}';
+    }
+    final resume = await _db.query('resume_positions');
+    for (final row in resume) {
+      _resume.putIfAbsent('${row['source_id']}', () => {})['${row['path']}'] =
+          (row['seconds'] as num?)?.toInt() ?? 0;
+    }
+    final cache = await _db.query('listing_cache', orderBy: 'updated_at DESC', limit: _cacheMaxEntries);
+    for (final row in cache) {
       try {
-        final decoded = jsonDecode(await file.readAsString());
+        final decoded = jsonDecode('${row['payload']}');
         if (decoded is Map) {
-          decoded.forEach((k, v) => data[k.toString()] = v);
+          _cache['${row['key']}'] = Map<String, dynamic>.from(decoded);
         }
-      } catch (error) {
-        // 文件损坏：备份现场并视为无配置（不静默清空，也绝不从别处移植）
-        try {
-          await file.rename('${file.path}.bak');
-        } catch (_) {}
-        debugPrint('prefs: portable file corrupt, backed up ($error)');
-      }
+      } catch (_) {}
     }
-
-    return Prefs._file(data, file);
   }
 
-  /// `<主程序目录>/userdata/prefs.json`，不可写时退到 LOCALAPPDATA。
-  ///
-  /// 用 `Platform.resolvedExecutable` 的父目录解析——不依赖当前工作目录，
-  /// 从快捷方式、任务栏、命令行任意方式启动都指向同一个位置。
-  static File? _portablePath() {
-    final sep = Platform.pathSeparator;
-    try {
-      final exeDir = File(Platform.resolvedExecutable).parent;
-      final dir = Directory('${exeDir.path}${sep}userdata');
-      if (!dir.existsSync()) dir.createSync(recursive: true);
-      return File('${dir.path}${sep}prefs.json');
-    } catch (error) {
-      debugPrint('prefs: exe dir not writable, falling back ($error)');
-    }
-    final local = Platform.environment['LOCALAPPDATA'];
-    if (local != null && local.isNotEmpty) {
-      final dir = Directory('$local${sep}OpenNest${sep}userdata');
-      try {
-        if (!dir.existsSync()) dir.createSync(recursive: true);
-        return File('${dir.path}${sep}prefs.json');
-      } catch (error) {
-        debugPrint('prefs: LOCALAPPDATA not writable ($error)');
-      }
-    }
-    return null;
-  }
-
-  // ------------------------------------------------------------------ 读写
-
-  Object? _read(String key) {
-    final sp = _sp;
-    if (sp != null) return sp.get(key);
-    return _data[key];
-  }
-
-  /// 写入标量。
-  ///
-  /// v1.0.23：只有 `setString/setBool/setInt/setDouble` 会走到这里（JSON 结构
-  /// 由 `setJsonList/setJsonMap` 先编码成 String）。之前保留了一个 List 分支，
-  /// 在 SharedPreferences 侧会把元素强制字符串化，两端行为不一致——已删除，
-  /// 遇到非标量直接忽略并留日志，不再静默写出"看起来成功"的脏数据。
-  Future<void> _write(String key, Object? value) async {
-    final sp = _sp;
-    if (sp != null) {
-      if (value is String) {
-        await sp.setString(key, value);
-      } else if (value is bool) {
-        await sp.setBool(key, value);
-      } else if (value is int) {
-        await sp.setInt(key, value);
-      } else if (value is double) {
-        await sp.setDouble(key, value);
-      } else {
-        debugPrint('prefs: unsupported value type for $key (${value.runtimeType})');
-      }
-      return;
-    }
-    _data[key] = value;
-    _schedule();
-  }
-
-  Future<void> _remove(String key) async {
-    final sp = _sp;
-    if (sp != null) {
-      await sp.remove(key);
-      return;
-    }
-    _data.remove(key);
-    _schedule();
-  }
+  // ------------------------------------------------------------- 标量读写
 
   String? getString(String key) {
-    final value = _read(key);
-    return value is String ? value : null;
+    final downloadId = _downloadIdOf(key);
+    if (downloadId != null) return _downloads[downloadId];
+    return _settings[key]?.value;
   }
 
   bool getBool(String key, {bool fallback = false}) {
-    final value = _read(key);
-    return value is bool ? value : fallback;
+    final value = _settings[key]?.value;
+    if (value == null) return fallback;
+    return value == 'true' || value == '1';
   }
 
   int getInt(String key, {int fallback = 0}) {
-    final value = _read(key);
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return fallback;
+    final value = _settings[key]?.value;
+    if (value == null) return fallback;
+    return int.tryParse(value) ?? fallback;
   }
 
   double getDouble(String key, {double fallback = 0}) {
-    final value = _read(key);
-    if (value is num) return value.toDouble();
-    return fallback;
+    final value = _settings[key]?.value;
+    if (value == null) return fallback;
+    return double.tryParse(value) ?? fallback;
   }
 
-  Future<void> setString(String key, String value) => _write(key, value);
-  Future<void> setBool(String key, bool value) => _write(key, value);
-  Future<void> setInt(String key, int value) => _write(key, value);
-  Future<void> setDouble(String key, double value) => _write(key, value);
-  Future<void> remove(String key) => _remove(key);
+  Future<void> setString(String key, String value) async {
+    final downloadId = _downloadIdOf(key);
+    if (downloadId != null) {
+      _downloads[downloadId] = value;
+      _dirtyDownloads.add(downloadId);
+      _schedule();
+      return;
+    }
+    _putSetting(key, value, 'string');
+  }
+
+  Future<void> setBool(String key, bool value) async => _putSetting(key, value ? 'true' : 'false', 'bool');
+
+  Future<void> setInt(String key, int value) async => _putSetting(key, '$value', 'int');
+
+  Future<void> setDouble(String key, double value) async => _putSetting(key, '$value', 'double');
+
+  void _putSetting(String key, String value, String kind) {
+    _settings[key] = _Setting(value, kind);
+    _dirtySettings.add(key);
+    _schedule();
+  }
+
+  Future<void> remove(String key) async {
+    final downloadId = _downloadIdOf(key);
+    if (downloadId != null) {
+      _downloads.remove(downloadId);
+      _dirtyDownloads.add(downloadId);
+      _schedule();
+      return;
+    }
+    final browseId = _sourceIdOf(key, '_browse');
+    if (browseId != null) {
+      _browse.remove(browseId);
+      _dirtyBrowse.add(browseId);
+      _schedule();
+      return;
+    }
+    final resumeId = _sourceIdOf(key, '_resume');
+    if (resumeId != null) {
+      _resume.remove(resumeId);
+      _dirtyResume.add(resumeId);
+      _schedule();
+      return;
+    }
+    if (_isCacheKey(key)) {
+      _cache.remove(key);
+      _deletedCache.add(key);
+      _schedule();
+      return;
+    }
+    if (key == 'ol_cache_index') {
+      await clearListingCache();
+      return;
+    }
+    if (_settings.remove(key) != null) {
+      _dirtySettings.add(key);
+      _schedule();
+    }
+  }
+
+  // ------------------------------------------------------- 结构化偏好读写
 
   List<dynamic> getJsonList(String key) {
-    final raw = getString(key);
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is List) return decoded;
-    } catch (_) {
-      return const [];
-    }
+    // 目录缓存的 LRU 索引已由 `listing_cache` 表的时间序替代。
     return const [];
   }
 
-  Future<void> setJsonList(String key, List<dynamic> value) => setString(key, jsonEncode(value));
+  Future<void> setJsonList(String key, List<dynamic> value) async {
+    // 收藏与传输记录已迁移到独立表（FavoriteDao / TransferDao），这里不再落盘。
+  }
 
   Map<String, dynamic> getJsonMap(String key) {
-    final raw = getString(key);
-    if (raw == null || raw.isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {
-      return const {};
+    if (key == _keyPrefs) {
+      final map = <String, dynamic>{};
+      for (final entry in _settings.entries) {
+        if (!entry.key.startsWith('app.')) continue;
+        map[entry.key.substring(4)] = _decode(entry.value);
+      }
+      return map;
     }
+    final browseId = _sourceIdOf(key, '_browse');
+    if (browseId != null) return Map<String, dynamic>.from(_browse[browseId] ?? const {});
+    final resumeId = _sourceIdOf(key, '_resume');
+    if (resumeId != null) {
+      final positions = _resume[resumeId];
+      if (positions == null) return <String, dynamic>{};
+      return positions.map((k, v) => MapEntry<String, dynamic>(k, v));
+    }
+    if (_isCacheKey(key)) return Map<String, dynamic>.from(_cache[key] ?? const {});
     return const {};
   }
 
-  Future<void> setJsonMap(String key, Map<String, dynamic> value) => setString(key, jsonEncode(value));
+  Future<void> setJsonMap(String key, Map<String, dynamic> value) async {
+    if (key == _keyPrefs) {
+      // 逐字段拆成标量，保留真实类型。
+      final keep = <String>{};
+      for (final entry in value.entries) {
+        final name = 'app.${entry.key}';
+        keep.add(name);
+        final raw = entry.value;
+        if (raw is bool) {
+          _settings[name] = _Setting(raw ? 'true' : 'false', 'bool');
+        } else if (raw is int) {
+          _settings[name] = _Setting('$raw', 'int');
+        } else if (raw is double) {
+          _settings[name] = _Setting('$raw', 'double');
+        } else if (raw != null) {
+          _settings[name] = _Setting('$raw', 'string');
+        }
+        _dirtySettings.add(name);
+      }
+      final stale = _settings.keys.where((k) => k.startsWith('app.') && !keep.contains(k)).toList();
+      for (final name in stale) {
+        _settings.remove(name);
+        _dirtySettings.add(name);
+      }
+      _schedule();
+      return;
+    }
 
-  // ------------------------------------------------------------------ 落盘
+    final browseId = _sourceIdOf(key, '_browse');
+    if (browseId != null) {
+      _browse[browseId] = {
+        'path': '${value['path'] ?? '/'}',
+        'order_by': '${value['order_by'] ?? 'name'}',
+        'order_direction': '${value['order_direction'] ?? 'asc'}',
+        'saved_at': '${value['saved_at'] ?? DateTime.now().toIso8601String()}',
+      };
+      _dirtyBrowse.add(browseId);
+      _schedule();
+      return;
+    }
+
+    final resumeId = _sourceIdOf(key, '_resume');
+    if (resumeId != null) {
+      final map = <String, int>{};
+      value.forEach((k, v) {
+        if (v is num) map[k] = v.toInt();
+      });
+      _resume[resumeId] = map;
+      _dirtyResume.add(resumeId);
+      _schedule();
+      return;
+    }
+
+    if (_isCacheKey(key)) {
+      _cache[key] = Map<String, dynamic>.from(value);
+      _dirtyCache.add(key);
+      _schedule();
+    }
+  }
+
+  /// 清空离线目录缓存（设置页与切换源时调用）。
+  Future<void> clearListingCache() async {
+    _cache.clear();
+    _dirtyCache.clear();
+    _deletedCache.add('*');
+    await flush();
+  }
+
+  // ------------------------------------------------------------- 落库
 
   void _schedule() {
-    if (_file == null) return;
-    _dirty = true;
-    _flushTimer?.cancel();
-    _flushTimer = Timer(const Duration(milliseconds: 250), () {
-      _flushNow();
-    });
+    _timer?.cancel();
+    _timer = Timer(const Duration(milliseconds: 250), () => flush());
   }
 
-  /// 立即落盘（退出前调用，保证最后一次写入不丢）。
   Future<void> flush() async {
-    _flushTimer?.cancel();
-    _flushTimer = null;
-    await _flushNow(force: true);
-  }
-
-  /// 落盘。
-  ///
-  /// 两条硬约束（审查发现的问题，v1.0.21）：
-  ///   1. **互斥**：定时器回调与 `flush()` 可能同时进来，两路写同一个 `.tmp`
-  ///      会产出半截 JSON。这里用 `_flushing` + `_pending` 串行化，同一时刻只有一路在写。
-  ///   2. **可回滚的原子替换**：旧文件先改名成 `.bak` 再让 `.tmp` 就位（不是先删后改名），
-  ///      替换失败还能把 `.bak` 还原回去，避免"目标已删、新文件没就位"导致的配置全丢。
-  Future<void> _flushNow({bool force = false}) async {
-    final file = _file;
-    if (file == null) return;
-    if (!_dirty && !force) return;
+    _timer?.cancel();
+    _timer = null;
     if (_flushing) {
       _pending = true;
       return;
     }
     _flushing = true;
-    _dirty = false;
-    final bak = File('${file.path}.bak');
     try {
-      final map = <String, dynamic>{};
-      _data.forEach((key, value) {
-        if (value is String || value is num || value is bool || value is List || value is Map) {
-          map[key] = value;
+      await _db.transaction((txn) async {
+        for (final key in _dirtySettings) {
+          final setting = _settings[key];
+          if (setting == null) {
+            await txn.delete('settings', where: 'key = ?', whereArgs: [key]);
+          } else {
+            await txn.insert(
+              'settings',
+              {'key': key, 'value': setting.value, 'kind': setting.kind},
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+        for (final id in _dirtyBrowse) {
+          final row = _browse[id];
+          if (row == null) {
+            await txn.delete('ui_state', where: 'source_id = ?', whereArgs: [id]);
+          } else {
+            await txn.insert(
+              'ui_state',
+              {
+                'source_id': id,
+                'path': row['path'],
+                'order_by': row['order_by'],
+                'order_direction': row['order_direction'],
+                'saved_at': row['saved_at'],
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+        for (final id in _dirtyDownloads) {
+          final dir = _downloads[id];
+          if (dir == null) {
+            await txn.delete('download_dirs', where: 'source_id = ?', whereArgs: [id]);
+          } else {
+            await txn.insert(
+              'download_dirs',
+              {'source_id': id, 'dir': dir},
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+        for (final id in _dirtyResume) {
+          await txn.delete('resume_positions', where: 'source_id = ?', whereArgs: [id]);
+          final positions = _resume[id];
+          if (positions != null) {
+            for (final entry in positions.entries) {
+              await txn.insert(
+                'resume_positions',
+                {'source_id': id, 'path': entry.key, 'seconds': entry.value},
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            }
+          }
+        }
+        if (_deletedCache.remove('*')) {
+          await txn.delete('listing_cache');
+        }
+        for (final key in _deletedCache) {
+          await txn.delete('listing_cache', where: 'key = ?', whereArgs: [key]);
+        }
+        for (final key in _dirtyCache) {
+          final payload = _cache[key];
+          if (payload == null) continue;
+          final text = jsonEncode(payload);
+          await txn.insert(
+            'listing_cache',
+            {
+              'key': key,
+              'payload': text,
+              'bytes': text.length,
+              'updated_at': DateTime.now().millisecondsSinceEpoch,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
         }
       });
-      await file.parent.create(recursive: true);
-      final tmp = File('${file.path}.tmp');
-      await tmp.writeAsString(jsonEncode(map), flush: true);
-
-      if (file.existsSync()) {
-        try {
-          if (bak.existsSync()) bak.deleteSync();
-          file.renameSync(bak.path);
-        } catch (error) {
-          debugPrint('prefs: rotate to .bak failed ($error)');
-        }
-      }
-      try {
-        await tmp.rename(file.path);
-      } catch (error) {
-        // 替换失败：把备份还原，宁可留着旧数据也不要丢
-        try {
-          if (!file.existsSync() && bak.existsSync()) bak.renameSync(file.path);
-        } catch (_) {}
-        rethrow;
-      }
-    } catch (error) {
-      // 落盘失败保留脏标记，下次写入或退出时再试
-      _dirty = true;
-      debugPrint('prefs: flush failed ($error)');
+      _dirtySettings.clear();
+      _dirtyBrowse.clear();
+      _dirtyDownloads.clear();
+      _dirtyResume.clear();
+      _dirtyCache.clear();
+      _deletedCache.clear();
+      await _pruneCache();
+    } catch (_) {
+      // 落库失败保留脏标记，下次写入或退出时再试。
     } finally {
       _flushing = false;
       if (_pending) {
         _pending = false;
-        unawaited(_flushNow());
+        unawaited(flush());
       }
     }
   }
+
+  /// 只保留最近 [_cacheMaxEntries] 个目录快照。
+  Future<void> _pruneCache() async {
+    if (_cache.length <= _cacheMaxEntries) return;
+    final rows = await _db.query('listing_cache', orderBy: 'updated_at ASC');
+    final extra = rows.length - _cacheMaxEntries;
+    for (var i = 0; i < extra; i++) {
+      final key = '${rows[i]['key']}';
+      await _db.delete('listing_cache', where: 'key = ?', whereArgs: [key]);
+      _cache.remove(key);
+    }
+  }
+
+  // ------------------------------------------------------------- 键解析
+
+  String? _sourceIdOf(String key, String suffix) {
+    if (!key.startsWith('ol_srv_') || !key.endsWith(suffix)) return null;
+    final id = key.substring('ol_srv_'.length, key.length - suffix.length);
+    return id.isEmpty ? null : id;
+  }
+
+  String? _downloadIdOf(String key) => _sourceIdOf(key, '_download');
+
+  bool _isCacheKey(String key) => key.startsWith('ol_srv_') && key.contains('_cache|');
+
+  Object? _decode(_Setting setting) {
+    switch (setting.kind) {
+      case 'bool':
+        return setting.value == 'true';
+      case 'int':
+        return int.tryParse(setting.value);
+      case 'double':
+        return double.tryParse(setting.value);
+      default:
+        return setting.value;
+    }
+  }
+}
+
+class _Setting {
+  final String value;
+  final String kind;
+
+  const _Setting(this.value, this.kind);
 }

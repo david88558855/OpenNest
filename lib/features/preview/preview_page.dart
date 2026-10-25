@@ -331,7 +331,7 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
         Divider(height: 1, color: p.line2),
         const SizedBox(height: 10),
         _kv('所在路径', widget.path, mono: true),
-        _kv('直链参数', 'sign（临时签名）', mono: true),
+        _kv('直链参数', '临时签名', mono: true),
         const Spacer(),
         OlGhostButton(
           label: '复制路径',

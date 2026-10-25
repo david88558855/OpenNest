@@ -275,7 +275,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                     const OlDot(size: 5, color: Color(0xFF5EEAD4)),
                     const SizedBox(width: 5),
                     Text(
-                      '${ref.read(sessionProvider).profile?.name ?? 'OpenNest'} · Range 直读',
+                      '${ref.read(sessionProvider).profile?.name ?? 'OpenNest'} · 边下边播',
                       style: const TextStyle(fontSize: 9.5, color: Color(0xFF7E97AC)),
                     ),
                   ],

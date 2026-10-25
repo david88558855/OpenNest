@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
+import '../../core/i18n/zh.dart';
 import '../../core/models/storage_source.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
@@ -129,7 +130,7 @@ class _SourceRow extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     OlBadge(
-                      label: source.driver,
+                      label: driverLabel(source.driver),
                       fg: const Color(0xFF075E7E),
                       bg: const Color(0xFFEAF8FE),
                     ),
@@ -137,7 +138,7 @@ class _SourceRow extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${source.mountPath}  ·  ${source.disabled ? '已停用' : (source.isHealthy ? '已连接' : (source.status.isEmpty ? '待加载' : source.status))}',
+                  '${source.mountPath}  ·  ${source.disabled ? '已停用' : (source.isHealthy ? '已连接' : storageStatusLabel(source.status))}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 10.5, color: p.ink3),

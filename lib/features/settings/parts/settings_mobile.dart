@@ -187,7 +187,7 @@ class _MobileSettings extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${AppInfo.shortLabel} · Android · API v4',
+                  '${AppInfo.shortLabel} · 安卓 · 接口版本 v4',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 8.5, color: p.ink4),
                 ),

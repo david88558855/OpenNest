@@ -7,10 +7,16 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../core/sidecar/sidecar_paths.dart';
 
-/// 本地数据库：传输记录与收藏走 SQLite（事务），路径跟随主程序目录。
+/// 唯一的本地存储：`userdata/opennest.db`。
 ///
-/// 只保存 JSON 载荷 + 少量索引列：模型演进时不需要写迁移，也不会因为
-/// 新增字段而丢数据。
+/// 表结构（版本 2）：
+/// - `settings`        标量偏好与 `ol_prefs` 的每个字段（key/value/kind 三列，保留类型）
+/// - `ui_state`        每个存储源的浏览位置与排序、视图偏好
+/// - `download_dirs`   每个存储源的下载目录
+/// - `resume_positions` 播放续播位置（按源 + 路径）
+/// - `listing_cache`   离线目录快照（引擎返回的任意结构，按快照整体存放）
+/// - `transfer_tasks`  传输记录（载荷 + 排序键）
+/// - `favorites`       收藏（按源 + 路径唯一）
 class AppDatabase {
   AppDatabase._();
 
@@ -25,14 +31,11 @@ class AppDatabase {
     final database = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 1,
-        onCreate: (db, version) async {
-          await db.execute(
-            'CREATE TABLE transfer_tasks (id TEXT PRIMARY KEY, sort_key INTEGER NOT NULL, payload TEXT NOT NULL)',
-          );
-          await db.execute(
-            'CREATE TABLE favorites (key TEXT PRIMARY KEY, payload TEXT NOT NULL)',
-          );
+        version: 2,
+        onCreate: (db, version) => _createSchema(db),
+        onUpgrade: (db, oldVersion, newVersion) async {
+          // 旧版本只有 transfer_tasks / favorites，补齐新增表即可。
+          if (oldVersion < 2) await _createV2Tables(db);
         },
       ),
     );
@@ -44,6 +47,40 @@ class AppDatabase {
     sqfliteFfiInit();
     return databaseFactoryFfi;
   }
+
+  static Future<void> _createSchema(Database db) async {
+    await db.execute(
+      'CREATE TABLE transfer_tasks (id TEXT PRIMARY KEY, sort_key INTEGER NOT NULL, payload TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE favorites (key TEXT PRIMARY KEY, payload TEXT NOT NULL)',
+    );
+    await _createV2Tables(db);
+  }
+
+  static Future<void> _createV2Tables(Database db) async {
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, kind TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS ui_state (source_id TEXT PRIMARY KEY, path TEXT NOT NULL, '
+      'order_by TEXT NOT NULL, order_direction TEXT NOT NULL, saved_at TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS download_dirs (source_id TEXT PRIMARY KEY, dir TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS resume_positions (source_id TEXT NOT NULL, path TEXT NOT NULL, '
+      'seconds INTEGER NOT NULL, PRIMARY KEY (source_id, path))',
+    );
+    await db.execute(
+      'CREATE TABLE IF NOT EXISTS listing_cache (key TEXT PRIMARY KEY, payload TEXT NOT NULL, '
+      'bytes INTEGER NOT NULL, updated_at INTEGER NOT NULL)',
+    );
+  }
+
+  /// 供诊断使用：当前数据库文件路径。
+  static Future<String> filePath() async => (await SidecarPaths.appDb()).path;
 }
 
 class TransferDao {

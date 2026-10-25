@@ -194,7 +194,7 @@ class _SourceRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    _driverTag(source.driver),
+                    driverShortTag(source.driver),
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
@@ -303,27 +303,5 @@ class _SideAction extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-String _driverTag(String driver) {
-  switch (driver) {
-    case 'Local':
-      return '本地';
-    case 'WebDav':
-      return 'WebDAV';
-    case 'Sftp':
-      return 'SFTP';
-    case 'FTP':
-      return 'FTP';
-    case 'SMB':
-      return 'SMB';
-    case 'S3':
-    case 'Doge':
-      return '对象';
-    case 'OpenList':
-      return '级联';
-    default:
-      return '网盘';
   }
 }
