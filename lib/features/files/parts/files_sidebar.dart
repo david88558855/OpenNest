@@ -1,7 +1,7 @@
 part of '../files_page.dart';
 
 // ---------------------------------------------------------------------------
-// 左侧导航（W2 · dside 204）
+// 左侧栏：存储源 + 收藏 + 底部动作（对齐效果图 D3）
 // ---------------------------------------------------------------------------
 class _Sidebar extends ConsumerWidget {
   const _Sidebar();
@@ -9,83 +9,321 @@ class _Sidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+    final favorites = ref.watch(favoritesProvider);
+    final transfers = ref.watch(transfersProvider);
+    final currentPath = ref.watch(filesProvider).path;
 
     return Container(
-      width: 204,
+      width: 236,
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border(right: BorderSide(color: p.line2)),
+        border: Border(right: BorderSide(color: p.line)),
       ),
-      // v1.0.17：工作区导航抽成公共组件（四个页面同一份，顺序固定不跳动）。
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(9, 4, 9, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const WorkspaceNav(active: 'files'),
-          const OlSectionLabel('挂载点'),
-          if (storages.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-              child: Text('暂无挂载点', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(10, 14, 10, 8),
+              children: [
+                _SideLabel(text: '存储源'),
+                if (sources.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+                    child: Text('还没有存储源', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                  ),
+                for (final source in sources)
+                  _SourceRow(
+                    source: source,
+                    active: currentPath == source.mountPath || currentPath.startsWith('${source.mountPath}/'),
+                  ),
+                const SizedBox(height: 14),
+                _SideLabel(text: '收藏'),
+                if (favorites.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+                    child: Text('在文件上右键即可收藏', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+                  ),
+                for (final entry in favorites.take(6))
+                  _FavoriteRow(entry: entry),
+              ],
             ),
-          for (final mount in storages) _MountRow(mount: mount),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => context.push('/sources/add'),
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: p.card,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: p.softBorder, style: BorderStyle.solid),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OlIcon('plus', size: 12, color: OlTokens.sky600),
+                          SizedBox(width: 6),
+                          Text(
+                            '添加存储源',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF08799F)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SideAction(
+                        icon: 'download',
+                        label: '传输',
+                        badge: transfers.pendingCount,
+                        onTap: () => context.go('/transfers'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SideAction(
+                        icon: 'settings',
+                        label: '设置',
+                        onTap: () => context.go('/settings'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MountRow extends StatelessWidget {
-  final StorageMount mount;
-  const _MountRow({required this.mount});
+class _SideLabel extends StatelessWidget {
+  final String text;
+  const _SideLabel({required this.text});
 
-  static const _dotColors = [
-    Color(0xFF38BDF8),
-    Color(0xFF7C5CFC),
-    Color(0xFF22C55E),
-    Color(0xFFF59E0B),
-    Color(0xFF94A3B8),
-  ];
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 6),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          color: context.ol.ink4,
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceRow extends StatelessWidget {
+  final StorageSource source;
+  final bool active;
+
+  const _SourceRow({required this.source, required this.active});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    final up = mount.isUp;
-    final dot = _dotColors[mount.id.abs() % _dotColors.length];
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
-        behavior: HitTestBehavior.opaque,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9),
+          onTap: () => context.go('/files?path=${Uri.encodeComponent(source.mountPath)}'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: active ? p.card : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              // 常驻 1px 描边：选中/悬停时不会因为多出边框而跳动
+              border: Border.all(color: active ? p.softBorder : Colors.transparent),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: source.disabled ? p.chipBg : const Color(0xFFEAF8FE),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Center(
+                    child: OlIcon(
+                      source.driver == 'Local' ? 'hard-drive' : 'cloud',
+                      size: 13,
+                      color: source.disabled ? p.ink4 : OlTokens.sky600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    source.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      color: active ? p.ink : p.ink2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: source.disabled ? p.chipBg : const Color(0xFFEAF8FE),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    _driverTag(source.driver),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: source.disabled ? p.ink4 : const Color(0xFF08799F),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FavoriteRow extends StatelessWidget {
+  final FavoriteEntry entry;
+
+  const _FavoriteRow({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => context.go('/files?path=${Uri.encodeComponent(entry.path)}'),
         child: Container(
-          height: 30,
-          margin: const EdgeInsets.only(bottom: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
           child: Row(
             children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(color: up ? dot : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2.5)),
-              ),
+              const OlIcon('star', size: 12, color: Color(0xFFF9C25B), filled: true),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  mount.mountPath == '/' ? '根目录' : mount.mountPath,
+                  entry.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.ink2),
+                  style: TextStyle(fontSize: 11.5, color: p.ink2),
                 ),
-              ),
-              Text(
-                // v2.1：挂载项不再展示容量，只标状态。
-                up ? '正常' : '离线',
-                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: p.ink4),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _SideAction extends StatelessWidget {
+  final String icon;
+  final String label;
+  final int badge;
+  final VoidCallback onTap;
+
+  const _SideAction({required this.icon, required this.label, required this.onTap, this.badge = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          height: 34,
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: p.line),
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OlIcon(icon, size: 13, color: p.ink2),
+                    const SizedBox(width: 5),
+                    Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2)),
+                  ],
+                ),
+              ),
+              if (badge > 0)
+                Positioned(
+                  right: 4,
+                  top: -1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: OlTokens.sky600,
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: p.surface, width: 1.5),
+                    ),
+                    child: Text(
+                      '$badge',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _driverTag(String driver) {
+  switch (driver) {
+    case 'Local':
+      return '本地';
+    case 'WebDav':
+      return 'WebDAV';
+    case 'Sftp':
+      return 'SFTP';
+    case 'FTP':
+      return 'FTP';
+    case 'SMB':
+      return 'SMB';
+    case 'S3':
+    case 'Doge':
+      return '对象';
+    case 'OpenList':
+      return '级联';
+    default:
+      return '网盘';
   }
 }

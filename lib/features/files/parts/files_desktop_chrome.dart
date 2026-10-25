@@ -12,7 +12,7 @@ class _TopBar extends ConsumerWidget {
     final state = ref.watch(filesProvider);
     final segs = state.path.split('/').where((e) => e.isNotEmpty).toList();
     return Container(
-      height: 50,
+      height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.hairline))),
       child: Row(
@@ -45,7 +45,9 @@ class _TopBar extends ConsumerWidget {
           ),
           _SearchMini(onTap: () => context.go('/search')),
           const SizedBox(width: 8),
-          OlPrimaryButton(label: '上传', icon: 'upload', height: 30, onTap: () => pickAndUpload(context, ref)),
+          OlGhostButton(label: '新建', icon: 'plus', height: 32, fontSize: 12, onTap: () => createFolder(context, ref)),
+          const SizedBox(width: 8),
+          OlPrimaryButton(label: '上传', icon: 'upload', height: 32, fontSize: 12, onTap: () => pickAndUpload(context, ref)),
         ],
       ),
     );
@@ -319,7 +321,7 @@ class _StatusBar extends ConsumerWidget {
     final files = ref.watch(filesProvider);
     final latency = session.latencyMs;
     return Container(
-      height: 30,
+      height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: p.surfaceAlt,
@@ -327,34 +329,31 @@ class _StatusBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          OlDot(color: session.signedIn ? OlTokens.ok : OlTokens.warn, size: 5),
-          const SizedBox(width: 6),
+          OlDot(color: session.signedIn ? OlTokens.ok : OlTokens.warn, size: 6),
+          const SizedBox(width: 7),
           Text(
-            session.signedIn ? '已连接${latency == null ? '' : ' · 延迟 $latency ms'}' : '未连接',
-            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink3),
+            session.signedIn ? '已连接 · 内嵌引擎' : '未连接',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.ink2),
           ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              files.provider ?? session.profile?.displayHost ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink3),
-            ),
-          ),
+          const SizedBox(width: 10),
+          Text('·', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+          const SizedBox(width: 10),
+          Text('${files.total} 个项目', style: TextStyle(fontSize: 10.5, color: p.ink3)),
+          if (files.selected.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            Text('·', style: TextStyle(fontSize: 10.5, color: p.ink4)),
+            const SizedBox(width: 10),
+            Text('已选 ${files.selected.length} 项', style: TextStyle(fontSize: 10.5, color: p.ink3)),
+          ],
           const Spacer(),
           if (files.offline)
-            Text('离线 · 缓存目录', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: OlTokens.warn)),
-          const SizedBox(width: 12),
-          // v2.3：状态栏同样只显示短版本，长串会把整行挤出屏幕。
-          // v2.6：dev / unknown 这类占位版本不显示。
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Text('离线 · 缓存目录', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: OlTokens.warn)),
+            ),
           Text(
-            AppInfo.hasMeaningfulVersion(session.profile?.version ?? session.site?.version)
-                ? AppInfo.shortVersion(session.profile?.version ?? session.site?.version)
-                : '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w500, color: p.ink3),
+            '双击打开 · 空格预览',
+            style: TextStyle(fontSize: 10, color: p.ink4),
           ),
         ],
       ),

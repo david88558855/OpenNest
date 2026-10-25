@@ -6,6 +6,7 @@ import '../core/models/api_types.dart';
 import '../core/storage/prefs.dart';
 import '../core/storage/secure_store.dart';
 import '../core/storage/server_store.dart';
+import '../data/db/app_database.dart';
 import '../features/auth/session.dart';
 import '../features/files/files_controller.dart';
 import '../features/transfers/transfers_controller.dart';
@@ -270,12 +271,21 @@ class FavoritesNotifier extends StateNotifier<List<FavoriteEntry>> {
   final ServerStore _store;
 
   FavoritesNotifier(this._store) : super(const []) {
-    final all = <FavoriteEntry>[];
-    for (final raw in _store.readFavorites(kLocalSourceId)) {
-      final entry = FavoriteEntry.fromJson(kLocalSourceId, raw);
-      if (entry.path.isNotEmpty) all.add(entry);
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = await FavoriteDao.instance.loadAll();
+      final entries = <FavoriteEntry>[];
+      for (final raw in rows) {
+        final entry = FavoriteEntry.fromJson(kLocalSourceId, raw);
+        if (entry.path.isNotEmpty) entries.add(entry);
+      }
+      if (mounted) state = entries;
+    } catch (_) {
+      // 数据库不可用时保持空列表，不影响浏览
     }
-    state = all;
   }
 
   List<FavoriteEntry> forServer(String? serverId) =>
@@ -304,18 +314,20 @@ class FavoritesNotifier extends StateNotifier<List<FavoriteEntry>> {
       ];
     }
     state = next;
-    await _store.saveFavorites(
-      serverId,
-      next.where((e) => e.serverId == serverId).map((e) => e.toJson()).toList(),
-    );
+    try {
+      if (exists) {
+        await FavoriteDao.instance.remove(serverId, fullPath);
+      } else {
+        await FavoriteDao.instance.put(serverId, next.last.toJson());
+      }
+    } catch (_) {}
   }
 
   Future<void> removeEntry(FavoriteEntry entry) async {
     final next = state.where((e) => !(e.serverId == entry.serverId && e.path == entry.path)).toList();
     state = next;
-    await _store.saveFavorites(
-      entry.serverId,
-      next.where((e) => e.serverId == entry.serverId).map((e) => e.toJson()).toList(),
-    );
+    try {
+      await FavoriteDao.instance.remove(entry.serverId, entry.path);
+    } catch (_) {}
   }
 }

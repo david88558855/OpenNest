@@ -11,6 +11,7 @@ import '../../app/providers.dart';
 import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/models/storage_source.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/file_widgets.dart';
 import '../../core/widgets/ol_controls.dart';
@@ -20,6 +21,7 @@ import '../../core/widgets/ol_icon.dart';
 import '../../core/widgets/workspace_nav.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
+import '../sources/sources_controller.dart';
 
 part 'parts/files_sidebar.dart';
 part 'parts/files_desktop_chrome.dart';

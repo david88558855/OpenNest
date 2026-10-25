@@ -12,6 +12,7 @@ import '../../core/models/server_profile.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/storage/download_paths.dart';
 import '../../core/storage/prefs.dart';
+import '../../data/db/app_database.dart';
 
 class TransfersState {
   final List<TransferTask> tasks;
@@ -111,20 +112,25 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     super.dispose();
   }
 
-  void _restore() {
-    final raw = ref.read(prefsProvider).getJsonList(_persistKey);
+  Future<void> _restore() async {
+    List<Map<String, dynamic>> raw;
+    try {
+      raw = await TransferDao.instance.loadAll();
+    } catch (_) {
+      raw = const [];
+    }
+    if (!mounted) return;
     final restored = <TransferTask>[];
     for (final e in raw) {
-      if (e is Map) {
-        final task = TransferTask.fromJson(Map<String, dynamic>.from(e));
-        if (task.status == TransferStatus.running || task.status == TransferStatus.queued) {
-          task.status = TransferStatus.paused;
-        }
-        if (task.status != TransferStatus.done) restored.add(task);
+      final task = TransferTask.fromJson(e);
+      if (task.status == TransferStatus.running || task.status == TransferStatus.queued) {
+        task.status = TransferStatus.paused;
       }
+      if (task.status != TransferStatus.done) restored.add(task);
     }
-    if (restored.isNotEmpty) {
+    if (restored.isNotEmpty && mounted) {
       state = state.copyWith(tasks: restored);
+      unawaited(_pump());
     }
   }
 
@@ -147,7 +153,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
         .where((e) => e.status == TransferStatus.paused || e.status == TransferStatus.queued || e.status == TransferStatus.running || e.status == TransferStatus.failed)
         .map((e) => e.toJson())
         .toList();
-    _prefs.setJsonList(_persistKey, list);
+    // 事务写入：一次替换全部任务，避免半截状态。
+    unawaited(TransferDao.instance.replaceAll(list).catchError((_) {}));
   }
 
   void _emit() => state = state.copyWith(tasks: List<TransferTask>.of(state.tasks));
