@@ -72,5 +72,5 @@ Future<void> main() async {
 Future<void> _configureSystemBars() async {
   if (!Platform.isAndroid) return;
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(olSystemBars(dark: false));
+  SystemChrome.setSystemUIOverlayStyle(olSystemBars);
 }

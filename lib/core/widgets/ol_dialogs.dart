@@ -441,7 +441,7 @@ class _DialogHeader extends StatelessWidget {
             Container(
               width: 30,
               height: 30,
-              decoration: BoxDecoration(color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEAF8FE), borderRadius: BorderRadius.circular(9)),
+              decoration: BoxDecoration(color: const Color(0xFFEAF8FE), borderRadius: BorderRadius.circular(9)),
               child: Center(child: OlIcon(icon, size: 14, color: OlTokens.sky700)),
             ),
             const SizedBox(width: 9),
@@ -593,7 +593,7 @@ Future<T?> olSheet<T>(
                 Container(
                   width: 38,
                   height: 4,
-                  decoration: BoxDecoration(color: p.isDark ? const Color(0xFF243A52) : const Color(0xFFE3EBF3), borderRadius: BorderRadius.circular(99)),
+                  decoration: BoxDecoration(color: const Color(0xFFE3EBF3), borderRadius: BorderRadius.circular(99)),
                 ),
                 Flexible(child: child),
               ],

@@ -230,7 +230,7 @@ class _BootPageState extends ConsumerState<BootPage> {
                                 fontSize: 10.5,
                                 height: 1.6,
                                 color: OlTokens.dangerInk,
-                                fontFamily: 'Consolas',
+                                
                               ),
                             ),
                           ),

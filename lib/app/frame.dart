@@ -172,7 +172,7 @@ class OlTitleBar extends ConsumerWidget {
     return Container(
       height: 38,
       decoration: BoxDecoration(
-        color: p.isDark ? const Color(0xFF0B1622) : const Color(0xFFFBFDFF),
+        color: const Color(0xFFFBFDFF),
         border: Border(bottom: BorderSide(color: p.line2)),
       ),
       child: Row(
@@ -182,7 +182,7 @@ class OlTitleBar extends ConsumerWidget {
           const SizedBox(width: 8),
           Text(
             'OpenNest',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: p.isDark ? const Color(0xFFC3D4E2) : const Color(0xFF3B4F64), letterSpacing: -0.1),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: const Color(0xFF3B4F64), letterSpacing: -0.1),
           ),
           const SizedBox(width: 9),
           Container(width: 1, height: 12, color: p.line),
@@ -202,7 +202,7 @@ class OlTitleBar extends ConsumerWidget {
                   const SizedBox(width: 5),
                   Text(
                     profile?.displayHost ?? (session.connecting ? '引擎启动中' : '本机引擎'),
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: p.isDark ? const Color(0xFF7890A6) : const Color(0xFF7C8FA3)),
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: const Color(0xFF7C8FA3)),
                   ),
                   const SizedBox(width: 4),
                   OlIcon('chev-r', size: 9, color: p.ink4),
@@ -260,7 +260,7 @@ class _WindowControls extends StatelessWidget {
         ),
         _CtrlButton(
           icon: 'x',
-          color: p.isDark ? const Color(0xFF7890A6) : const Color(0xFF8B9AA9),
+          color: const Color(0xFF8B9AA9),
           onTap: () => windowManager.close(),
         ),
       ],
@@ -317,7 +317,7 @@ class _BottomNav extends ConsumerWidget {
       height: 78 + bottomInset,
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
-        color: p.isDark ? const Color(0xFF0A1624) : const Color(0xFAFFFFFF),
+        color: const Color(0xFAFFFFFF),
         border: Border(top: BorderSide(color: p.line2)),
       ),
       child: Row(
@@ -338,7 +338,7 @@ class _BottomNav extends ConsumerWidget {
                         OlIcon(
                           items[i].icon,
                           size: 23,
-                          color: i == index ? const Color(0xFF0782AE) : (p.isDark ? const Color(0xFF5E7488) : const Color(0xFF9AABBC)),
+                          color: i == index ? const Color(0xFF0782AE) : const Color(0xFF9AABBC),
                           strokeWidth: i == index ? 2.1 : 1.9,
                         ),
                         if (items[i].badge > 0)
@@ -359,7 +359,7 @@ class _BottomNav extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
-                        color: i == index ? const Color(0xFF0782AE) : (p.isDark ? const Color(0xFF5E7488) : const Color(0xFF9AABBC)),
+                        color: i == index ? const Color(0xFF0782AE) : const Color(0xFF9AABBC),
                       ),
                     ),
                     const SizedBox(height: 2),

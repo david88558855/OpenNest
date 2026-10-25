@@ -1,14 +1,34 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'tokens.dart';
 
-ThemeData olTheme(Brightness brightness) {
-  final p = brightness == Brightness.dark ? OlPalette.dark : OlPalette.light;
-  final base = ThemeData(brightness: brightness, useMaterial3: true);
+/// 全局 UI 字体。
+///
+/// 桌面端统一 Arial；**Android 不设字体**（保持系统默认），这是刻意取舍：
+/// 安卓系统不带 Arial，写死字体名只会静默回落到 Roboto。
+String? get _uiFont =>
+    defaultTargetPlatform == TargetPlatform.android ? null : 'Arial';
+
+/// 中文回退链：Arial 不含 CJK 字形，取与 Arial 最接近的无衬线黑体
+/// （Windows 微软雅黑 / macOS 苹方 / Linux 思源黑体）。
+const List<String> _fontFallback = [
+  'Microsoft YaHei',
+  'PingFang SC',
+  'Helvetica Neue',
+  'Segoe UI',
+  'Noto Sans CJK SC',
+  'sans-serif',
+];
+
+/// 全局唯一主题：浅色。项目不支持深色模式与主题切换（0.4.0 起）。
+ThemeData olTheme() {
+  const p = OlPalette.light;
+  final base = ThemeData(brightness: Brightness.light, useMaterial3: true);
   final scheme = ColorScheme.fromSeed(
     seedColor: OlTokens.sky600,
-    brightness: brightness,
+    brightness: Brightness.light,
   ).copyWith(
     surface: p.card,
     primary: OlTokens.sky600,
@@ -18,6 +38,8 @@ ThemeData olTheme(Brightness brightness) {
     colorScheme: scheme,
     scaffoldBackgroundColor: p.card,
     canvasColor: p.card,
+    fontFamily: _uiFont,
+    fontFamilyFallback: _fontFallback,
     // v1.0.52：点击涟漪也属于动画（约 200ms 扩散）。
     // 全项目不要任何动画，这里换成 NoSplash 并把高亮色设为透明，
     // 点击即刻响应、没有任何过渡。
@@ -40,15 +62,40 @@ ThemeData olTheme(Brightness brightness) {
         TargetPlatform.fuchsia: _NoTransitionBuilder(),
       },
     ),
-    textTheme: base.textTheme.apply(
-      bodyColor: p.ink,
-      displayColor: p.ink,
-      fontFamilyFallback: const ['Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC'],
-    ).copyWith(
-      bodyMedium: TextStyle(fontSize: 13, height: 1.25, color: p.ink, fontWeight: FontWeight.w500),
-      bodySmall: TextStyle(fontSize: 11.5, height: 1.4, color: p.ink2),
-      labelLarge: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
-    ),
+    textTheme: base.textTheme
+        .apply(
+          bodyColor: p.ink,
+          displayColor: p.ink,
+          fontFamily: _uiFont,
+          fontFamilyFallback: _fontFallback,
+        )
+        .copyWith(
+          // 这几个覆盖样式的 fontFamily 必须显式再写一遍：新建的 TextStyle
+          // 不会继承上面 apply 的结果，而 Text 又会以 bodyMedium 作为
+          // DefaultTextStyle —— 漏写就会让整页退回系统默认字体。
+          bodyMedium: TextStyle(
+            fontSize: 13,
+            height: 1.25,
+            color: p.ink,
+            fontWeight: FontWeight.w500,
+            fontFamily: _uiFont,
+            fontFamilyFallback: _fontFallback,
+          ),
+          bodySmall: TextStyle(
+            fontSize: 11.5,
+            height: 1.4,
+            color: p.ink2,
+            fontFamily: _uiFont,
+            fontFamilyFallback: _fontFallback,
+          ),
+          labelLarge: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: p.ink,
+            fontFamily: _uiFont,
+            fontFamilyFallback: _fontFallback,
+          ),
+        ),
     inputDecorationTheme: InputDecorationTheme(
       isDense: true,
       border: InputBorder.none,
@@ -59,7 +106,7 @@ ThemeData olTheme(Brightness brightness) {
 
 /// 无转场：直接返回子组件，不淡入、不上滑、不缩放。
 ///
-/// 应用的主导航（文件 / 传输 / 收藏 / 分享 / 设置 / 服务器管理）都是平级页面，
+/// 应用的主导航（文件 / 传输 / 收藏 / 分享 / 设置）都是平级页面，
 /// 任何"过渡动作"都会被感知成页面在跳。这里统一关掉，交给系统让新页面立即出现。
 class _NoTransitionBuilder extends PageTransitionsBuilder {
   const _NoTransitionBuilder();
@@ -76,23 +123,25 @@ class _NoTransitionBuilder extends PageTransitionsBuilder {
 }
 
 /// 系统栏样式：状态栏与导航栏都透明，让页面/导航条自身的底色一直铺到屏幕边缘。
-/// 图标亮度跟随主题——深色界面用浅色图标，浅色界面用深色图标。
+///
+/// 单一浅色主题 ⇒ 系统栏图标恒为深色（只有播放页的深色舞台需要反白，
+/// 由播放页自己用 `AnnotatedRegion` 覆盖）。
 /// 安卓 15 起强制 edge-to-edge，statusBarColor / systemNavigationBarColor 会被忽略，
 /// 但旧版本系统与桌面平台仍依赖这里的取值，所以三端共用同一套定义。
-SystemUiOverlayStyle olSystemBars({required bool dark}) {
-  return SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarBrightness: dark ? Brightness.dark : Brightness.light,
-    statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-    systemStatusBarContrastEnforced: false,
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarDividerColor: Colors.transparent,
-    systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-    systemNavigationBarContrastEnforced: false,
-  );
-}
+const SystemUiOverlayStyle olSystemBars = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarBrightness: Brightness.light,
+  statusBarIconBrightness: Brightness.dark,
+  systemStatusBarContrastEnforced: false,
+  systemNavigationBarColor: Colors.transparent,
+  systemNavigationBarDividerColor: Colors.transparent,
+  systemNavigationBarIconBrightness: Brightness.dark,
+  systemNavigationBarContrastEnforced: false,
+);
 
-/// 恒定深色页面（登录、播放器）使用：系统栏图标始终为浅色。
+/// 深色舞台页面专用的系统栏样式（图标反白）。
+///
+/// 目前只有播放页的深色视频舞台使用；播放页浅色化后本常量会一并移除。
 const SystemUiOverlayStyle olDarkSystemBars = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
   statusBarBrightness: Brightness.dark,

@@ -9,41 +9,12 @@ class _AppearanceSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
-    final notifier = ref.watch(appSettingsProvider.notifier);
     final p = context.ol;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SectionHead(title: '外观', subtitle: '默认跟随系统；播放器始终深色'),
-        _GroupLabel('主题'),
-        _Card(
-          padding: const EdgeInsets.all(11),
-          child: Row(
-            children: [
-              _ThemeCard(
-                label: '浅色',
-                selected: settings.themeMode == ThemeMode.light,
-                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFFE9F1F8)]),
-                onTap: () => notifier.setTheme(ThemeMode.light),
-              ),
-              const SizedBox(width: 9),
-              _ThemeCard(
-                label: '深色',
-                selected: settings.themeMode == ThemeMode.dark,
-                gradient: const LinearGradient(colors: [Color(0xFF0D1A29), Color(0xFF13293B)]),
-                onTap: () => notifier.setTheme(ThemeMode.dark),
-              ),
-              const SizedBox(width: 9),
-              _ThemeCard(
-                label: '跟随系统',
-                selected: settings.themeMode == ThemeMode.system,
-                gradient: const LinearGradient(colors: [Color(0xFFF4F8FC), Color(0xFF0D1A29)]),
-                onTap: () => notifier.setTheme(ThemeMode.system),
-              ),
-            ],
-          ),
-        ),
+        // 0.4.0：主题切换已彻底移除，全局只有一套浅色主题，这里不再提供任何入口。
+        const _SectionHead(title: '外观', subtitle: '统一浅色主题 · 不支持切换'),
         _GroupLabel('列表'),
         _Card(
           child: Column(
@@ -64,54 +35,6 @@ class _AppearanceSection extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ThemeCard extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final LinearGradient gradient;
-  final VoidCallback onTap;
-  const _ThemeCard({required this.label, required this.selected, required this.gradient, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              height: 54,
-              decoration: BoxDecoration(
-                gradient: gradient,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: selected ? OlTokens.sky600 : p.line2, width: selected ? 2 : 1),
-              ),
-              child: selected
-                  ? const Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: EdgeInsets.all(5),
-                        child: OlIcon('check', size: 12, color: OlTokens.sky600),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: selected ? p.ink : p.ink3,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -71,6 +71,15 @@ class OlTokens {
     end: Alignment(0.9, 1),
     colors: [Color(0xFF0E2233), Color(0xFF123042)],
   );
+
+  /// 品牌深色渐变（160deg）：首启欢迎页左栏/移动端头图、抽屉头部。
+  /// 对应效果图 `linear-gradient(160deg,#0E3A46 0%,#0B4F63 55%,#0EA5E9 130%)`。
+  static const gradientDusk = LinearGradient(
+    begin: Alignment(-0.7, -1),
+    end: Alignment(0.9, 1.3),
+    colors: [Color(0xFF0E3A46), Color(0xFF0B4F63), Color(0xFF0EA5E9)],
+    stops: [0, 0.55, 1],
+  );
 }
 
 /// 4pt 基准网格：4 / 8 / 12 / 16 / 24 / 32。
@@ -135,13 +144,9 @@ class OlDesktop {
   static const textScale = 1.0;
 }
 
-/// Theme-aware palette. Every surface used by a screen comes from here so the
-/// W7 dark variant is a palette swap, not a second layout.
-///
-/// W7 深色规范：背景 #0B1622 / 卡片 #0F1D2C / 描边 #1A2A3C / 正文 #D7E4EF
-/// （对比度 13.2:1）/ 强调 Sky 400 #38BDF8。
+/// 单一浅色调色板。所有界面元素都从这里取色，项目**不支持深色模式**
+/// 与主题切换（0.4.0 起移除）。
 class OlPalette {
-  final bool isDark;
   final Color bg;
   final Color card;
   final Color surface; // sidebars
@@ -169,7 +174,6 @@ class OlPalette {
   final Color divider;
 
   const OlPalette({
-    required this.isDark,
     required this.bg,
     required this.card,
     required this.surface,
@@ -198,7 +202,6 @@ class OlPalette {
   });
 
   static const light = OlPalette(
-    isDark: false,
     bg: Color(0xFFEDF2F8),
     card: Color(0xFFFFFFFF),
     surface: Color(0xFFF8FBFE),
@@ -225,47 +228,16 @@ class OlPalette {
     chipBorder: Color(0xFFBDE7FA),
     divider: Color(0xFFF1F6FB),
   );
-
-  // W7：背景 #0B1622 / 卡片 #0F1D2C / 描边 #1A2A3C / 正文 #D7E4EF。
-  static const dark = OlPalette(
-    isDark: true,
-    bg: Color(0xFF0B1622),
-    card: Color(0xFF0F1D2C),
-    surface: Color(0xFF091320),
-    surfaceAlt: Color(0xFF0A1624),
-    line: Color(0xFF182838),
-    line2: Color(0xFF1A2A3C),
-    hairline: Color(0xFF142435),
-    ink: Color(0xFFD7E4EF),
-    ink2: Color(0xFFA9BDCE),
-    ink3: Color(0xFF7890A6),
-    ink4: Color(0xFF5E7488),
-    nav: Color(0xFF93A9BD),
-    navIcon: Color(0xFF6B8298),
-    navOnBg: Color(0x2438BDF8),
-    navOn: Color(0xFF7DD3FC),
-    navBadgeBg: Color(0xFF14243A),
-    tableHeadBg: Color(0xFF0F1D2C),
-    th: Color(0xFF5E7488),
-    rowHover: Color(0xFF102132),
-    rowSel: Color(0xFF11283A),
-    fieldBg: Color(0xFF101F31),
-    fieldBorder: Color(0xFF1C2E43),
-    chipBg: Color(0xFF101F31),
-    chipBorder: Color(0xFF1C2E43),
-    divider: Color(0xFF142435),
-  );
 }
 
-/// 主题与断点快捷访问：`context.ol` 取当前调色板，`context.isNarrow` 判断窄屏。
+/// 主题与断点快捷访问：`context.ol` 取调色板，`context.isNarrow` 判断窄屏。
 ///
 /// 注意：extension 的**名字不会出现在使用处**（写的是 `context.ol`），
 /// 静态扫描"符号引用次数"会把它误判成死代码——v1.0.21 第一次提交就踩了这个坑，
 /// 已恢复并在此说明，后续清理请勿按名字统计判断 extension。
 extension OlThemeContext on BuildContext {
-  OlPalette get ol => Theme.of(this).brightness == Brightness.dark
-      ? OlPalette.dark
-      : OlPalette.light;
+  /// 只有一套浅色调色板（0.4.0 移除深色模式）。
+  OlPalette get ol => OlPalette.light;
   bool get isNarrow => MediaQuery.sizeOf(this).width < 900;
 }
 
@@ -299,5 +271,5 @@ class OlText {
   static const body = TextStyle(fontSize: 12, height: 1.7);
   static const small = TextStyle(fontSize: 10.5, height: 1.6);
   static const tiny = TextStyle(fontSize: 9, height: 1.5);
-  static const mono = TextStyle(fontFamily: 'monospace', fontSize: 10, letterSpacing: 0.2);
+  static const mono = TextStyle(fontSize: 10, letterSpacing: 0.2);
 }

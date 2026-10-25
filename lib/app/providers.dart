@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/api/api_exception.dart';
@@ -51,7 +50,6 @@ final storagesProvider = FutureProvider<List<StorageMount>>((ref) async {
 });
 
 class AppSettings {
-  final ThemeMode themeMode;
   final int concurrency;
   final int downLimitKbps;
   final int upLimitKbps;
@@ -66,7 +64,6 @@ class AppSettings {
   final int? lastLatency;
 
   const AppSettings({
-    this.themeMode = ThemeMode.system,
     this.concurrency = 3,
     this.downLimitKbps = 0,
     this.upLimitKbps = 0,
@@ -82,7 +79,6 @@ class AppSettings {
   });
 
   AppSettings copyWith({
-    ThemeMode? themeMode,
     int? concurrency,
     int? downLimitKbps,
     int? upLimitKbps,
@@ -97,7 +93,6 @@ class AppSettings {
     int? lastLatency,
   }) =>
       AppSettings(
-        themeMode: themeMode ?? this.themeMode,
         concurrency: concurrency ?? this.concurrency,
         downLimitKbps: downLimitKbps ?? this.downLimitKbps,
         upLimitKbps: upLimitKbps ?? this.upLimitKbps,
@@ -113,7 +108,6 @@ class AppSettings {
       );
 
   Map<String, dynamic> toJson() => {
-        'theme': themeMode.name,
         'concurrency': concurrency,
         'down_limit_kbps': downLimitKbps,
         'up_limit_kbps': upLimitKbps,
@@ -137,11 +131,6 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     final raw = _prefs.getJsonMap(ServerStore.keyPrefs);
     if (raw.isNotEmpty) {
       state = AppSettings(
-        themeMode: switch (raw['theme']) {
-          'light' => ThemeMode.light,
-          'dark' => ThemeMode.dark,
-          _ => ThemeMode.system,
-        },
         concurrency: (raw['concurrency'] as num?)?.toInt() ?? 3,
         downLimitKbps: (raw['down_limit_kbps'] as num?)?.toInt() ?? 0,
         upLimitKbps: (raw['up_limit_kbps'] as num?)?.toInt() ?? 0,
@@ -159,11 +148,6 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   }
 
   Future<void> _persist() => _prefs.setJsonMap(ServerStore.keyPrefs, state.toJson());
-
-  void setTheme(ThemeMode mode) {
-    state = state.copyWith(themeMode: mode);
-    _persist();
-  }
 
   void setConcurrency(int value) {
     state = state.copyWith(concurrency: value.clamp(1, 8).toInt());

@@ -477,7 +477,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       const SizedBox(width: 10),
                       Text(
                         '${formatDuration(position)} / ${formatDuration(duration)}',
-                        style: const TextStyle(fontSize: 9, fontFamily: 'monospace', color: Color(0xFF93A8BB)),
+                        style: const TextStyle(fontSize: 9, color: Color(0xFF93A8BB)),
                       ),
                     ],
                   ),

@@ -289,7 +289,7 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
           child: SingleChildScrollView(
             child: SelectableText(
               _text ?? '',
-              style: TextStyle(fontSize: 11.5, height: 1.7, fontFamily: 'Consolas', color: p.ink2),
+              style: TextStyle(fontSize: 11.5, height: 1.7, color: p.ink2),
             ),
           ),
         ),
@@ -360,7 +360,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
             style: TextStyle(
               fontSize: mono ? 10 : 11.5,
               height: 1.4,
-              fontFamily: mono ? 'Consolas' : null,
               color: p.ink,
             ),
           ),

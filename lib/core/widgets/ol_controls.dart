@@ -114,11 +114,11 @@ class OlGhostButton extends StatelessWidget {
     // 既有调用点全部传非空闭包，只有文件页「返回上层目录」在根目录时传 null。
     final enabled = onTap != null;
     final bg = enabled
-        ? (p.isDark ? const Color(0xFF12202F) : Colors.white)
-        : (p.isDark ? const Color(0xFF0F1D2C) : const Color(0xFFF4F7FA));
+        ? Colors.white
+        : const Color(0xFFF4F7FA);
     final border = enabled
         ? p.line
-        : (p.isDark ? const Color(0xFF142435) : const Color(0xFFEEF3F8));
+        : const Color(0xFFEEF3F8);
     final fg = enabled ? p.ink2 : p.ink4;
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
@@ -287,12 +287,12 @@ class OlIconButton extends StatelessWidget {
           width: side,
           height: side,
           decoration: BoxDecoration(
-            color: squared ? (p.isDark ? const Color(0xFF12202F) : Colors.white) : Colors.transparent,
+            color: squared ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: squared ? Border.all(color: p.isDark ? p.fieldBorder : const Color(0xFFE6EDF5)) : null,
+            border: squared ? Border.all(color: const Color(0xFFE6EDF5)) : null,
           ),
           child: Center(
-            child: OlIcon(icon, size: glyph, color: color ?? (p.isDark ? p.nav : const Color(0xFF5E7288))),
+            child: OlIcon(icon, size: glyph, color: color ?? const Color(0xFF5E7288)),
           ),
         ),
       ),
@@ -324,7 +324,7 @@ class OlSwitch extends StatelessWidget {
           height: h,
           decoration: BoxDecoration(
             gradient: value ? OlTokens.gradientPrimary : null,
-            color: value ? null : (context.ol.isDark ? const Color(0xFF20364C) : const Color(0xFFDFE8F1)),
+            color: value ? null : const Color(0xFFDFE8F1),
             borderRadius: BorderRadius.circular(99),
           ),
           child: Align(
@@ -389,7 +389,7 @@ class OlSeg<T> extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
-          color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFF3F7FB),
+          color: const Color(0xFFF3F7FB),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -417,7 +417,7 @@ class OlSeg<T> extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: expand ? 6 : (mobile ? 12 : 8)),
           alignment: expand ? Alignment.center : null,
           decoration: BoxDecoration(
-            color: selected ? (p.isDark ? const Color(0xFF1B2F45) : Colors.white) : Colors.transparent,
+            color: selected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
@@ -428,7 +428,7 @@ class OlSeg<T> extends StatelessWidget {
                 OlIcon(
                   item.icon!,
                   size: 12,
-                  color: selected ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
+                  color: selected ? const Color(0xFF1C3044) : p.ink3,
                 ),
                 const SizedBox(width: 5),
               ],
@@ -441,7 +441,7 @@ class OlSeg<T> extends StatelessWidget {
                   style: TextStyle(
                     fontSize: mobile ? 12 : (height < 23 ? 9.5 : 10.5),
                     fontWeight: FontWeight.w700,
-                    color: selected ? (p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF1C3044)) : p.ink3,
+                    color: selected ? const Color(0xFF1C3044) : p.ink3,
                   ),
                 ),
               ),
@@ -478,15 +478,15 @@ class OlChip extends StatelessWidget {
     Color fg;
     Color border;
     if (selected) {
-      bg = p.isDark ? const Color(0xFFE3EEF7) : const Color(0xFF0D1B2A);
-      fg = p.isDark ? const Color(0xFF0D1B2A) : Colors.white;
+      bg = const Color(0xFF0D1B2A);
+      fg = Colors.white;
       border = bg;
     } else if (teal) {
       bg = const Color(0xFFE7FBF5);
       fg = OlTokens.okDeep;
       border = const Color(0xFFCDEFE7);
     } else {
-      bg = p.isDark ? const Color(0xFF101F31) : const Color(0xFFF3F8FC);
+      bg = const Color(0xFFF3F8FC);
       fg = p.ink2;
       border = p.chipBorder;
     }
@@ -535,7 +535,7 @@ class OlProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final track = darkTrack ? const Color(0x22FFFFFF) : (context.ol.isDark ? const Color(0xFF1A2A3C) : const Color(0xFFEAF0F6));
+    final track = darkTrack ? const Color(0x22FFFFFF) : const Color(0xFFEAF0F6);
     return ClipRRect(
       borderRadius: BorderRadius.circular(99),
       child: Container(
@@ -573,9 +573,9 @@ class OlCheckbox extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: value ? OlTokens.sky600 : (p.isDark ? const Color(0xFF16273C) : Colors.white),
+            color: value ? OlTokens.sky600 : Colors.white,
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: value ? OlTokens.sky600 : (p.isDark ? const Color(0xFF2A4058) : const Color(0xFFD4E0EC)), width: 1.5),
+            border: Border.all(color: value ? OlTokens.sky600 : const Color(0xFFD4E0EC), width: 1.5),
           ),
           child: value
               ? Center(child: OlIcon('check', size: size * 0.66, color: Colors.white, strokeWidth: 3.2))
@@ -596,13 +596,13 @@ class OlKbd extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: p.isDark ? const Color(0xFF16273C) : Colors.white,
-        border: Border.all(color: p.isDark ? const Color(0xFF243A52) : const Color(0xFFE3EBF3)),
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE3EBF3)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 8.5, height: 1.4, fontFamily: 'monospace', color: p.ink3, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 8.5, height: 1.4, color: p.ink3, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -655,7 +655,7 @@ class OlSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // v1.0.42：去掉原来的 1.4s 呼吸动画（repeat 反向），改为静态占位色块。
-    final base = context.ol.isDark ? const Color(0xFF16273C) : const Color(0xFFE8F0F7);
+    final base = const Color(0xFFE8F0F7);
     return Container(
       height: height,
       width: width,
@@ -687,9 +687,9 @@ class OlEmptyState extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: p.isDark ? const Color(0xFF243A52) : const Color(0xFFC9D9E6), width: 1.5, style: BorderStyle.solid),
+              border: Border.all(color: const Color(0xFFC9D9E6), width: 1.5, style: BorderStyle.solid),
             ),
-            child: Center(child: OlIcon(icon, size: 24, color: p.isDark ? const Color(0xFF3E5872) : const Color(0xFFB2C6D8))),
+            child: Center(child: OlIcon(icon, size: 24, color: const Color(0xFFB2C6D8))),
           ),
           const SizedBox(height: 14),
           Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
@@ -719,7 +719,7 @@ class OlSectionLabel extends StatelessWidget {
           Expanded(
             child: Text(
               text.toUpperCase(),
-              style: OlText.label.copyWith(color: context.ol.isDark ? const Color(0xFF5E7488) : const Color(0xFFA2B2C2)),
+              style: OlText.label.copyWith(color: const Color(0xFFA2B2C2)),
             ),
           ),
           if (trailing != null) trailing!,
@@ -786,18 +786,18 @@ class _OlFieldState extends State<OlField> {
     return Container(
       constraints: BoxConstraints(minHeight: height),
       decoration: BoxDecoration(
-        color: p.isDark ? const Color(0xFF101F31) : const Color(0xFFFCFDFF),
+        color: const Color(0xFFFCFDFF),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: focused ? const Color(0xFF7DD3FC) : (p.isDark ? const Color(0xFF1C2E43) : const Color(0xFFDFE9F3))),
+        border: Border.all(color: focused ? const Color(0xFF7DD3FC) : const Color(0xFFDFE9F3)),
         boxShadow: focused ? const [BoxShadow(color: Color(0x2438BDF8), blurRadius: 0, spreadRadius: 3)] : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 11),
       child: Row(
         children: [
-          OlIcon(widget.icon, size: 14, color: focused ? OlTokens.sky600 : (p.isDark ? p.ink3 : const Color(0xFF8FA1B3))),
+          OlIcon(widget.icon, size: 14, color: focused ? OlTokens.sky600 : const Color(0xFF8FA1B3)),
           const SizedBox(width: 8),
           if (widget.prefixText != null)
-            Text(widget.prefixText!, style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink4)),
+            Text(widget.prefixText!, style: TextStyle(fontSize: 10.5, color: p.ink4)),
           Expanded(
             child: TextField(
               controller: widget.controller,

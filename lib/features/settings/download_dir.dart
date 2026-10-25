@@ -94,7 +94,7 @@ Future<void> showDownloadDirDialog(BuildContext context, WidgetRef ref) async {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: p.isDark ? const Color(0xFF12202F) : const Color(0xFFEAF8FE),
+                      color: const Color(0xFFEAF8FE),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Center(child: OlIcon('download', size: 16, color: OlTokens.sky700)),
@@ -141,7 +141,7 @@ Future<void> showDownloadDirDialog(BuildContext context, WidgetRef ref) async {
                         path,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, height: 1.5, fontFamily: 'monospace', color: p.ink2),
+                        style: TextStyle(fontSize: 11.5, height: 1.5, color: p.ink2),
                       ),
                     ),
                   ],
@@ -396,7 +396,7 @@ class _DownloadDirLineState extends ConsumerState<DownloadDirLine> {
                   _path ?? '读取中…',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, color: p.ink4, fontFamily: 'monospace'),
+                  style: TextStyle(fontSize: 9, color: p.ink4)
                 ),
               ],
             ),

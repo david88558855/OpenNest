@@ -99,7 +99,7 @@ class _ServersSection extends ConsumerWidget {
                       fontSize: 10,
                       height: 1.6,
                       color: OlTokens.dangerInk,
-                      fontFamily: 'Consolas',
+                      
                     ),
                   ),
                 ),
@@ -209,7 +209,6 @@ class _EngineKv extends StatelessWidget {
               style: TextStyle(
                 fontSize: mono ? 10.5 : 11.5,
                 color: p.ink2,
-                fontFamily: mono ? 'Consolas' : null,
                 height: 1.5,
               ),
             ),

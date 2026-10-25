@@ -663,7 +663,7 @@ class _PreviewBodyState extends State<_PreviewBody> {
       child: SingleChildScrollView(
         child: SelectableText(
           _text!.isEmpty ? '（空文件）' : _text!,
-          style: TextStyle(fontSize: 11.5, height: 1.7, fontFamily: 'monospace', color: p.ink2),
+          style: TextStyle(fontSize: 11.5, height: 1.7, color: p.ink2),
         ),
       ),
     );
@@ -847,7 +847,7 @@ class _DirPickerDialogState extends ConsumerState<_DirPickerDialog> {
                 children: [
                   OlIcon('folder', size: 12, color: p.ink3),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(_path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontFamily: 'monospace', color: p.ink2))),
+                  Expanded(child: Text(_path, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, color: p.ink2))),
                 ],
               ),
             ),

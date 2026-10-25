@@ -167,7 +167,7 @@ class _MobileSettings extends ConsumerWidget {
                 _MobileGroup(
                   title: '应用',
                   children: [
-                    _MobileTile(icon: 'sun', label: '外观', value: '跟随系统', onTap: () => context.go('/settings/appearance')),
+                    _MobileTile(icon: 'sun', label: '外观', value: '统一浅色', onTap: () => context.go('/settings/appearance')),
                     _MobileTile(icon: 'info', label: '关于 OpenNest', value: AppInfo.version, onTap: () => context.go('/settings/about')),
                     _MobileTile(
                       icon: 'refresh',
