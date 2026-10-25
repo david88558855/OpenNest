@@ -143,17 +143,3 @@ const SystemUiOverlayStyle olSystemBars = SystemUiOverlayStyle(
   systemNavigationBarIconBrightness: Brightness.dark,
   systemNavigationBarContrastEnforced: false,
 );
-
-/// 深色舞台页面专用的系统栏样式（图标反白）。
-///
-/// 目前只有播放页的深色视频舞台使用；播放页浅色化后本常量会一并移除。
-const SystemUiOverlayStyle olDarkSystemBars = SystemUiOverlayStyle(
-  statusBarColor: Colors.transparent,
-  statusBarBrightness: Brightness.dark,
-  statusBarIconBrightness: Brightness.light,
-  systemStatusBarContrastEnforced: false,
-  systemNavigationBarColor: Colors.transparent,
-  systemNavigationBarDividerColor: Colors.transparent,
-  systemNavigationBarIconBrightness: Brightness.light,
-  systemNavigationBarContrastEnforced: false,
-);

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
-import '../../core/theme/theme.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
@@ -76,7 +75,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     if (context.isNarrow) {
       // 移动端口图是深色渐变，状态栏图标必须反白。
       return AnnotatedRegion<SystemUiOverlayStyle>(
-        value: olDarkSystemBars,
+        value: _lightStatusIcons,
         child: AppFrame(
           showNav: false,
           showTitleBar: false,
@@ -102,6 +101,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     );
   }
 }
+
+/// 移动端欢迎页头部是深色渐变，系统栏图标必须反白。
+///
+/// 全局只有一套浅色主题（状态栏图标恒为深色），这里用页面级覆盖，
+/// 不为了一个页面把深色系统栏样式再塞回主题层。
+const SystemUiOverlayStyle _lightStatusIcons = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarBrightness: Brightness.dark,
+  statusBarIconBrightness: Brightness.light,
+  systemNavigationBarColor: Colors.transparent,
+  systemNavigationBarIconBrightness: Brightness.light,
+);
 
 /// 协议卡片的数据形状（桌面 8 张 / 移动 5 张共用）。
 class _Proto {

@@ -28,6 +28,7 @@ part 'parts/files_sidebar.dart';
 part 'parts/files_desktop_chrome.dart';
 part 'parts/files_list.dart';
 part 'parts/files_mobile.dart';
+part 'parts/files_drawer.dart';
 
 /// W2（Windows 文件管理）/ W7（深色变体）/ A2（Android 文件列表）。
 ///
@@ -56,6 +57,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   /// 批量模式：点击行只做勾选；长按任意行也会进入批量模式并勾选该行。
   bool _batch = false;
+
+  /// 移动端切源抽屉。零动画：条件渲染，一帧开一帧关。
+  bool _drawerOpen = false;
 
   @override
   void initState() {
@@ -283,9 +287,17 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final items = _filtered(state.items);
     return AppFrame(
       navIndex: 0,
+      // 抽屉打开时收起底部导航：导航条由 AppFrame 画在 child 之外，
+      // 不收起会被遮罩漏出来，露出一排还能点的 Tab。
+      showNav: !_drawerOpen,
       // v2.2：返回键在子目录里先回上一级；v2.5：到根目录后交给框架做「双击退出」。
       handleBack: true,
       onBack: () async {
+        // 优先级：抽屉 > 批量 > 上一级目录 > 双击退出。
+        if (_drawerOpen) {
+          setState(() => _drawerOpen = false);
+          return true;
+        }
         if (_batch) {
           setState(() => _batch = false);
           ref.read(filesProvider.notifier).clearSelection();
@@ -297,129 +309,151 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         }
         return false;
       },
-      child: Stack(
+      child: Column(
         children: [
-          OlPullToRefresh(
-            onRefresh: () => ref.read(filesProvider.notifier).refresh(),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                const SliverToBoxAdapter(child: _MobileHead()),
-                const SliverToBoxAdapter(child: _MobileMounts()),
-                SliverToBoxAdapter(
-                  child: _KindFilter(
-                    value: _kind,
-                    onChanged: (k) => setState(() => _kind = k),
-                    batch: _batch,
-                    onBatch: (v) => setState(() {
-                      _batch = v;
-                      if (!v) ref.read(filesProvider.notifier).clearSelection();
-                    }),
+          _MobileAppBar(onMenu: () => setState(() => _drawerOpen = true)),
+          _MobileCrumb(state: state),
+          Expanded(
+            child: Stack(
+              children: [
+                OlPullToRefresh(
+                  onRefresh: () => ref.read(filesProvider.notifier).refresh(),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _KindFilter(
+                          value: _kind,
+                          onChanged: (k) => setState(() => _kind = k),
+                          batch: _batch,
+                          onBatch: (v) => setState(() {
+                            _batch = v;
+                            if (!v) ref.read(filesProvider.notifier).clearSelection();
+                          }),
+                        ),
+                      ),
+                      // 错误条独立于下面的 if/else 链：有旧列表时要和列表同时出现
+                      if (items.isNotEmpty && state.error != null && !state.offline)
+                        SliverToBoxAdapter(
+                          child: _InlineErrorBar(
+                            message: state.error!,
+                            onRetry: () => ref.read(filesProvider.notifier).refresh(),
+                          ),
+                        ),
+                      if (items.isEmpty && state.showSkeleton)
+                        const SliverToBoxAdapter(child: SizedBox(height: 420, child: _SkeletonBody()))
+                      else if (items.isEmpty && state.loading)
+                        const SliverToBoxAdapter(child: SizedBox(height: 420))
+                      else if (items.isEmpty && state.error != null && !state.offline)
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 300,
+                            child: _ErrorBody(
+                              message: state.error!,
+                              onRetry: () => ref.read(filesProvider.notifier).refresh(),
+                            ),
+                          ),
+                        )
+                      else if (items.isEmpty)
+                        SliverToBoxAdapter(
+                          child: SizedBox(height: 300, child: _EmptyBody(filtered: _kind != null)),
+                        )
+                      else
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (rowContext, index) {
+                              final item = items[index];
+                              final selected = state.selected.contains(item.name);
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
+                                child: _MobileRow(
+                                  item: item,
+                                  selected: selected,
+                                  batch: _batch,
+                                  onMenu: (pos) => _showMenu(pos, item),
+                                  onTap: () {
+                                    if (_batch) {
+                                      ref.read(filesProvider.notifier).toggleSelect(item.name);
+                                      return;
+                                    }
+                                    if (item.isDir) {
+                                      _openItem(item);
+                                      return;
+                                    }
+                                    // v2.1：点击文件先给操作列表，不直接打开/预览。
+                                    // v2.4：用页面级 context（不是 sliver 项 context），
+                                    // 避免列表重建后 context 失效导致弹层打不开。
+                                    final box = rowContext.findRenderObject() as RenderBox?;
+                                    final pos = box == null
+                                        ? Offset.zero
+                                        : box.localToGlobal(Offset(box.size.width / 2, box.size.height));
+                                    unawaited(_showMenu(pos, item));
+                                  },
+                                  onLongPress: () {
+                                    setState(() => _batch = true);
+                                    if (!selected) ref.read(filesProvider.notifier).toggleSelect(item.name);
+                                  },
+                                ),
+                              );
+                            },
+                            childCount: items.length,
+                          ),
+                        ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 112)),
+                    ],
                   ),
                 ),
-                SliverToBoxAdapter(child: _MobileCrumb(state: state)),
-                // 错误条独立于下面的 if/else 链：有旧列表时要和列表同时出现
-                if (items.isNotEmpty && state.error != null && !state.offline)
-                  SliverToBoxAdapter(
-                    child: _InlineErrorBar(
-                      message: state.error!,
-                      onRetry: () => ref.read(filesProvider.notifier).refresh(),
+                if (!_batch)
+                  Positioned(
+                    // v2.4：FAB 下移到右下角，坐在「设置」Tab 的正上方。
+                    right: 18,
+                    bottom: 18,
+                    child: _Fab(
+                      onUpload: () => pickAndUpload(context, ref),
+                      onNewFolder: () => createFolder(context, ref),
+                      onOffline: () => offlineDownload(context, ref),
                     ),
                   ),
-                if (items.isEmpty && state.showSkeleton)
-                  const SliverToBoxAdapter(child: SizedBox(height: 420, child: _SkeletonBody()))
-                else if (items.isEmpty && state.loading)
-                  const SliverToBoxAdapter(child: SizedBox(height: 420))
-                else if (items.isEmpty && state.error != null && !state.offline)
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 300,
-                      child: _ErrorBody(
-                        message: state.error!,
-                        onRetry: () => ref.read(filesProvider.notifier).refresh(),
+                if (_batch)
+                  Positioned(left: 12, right: 12, bottom: 12, child: _batchBar(state, items)),
+                if (state.offline)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      color: const Color(0xFFFFF6E5),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+                      child: const Row(
+                        children: [
+                          OlIcon('alert', size: 12, color: Color(0xFFB47405)),
+                          SizedBox(width: 6),
+                          Text('离线模式 · 显示本地缓存', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF5E4A22))),
+                        ],
                       ),
                     ),
-                  )
-                else if (items.isEmpty)
-                  SliverToBoxAdapter(
-                    child: SizedBox(height: 300, child: _EmptyBody(filtered: _kind != null)),
-                  )
-                else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (rowContext, index) {
-                        final item = items[index];
-                        final selected = state.selected.contains(item.name);
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
-                          child: _MobileRow(
-                            item: item,
-                            selected: selected,
-                            batch: _batch,
-                            onMenu: (pos) => _showMenu(pos, item),
-                            onTap: () {
-                              if (_batch) {
-                                ref.read(filesProvider.notifier).toggleSelect(item.name);
-                                return;
-                              }
-                              if (item.isDir) {
-                                _openItem(item);
-                                return;
-                              }
-                              // v2.1：点击文件先给操作列表，不直接打开/预览。
-                              // v2.4：用页面级 context（不是 sliver 项 context），
-                              // 避免列表重建后 context 失效导致弹层打不开；
-                              // 异常要显式提示，不能再"点了没反应"。
-                              final box = rowContext.findRenderObject() as RenderBox?;
-                              final pos = box == null
-                                  ? Offset.zero
-                                  : box.localToGlobal(Offset(box.size.width / 2, box.size.height));
-                              unawaited(_showMenu(pos, item));
-                            },
-                            onLongPress: () {
-                              setState(() => _batch = true);
-                              if (!selected) ref.read(filesProvider.notifier).toggleSelect(item.name);
-                            },
-                          ),
-                        );
-                      },
-                      childCount: items.length,
+                  ),
+                // 抽屉：scrim 与面板同属一个 Stack，点遮罩即关；宽度取内容宽 78.4%
+                // （效果图 290/370），上限 290、下限 240，320dp 老机也留得下内容。
+                if (_drawerOpen) ...[
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => _drawerOpen = false),
+                      child: const ColoredBox(color: Color(0x730D1B2A)),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 112)),
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: (MediaQuery.sizeOf(context).width * 0.784).clamp(240.0, 290.0),
+                    child: _SourceDrawer(onClose: () => setState(() => _drawerOpen = false)),
+                  ),
+                ],
               ],
             ),
           ),
-          if (!_batch)
-            Positioned(
-              // v2.4：FAB 下移到右下角，坐在「设置」Tab 的正上方（原来 86 太靠上）。
-              right: 18,
-              bottom: 18,
-              child: _Fab(
-                onUpload: () => pickAndUpload(context, ref),
-                onNewFolder: () => createFolder(context, ref),
-                onOffline: () => offlineDownload(context, ref),
-              ),
-            ),
-          if (_batch)
-            Positioned(left: 12, right: 12, bottom: 12, child: _batchBar(state, items)),
-          if (state.offline)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: Container(
-                color: const Color(0xFFFFF6E5),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-                child: const Row(
-                  children: [
-                    OlIcon('alert', size: 12, color: Color(0xFFB47405)),
-                    SizedBox(width: 6),
-                    Text('离线模式 · 显示本地缓存', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF5E4A22))),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );

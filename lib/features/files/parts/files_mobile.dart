@@ -4,144 +4,133 @@ part of '../files_page.dart';
 // A2 · 移动端零件（头部 / 挂载点横滑 / 筛选 / 面包屑 / 行 / 批量条 / FAB）
 // ---------------------------------------------------------------------------
 
-class _MobileHead extends ConsumerWidget {
-  const _MobileHead();
+class _MobileAppBar extends ConsumerWidget {
+  final VoidCallback onMenu;
+
+  const _MobileAppBar({required this.onMenu});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final profile = ref.watch(sessionProvider).profile;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 10, OlGap.pageMobile, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final state = ref.watch(filesProvider);
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+    // 当前目录属于哪个源：路径等于挂载点或以「挂载点/」开头。
+    StorageSource? current;
+    for (final source in sources) {
+      if (state.path == source.mountPath || state.path.startsWith('${source.mountPath}/')) {
+        current = source;
+        break;
+      }
+    }
+    final title = _appBarTitle(state.path, current);
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: p.card,
+        border: Border(bottom: BorderSide(color: p.line)),
+      ),
+      child: Row(
         children: [
-          Row(
-            children: [
-              const OlDot(color: OlTokens.ok, size: 6),
-              const SizedBox(width: 6),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => context.push('/settings/servers'),
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          profile?.displayHost ?? '本机引擎',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink2),
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      OlIcon('chev-r', size: 10, color: p.ink4),
-                    ],
+          _AppBarBtn(icon: 'menu', onTap: onMenu),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: p.ink),
                   ),
                 ),
-              ),
-              _CircleBtn(icon: 'search', onTap: () => context.go('/search')),
-            ],
+                if (current != null) ...[
+                  const SizedBox(width: 6),
+                  _SourceTag(text: driverShortTag(current.driver)),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          Text('所有文件', style: TextStyle(fontSize: 23, letterSpacing: -0.8, fontWeight: FontWeight.w800, color: p.ink)),
+          _AppBarBtn(icon: 'search', onTap: () => context.go('/search')),
+          const SizedBox(width: 8),
+          _AppBarBtn(
+            icon: 'more-v',
+            onTapDown: (position) => showOlMenu(context, position: position, items: [
+              OlMenuItem('添加存储源', 'plus', () => context.push('/sources/add')),
+              OlMenuItem('新建文件夹', 'folder-plus', () => createFolder(context, ref)),
+              OlMenuItem('设置', 'settings', () => context.go('/settings')),
+            ]),
+          ),
         ],
       ),
     );
   }
+
+  /// 标题取当前目录名；正好停在某个存储源的挂载点时显示源名。
+  String _appBarTitle(String path, StorageSource? source) {
+    if (path.isEmpty || path == '/') return '所有文件';
+    final segments = path.split('/').where((e) => e.isNotEmpty).toList();
+    if (segments.isEmpty) return '所有文件';
+    if (source != null && path == source.mountPath) return source.displayName;
+    return segments.last;
+  }
 }
 
-class _CircleBtn extends StatelessWidget {
+/// 顶栏图标按钮：38×38、方角圆角 10、细描边（效果图 `.ib`）。
+class _AppBarBtn extends StatelessWidget {
   final String icon;
-  final VoidCallback onTap;
-  const _CircleBtn({required this.icon, required this.onTap});
+  final VoidCallback? onTap;
+  final ValueChanged<Offset>? onTapDown;
+
+  const _AppBarBtn({required this.icon, this.onTap, this.onTapDown});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
     return GestureDetector(
       onTap: onTap,
+      onTapDown: onTapDown == null ? null : (details) => onTapDown!(details.globalPosition),
       child: Container(
-        // v2.3：触控目标由 30 提到 40（与 OlMobile.iconButton 一致）。
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(color: p.surface, shape: BoxShape.circle, border: Border.all(color: p.line2)),
-        child: Center(child: OlIcon(icon, size: 18, color: p.ink2)),
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: p.line),
+        ),
+        child: Center(child: OlIcon(icon, size: 17, color: p.ink2)),
       ),
     );
   }
 }
 
-class _MobileMounts extends ConsumerWidget {
-  const _MobileMounts();
+/// 源类型小胶囊（WebDAV / 本地 / 网盘 / SFTP）。
+class _SourceTag extends StatelessWidget {
+  final String text;
+
+  const _SourceTag({required this.text});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    final storages = ref.watch(storagesProvider).valueOrNull ?? const <StorageMount>[];
-    if (storages.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      // v2.4：外层 ListView 的 8+8 padding 会吃掉卡片高度，之前 80 实际只剩 64，
-      // 卡片里的「正常」被压到底边。这里给到 96，卡片内容 70 才放得下。
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 8, OlGap.pageMobile, 8),
-        itemCount: storages.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final mount = storages[index];
-          return GestureDetector(
-            onTap: () => context.go('/files?path=${Uri.encodeComponent(mount.mountPath)}'),
-            child: Container(
-              width: 166,
-              padding: const EdgeInsets.fromLTRB(11, 12, 11, 12),
-              decoration: BoxDecoration(
-                color: p.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: p.line2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      OlIcon('hard-drive', size: 14, color: mount.isUp ? OlTokens.sky700 : p.ink4),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          mount.mountPath == '/' ? '根目录' : mount.mountPath,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // v2.1：挂载卡片不再显示容量，只保留驱动与状态。
-                  Text(
-                    mount.driver.isEmpty ? (mount.isUp ? '已挂载' : '离线') : mount.driver,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: p.ink3),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      OlDot(color: mount.isUp ? OlTokens.ok : const Color(0xFFCBD5E1), size: 5),
-                      const SizedBox(width: 4),
-                      Text(
-                        mount.isUp ? '正常' : '离线',
-                        style: TextStyle(fontSize: 9.5, color: p.ink4),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+  Widget build(BuildContext context) {
+    const green = {'SFTP', 'FTP', 'SMB'};
+    const sky = {'本地', 'WebDAV'};
+    final Color fg;
+    final Color bg;
+    if (sky.contains(text)) {
+      fg = const Color(0xFF08799F);
+      bg = const Color(0xFFEAF8FE);
+    } else if (green.contains(text)) {
+      fg = const Color(0xFF0B6B4A);
+      bg = const Color(0xFFD3F2E6);
+    } else {
+      fg = const Color(0xFFB7791F);
+      bg = const Color(0xFFFEF3C7);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+      child: Text(text, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: fg)),
     );
   }
 }
