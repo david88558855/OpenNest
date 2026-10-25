@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../format.dart';
 import '../models/api_types.dart';
-import '../theme/tokens.dart';
 import 'ol_icon.dart';
 
 /// The tinted 29×29 (desktop) / 36×36 (mobile) file glyph tile.

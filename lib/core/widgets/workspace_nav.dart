@@ -31,8 +31,6 @@ class WorkspaceNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(sessionProvider).profile;
-    final serverId = profile?.id;
     final transfers = ref.watch(transfersProvider).pendingCount;
 
     return Column(

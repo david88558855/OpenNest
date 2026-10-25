@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/theme.dart';
 import '../core/theme/tokens.dart';
 import '../platform/windows/tray.dart';
-import 'providers.dart';
 import 'router.dart';
 
 class OpenNestApp extends ConsumerWidget {

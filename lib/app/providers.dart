@@ -5,7 +5,6 @@ import '../core/models/api_types.dart';
 import '../core/storage/prefs.dart';
 import '../core/storage/secure_store.dart';
 import '../core/storage/server_store.dart';
-import '../data/db/app_database.dart';
 import '../features/auth/session.dart';
 import '../features/files/files_controller.dart';
 import '../features/transfers/transfers_controller.dart';

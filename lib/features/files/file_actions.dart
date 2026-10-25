@@ -699,8 +699,6 @@ Future<void> showItemMenu(
   List<FileItem>? selection,
 }) async {
   final files = ref.read(filesProvider);
-  final profile = ref.read(sessionProvider).profile;
-  final path = item.parent ?? joinPath(files.path, item.name);
   final targets = (selection != null && selection.length > 1) ? selection : [item];
 
   final openAction = _openAction(context, ref, item);

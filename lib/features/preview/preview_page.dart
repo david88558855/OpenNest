@@ -5,7 +5,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/frame.dart';
@@ -252,7 +251,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                         color: p.card,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
                         border: Border.all(color: p.line),
-                        borderBottom: BorderSide(color: p.line),
                       ),
                       child: Row(
                         children: [
@@ -280,7 +278,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
                           color: p.card,
                           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(14)),
                           border: Border.all(color: p.line),
-                          borderTop: BorderSide.none,
                           boxShadow: const [
                             BoxShadow(color: Color(0x240E3A46), blurRadius: 50, offset: Offset(0, 18)),
                           ],
@@ -410,17 +407,19 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
           onTap: item == null ? null : () => downloadItem(context, ref, item),
         ),
         const SizedBox(height: 8),
-        OlGhostButton(
-          label: '复制路径',
-          icon: 'copy',
-          height: 32,
-          expand: true,
-          fontSize: 12,
-          fgColor: p.ink,
-          onTap: () async {
-            await Clipboard.setData(ClipboardData(text: widget.path));
-            if (context.mounted) olToast(context, '路径已复制');
-          },
+        SizedBox(
+          width: double.infinity,
+          child: OlGhostButton(
+            label: '复制路径',
+            icon: 'copy',
+            height: 32,
+            fontSize: 12,
+            fgColor: p.ink,
+            onTap: () async {
+              await Clipboard.setData(ClipboardData(text: widget.path));
+              if (context.mounted) olToast(context, '路径已复制');
+            },
+          ),
         ),
       ],
     );
@@ -461,7 +460,7 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
     final url = _url;
     if (url == null) return;
     try {
-      await openUrl(url);
+      await launchUrl(Uri.parse(url));
     } catch (_) {
       if (context.mounted) olToast(context, '无法打开外部程序', error: true);
     }
@@ -488,11 +487,6 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
         ],
       ),
     );
-  }
-
-  String _parentDir() {
-    final index = widget.path.lastIndexOf('/');
-    return index <= 0 ? '/' : widget.path.substring(0, index);
   }
 
   String _iconFor() {

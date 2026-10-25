@@ -286,7 +286,6 @@ class OlIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
     // 移动端图标按钮补到 40×40（原 30 太小，经常点空）。
     final mobile = _isMobile(context);
     final side = mobile ? (size < OlMobile.iconButton ? OlMobile.iconButton : size) : size;

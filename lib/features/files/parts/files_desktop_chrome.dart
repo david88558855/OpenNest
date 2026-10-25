@@ -198,33 +198,6 @@ class _Crumb extends StatelessWidget {
   }
 }
 
-class _RoundBtn extends StatelessWidget {
-  final String icon;
-  final String tooltip;
-  final VoidCallback? onTap;
-  const _RoundBtn({required this.icon, required this.tooltip, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return Tooltip(
-      message: tooltip,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(color: p.fieldBg, borderRadius: BorderRadius.circular(6)),
-            child: Center(child: OlIcon(icon, size: 13, color: onTap == null ? p.ink4 : p.ink3)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchMini extends StatelessWidget {
   final VoidCallback onTap;
   const _SearchMini({required this.onTap});
@@ -293,7 +266,6 @@ class _StatusBar extends ConsumerWidget {
     final p = context.ol;
     final session = ref.watch(sessionProvider);
     final files = ref.watch(filesProvider);
-    final latency = session.latencyMs;
     return Container(
       height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 14),

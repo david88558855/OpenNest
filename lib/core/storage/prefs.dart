@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../data/db/app_database.dart';
-import '../sidecar/sidecar_paths.dart';
 
 /// 本地偏好存储（单一 SQLite）。
 ///

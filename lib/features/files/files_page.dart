@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
-import '../../core/app_info.dart';
 import '../../core/format.dart';
 import '../../core/i18n/zh.dart';
 import '../../core/models/api_types.dart';
@@ -19,7 +18,6 @@ import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_scroll.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
-import '../../core/widgets/workspace_nav.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
 import '../sources/sources_controller.dart';
