@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app/app.dart';
 import 'app/providers.dart';
 import 'core/storage/prefs.dart';
+import 'core/storage/window_state_store.dart';
 import 'core/theme/theme.dart';
 import 'platform/windows/single_instance.dart';
 import 'platform/windows/tray.dart';
@@ -37,20 +38,21 @@ Future<void> main() async {
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();
-    const options = WindowOptions(
-      size: Size(1440, 900),
-      minimumSize: Size(1024, 680),
-      center: true,
-      title: 'OpenNest',
-      titleBarStyle: TitleBarStyle.hidden,
-      backgroundColor: Colors.transparent,
-      skipTaskbar: false,
-    );
+    // 0.5.0：首次启动最大化，之后按上次保存的尺寸打开。
+    // 尺寸与最大化状态的优先级见 WindowStateStore 的类注释。
+    final savedWindow = WindowStateStore.read(prefs);
+    final options = WindowStateStore.buildOptions(savedWindow);
+    final maximizeOnShow = WindowStateStore.shouldMaximize(savedWindow);
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.show();
+      if (maximizeOnShow) {
+        await windowManager.maximize();
+      }
       await windowManager.focus();
       await windowManager.setPreventClose(true);
     });
+    // 窗口显示后再挂监听：此时才拿得到真实尺寸。
+    WindowStateStore.attach(prefs);
     if (Platform.isWindows) {
       await TrayService.instance.attach(container);
       TrayService.instance.markWindowReady();

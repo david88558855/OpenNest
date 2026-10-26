@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import '../../app/providers.dart';
 import '../../core/sidecar/sidecar_controller.dart';
+import '../../core/storage/window_state_store.dart';
 import '../../features/transfers/transfers_controller.dart';
 
 /// W9 — Windows 托盘。
@@ -258,10 +259,14 @@ class TrayService with TrayListener {
 
     // 2~5 并行：偏好落盘 / 停引擎 / 关闭窗口拦截 / 移除托盘图标（NIM_DELETE）
     final cleanup = <Future<void>>[
-      _ignore(() {
+      _ignore(() async {
         final container = _container;
-        if (container == null) return Future<void>.value();
-        return container.read(prefsProvider).flush();
+        if (container == null) return;
+        final prefs = container.read(prefsProvider);
+        // 0.5.0：退出前先把当前窗口尺寸/最大化状态写进偏好，
+        // 再落库 —— 否则「刚调完窗口就退出」会丢掉这次调整。
+        await WindowStateStore.captureNow(prefs);
+        await prefs.flush();
       }),
       // 引擎是本进程的子进程：不主动停会留下孤儿，下次冷启动抢同一份数据库。
       _ignore(() {
