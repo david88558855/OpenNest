@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/i18n/zh.dart';
+import '../../core/sidecar/engine_password_dialog.dart';
 import '../../core/models/storage_source.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
@@ -392,9 +393,9 @@ class _Message extends StatelessWidget {
 
 /// 数据目录与凭据说明（设计稿 D8 `.dd` 两张 `.dcard`）。
 ///
-/// 0.5.0：按需求**不实现**「清除所有凭据」——引擎的 admin 口令是首次初始化
-/// 就写死的，清掉之后本机将无法再登录自己的引擎，且无法从 UI 恢复。
-/// 这里只保留说明与目录定位。
+/// 0.5.0：设计稿此处原为「清除所有凭据…」，改为「查看内核密码…」。
+/// 引擎的 admin 口令是首次初始化就写死的，清掉之后本机将无法再登录自己的
+/// 引擎且无法从 UI 恢复；查看则没有任何副作用，且用户确实偶尔需要它。
 class _DataAndCredentialsRow extends ConsumerWidget {
   const _DataAndCredentialsRow();
 
@@ -421,6 +422,16 @@ class _DataAndCredentialsRow extends ConsumerWidget {
             iconColor: const Color(0xFF0E9F6E),
             title: '凭据管理',
             description: '所有密码与令牌保存在系统钥匙串，只在本机使用，永不上传。',
+            // 0.5.0：设计稿此处原为「清除所有凭据…」。引擎 admin 口令首次
+            // 初始化即写死，清掉后本机将无法再登录自己的引擎且无法从 UI 恢复，
+            // 因此改为「查看内核密码…」——明文展示当前实例实际使用的口令。
+            action: OlGhostButton(
+              label: '查看内核密码…',
+              icon: 'key',
+              height: 30,
+              fontSize: 11,
+              onTap: () => showEnginePasswordDialog(context, ref),
+            ),
           ),
         ),
       ],
@@ -435,6 +446,7 @@ class _DataCard extends StatelessWidget {
   final String title;
   final String description;
   final String? path;
+  final Widget? action;
 
   const _DataCard({
     required this.icon,
@@ -442,6 +454,7 @@ class _DataCard extends StatelessWidget {
     required this.title,
     required this.description,
     this.path,
+    this.action,
   });
 
   @override
@@ -482,6 +495,10 @@ class _DataCard extends StatelessWidget {
                 style: TextStyle(fontSize: 10.5, color: p.ink2),
               ),
             ),
+          ],
+          if (action != null) ...[
+            const SizedBox(height: 10),
+            action!,
           ],
         ],
       ),
