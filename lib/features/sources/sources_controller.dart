@@ -8,9 +8,30 @@ import '../../core/models/driver_schema.dart';
 import '../../core/models/storage_source.dart';
 import '../../data/db/app_database.dart';
 
+/// 由用户填的名称生成挂载路径。
+///
+/// 语义与 OpenList 的 Web 界面保持一致：创建存储时填的挂载路径，
+/// 就是根文件夹里显示的目录名 —— 填「本地存储6」，根目录就显示
+/// 「本地存储6」，点进去是它的内容。
+///
+/// 引擎对挂载路径有格式要求（不能含空格与特殊字符），所以这里做一次
+/// 清洗：去掉首尾空白，把路径分隔符与非法字符替换成下划线。名称本身
+/// （含中文）原样保留 —— 中文挂载路径是 OpenList 支持的。
+String mountPathOf(String name) {
+  final raw = name.trim();
+  final cleaned = raw
+      .replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  // 清洗后为空（例如只填了空格或斜杠）时退回一个可用的默认值。
+  final fallback = cleaned.isEmpty ? 'storage' : cleaned;
+  return '/$fallback';
+}
+
 /// 生成一个不冲突的挂载路径（`/s_<8位十六进制>`）。
 ///
-/// 添加向导与配置导入共用同一套生成规则，避免两处各写一份。
+/// 仅用于配置导入等「没有用户命名」的场景 —— 导入的条目必须落到
+/// 独立路径上，不能覆盖既有存储。添加向导走 [mountPathOf]。
 String generateMountPath() {
   final random = Random.secure();
   final suffix = List.generate(8, (_) => random.nextInt(16).toRadixString(16)).join();

@@ -53,12 +53,20 @@ class AndroidSidecarManager implements SidecarManager {
 
       onStep?.call('启动引擎（第 $attempt 次尝试，端口 $port）');
       try {
-        await _channel.invokeMethod<int>('start', {
+        // 原生侧 start 返回的是 Boolean（是否启动成功），
+        // 这里必须按 bool 接收。此前误写成 invokeMethod<int>，方法通道
+        // 拿到 bool 却按 int 解析，直接抛
+        // "type 'bool' is not a subtype of type 'int?' in type cast"，
+        // 表现为安卓版「引擎启动失败」。
+        final started = await _channel.invokeMethod<bool>('start', {
           'dataDir': root.path,
           'port': port,
           'password': password,
           'logPath': logFile.path,
         });
+        if (started != true) {
+          throw SidecarException('原生侧未能启动引擎进程。');
+        }
       } catch (error) {
         previous = port;
         if (attempt == 8) {

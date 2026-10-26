@@ -38,7 +38,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   final Map<String, String> _selects = {};
 
   String? _driver;
-  String _mountPath = '';
   bool _busy = false;
   String? _error;
   bool _created = false;
@@ -49,7 +48,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   @override
   void initState() {
     super.initState();
-    _mountPath = _newMountPath();
   }
 
   @override
@@ -61,9 +59,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     }
     super.dispose();
   }
-
-  /// 挂载路径生成规则与配置导入共用（见 sources_controller.generateMountPath）。
-  String _newMountPath() => generateMountPath();
 
   DriverInfo? _info(Map<String, DriverInfo> catalog) {
     final name = _driver;
@@ -82,7 +77,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     _driver = info.name;
     _error = null;
     _created = false;
-    _mountPath = _newMountPath();
     for (final item in info.additional) {
       if (item.isBool) {
         _bools[item.name] = item.defaultValue == 'true';
@@ -91,9 +85,6 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       } else {
         _ctrls[item.name] = TextEditingController(text: item.defaultValue ?? '');
       }
-    }
-    if (_nameCtrl.text.trim().isEmpty) {
-      _nameCtrl.text = driverLabel(info.name);
     }
     // 预填必须放在字段控制器重建之后（上面刚 dispose 过 _ctrls）。
     if (!_prefillApplied && widget.initialDriver == info.name && widget.initialPrefill != null) {
@@ -110,9 +101,13 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     if (_busy) return;
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = '请填写显示名称');
+      setState(() => _error = '请填写挂载路径');
       return;
     }
+    // 挂载路径由用户填的名称派生：OpenList 的 Web 界面里，创建存储时
+    // 填的挂载路径就是根文件夹显示的目录名。这里保持同样语义 ——
+    // 用户填「本地存储6」，根目录里就显示「本地存储6」，点进去是它的内容。
+    final mountPath = mountPathOf(name);
     for (final item in info.additional) {
       if (!item.required) continue;
       final value = item.isBool
@@ -143,7 +138,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       _error = null;
     });
     final source = StorageSource(
-      mountPath: _mountPath,
+      mountPath: mountPath,
       driver: info.name,
       remark: name,
       addition: addition,
@@ -350,7 +345,12 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
           builder: (context, constraints) {
             final twoColumn = constraints.maxWidth > 520;
             final fields = <Widget>[
-              _textField(label: '显示名称', required: true, controller: _nameCtrl, hint: '侧边栏中展示的名称'),
+              _textField(
+                label: '挂载路径',
+                required: true,
+                controller: _nameCtrl,
+                hint: '根目录中显示的文件夹名称，如「本地存储6」',
+              ),
               _textField(
                 label: '缓存时长（秒）',
                 controller: _cacheCtrl,

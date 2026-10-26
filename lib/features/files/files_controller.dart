@@ -178,8 +178,10 @@ class FilesNotifier extends StateNotifier<FilesState> {
       await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
       await store.cacheListing(profile.id, normalized, items.map((e) => e.toJson()).toList());
       // 0.5.0：记录本次访问的存储源，设置页「最近使用」列要用。
-      // 路径形如 `/s_xxxxxxxx/子目录`，取第一段作为源标识。
-      final sourceId = _sourceIdOfPath(normalized);
+      // 路径形如 `/本地存储6/子目录`，取第一段作为源标识。
+      // 挂载路径由用户命名，没有固定前缀，只能对照已知源列表判断。
+      final knownSources = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+      final sourceId = _sourceIdOfPath(normalized, knownSources);
       if (sourceId.isNotEmpty) {
         await SourceUsageDao.instance.touch(sourceId);
         ref.invalidate(sourceUsageProvider);
@@ -291,24 +293,36 @@ class FilesNotifier extends StateNotifier<FilesState> {
 
 /// 从路径里取出存储源标识（挂载路径首段）。
 ///
-/// 路径形如 `/s_xxxxxxxx/子目录/文件`，源标识就是 `/s_xxxxxxxx`。
+/// 路径形如 `/本地存储6/子目录/文件`，源标识就是 `/本地存储6`。
 /// 根路径（`/`）与不存在的标识返回空串。
-String _sourceIdOfPath(String path) {
+///
+/// 挂载路径由用户命名（与 OpenList Web 一致），没有固定前缀，
+/// 所以只能对照已知的存储源列表来判断首段是不是某个源 ——
+/// 不能只按字符串特征猜，否则会把普通目录名误当源。
+String _sourceIdOfPath(String path, List<StorageSource> sources) {
   final normalized = path.isEmpty ? '/' : path;
   if (normalized == '/') return '';
   final segments = normalized.split('/').where((e) => e.isNotEmpty).toList();
   if (segments.isEmpty) return '';
   final first = segments.first;
-  // 只认客户端生成的挂载路径（`/s_` 前缀），避免把普通目录名误当源。
-  if (!first.startsWith('s_')) return '';
-  return '/$first';
+  for (final source in sources) {
+    final mount = source.mountPath;
+    if (mount.isEmpty) continue;
+    final seg = mount.startsWith('/') ? mount.substring(1) : mount;
+    if (seg == first) return '/$first';
+  }
+  return '';
 }
 
 /// 把根目录下的挂载点项的展示名换成存储源名称。
 ///
-/// 引擎在根目录返回的目录名是挂载路径段（`s_xxxxxxxx`），但用户是通过
-/// 「添加存储源」时填的名称来认识它们的（「本地存储6」）。这里按挂载路径
-/// 前缀匹配存储源，取其 remark 作为展示名。
+/// 两种情况：
+/// - 新建的存储：挂载路径由用户命名（`/本地存储6`），引擎在根目录返回的
+///   目录名就是「本地存储6」，与 OpenList Web 的表现一致 —— 此时这里
+///   是 no-op（显示名与目录名相同）。
+/// - 0.5.0 之前建的存储：挂载路径是自动生成的 `/s_xxxxxxxx`，根目录会
+///   显示一堆无意义的路径段。这里按挂载路径段匹配存储源，取其 remark
+///   还原成用户当初起的名字。
 ///
 /// 只改 [FileItem.displayName]，[FileItem.name] 保持不变 —— 后者参与
 /// 路径拼接（`joinPath(path, item.name)`），改了会跳错目录。
