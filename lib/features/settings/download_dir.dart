@@ -43,11 +43,11 @@ class StorageAccess {
   }
 }
 
-/// 当前生效的下载目录：用户显式选择的优先，否则用默认规则推导。
+/// 当前生效的下载目录：用户显式选择的优先，否则按实例隔离规则推导。
 ///
 /// v2.5：路径规则统一收敛到 `core/storage/download_paths.dart`——
-/// Android 默认落在公共目录 `/storage/emulated/0/Download/OpenNest`。
-/// 这里只保留 WidgetRef 版本方便 UI 调用。
+/// Android 默认落在公共目录 `/storage/emulated/0/Download/OpenList`，
+/// 开启隔离开时再拼服务器显示名。这里只保留 WidgetRef 版本方便 UI 调用。
 Future<String> resolveDownloadDir(WidgetRef ref, ServerProfile profile) =>
     resolveDownloadDirFor(ref.read(serverStoreProvider), profile);
 

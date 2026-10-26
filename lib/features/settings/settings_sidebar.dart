@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
+import '../../core/sidecar/sidecar_controller.dart';
+import '../../core/sidecar/sidecar_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
@@ -39,6 +41,8 @@ class SettingsSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    final session = ref.watch(sessionProvider);
+    final sidecar = ref.watch(sidecarProvider);
     // 存储源数量徽标（设计稿 `.nav-i .n`）。
     final sourceCount = ref.watch(sourcesProvider).valueOrNull?.length ?? 0;
 
@@ -70,13 +74,13 @@ class SettingsSidebar extends ConsumerWidget {
               onTap: () => openSection(item[0], item[3]),
             ),
           const Spacer(),
-          // 0.5.0：只保留应用版本号一行。
-          // 内核版本与 AGPL 许可信息此前在这里各占一行，用户反馈不需要 ——
-          // 内核版本可在「关于」分区里看，许可信息放应用商店/仓库页更合适。
+          // 设计稿 `.nav-b`：版本 + 内核版本 + 许可，三行。
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Text(
-              '${AppInfo.shortLabel} ${AppInfo.version}',
+              '${AppInfo.shortLabel} ${AppInfo.version}\n'
+              '内嵌 OpenList ${AppInfo.shortVersion(sidecar.engineVersion ?? session.site?.version)}\n'
+              'AGPL-3.0 · 源码公开',
               style: TextStyle(fontSize: 10, height: 1.6, color: p.ink4),
             ),
           ),

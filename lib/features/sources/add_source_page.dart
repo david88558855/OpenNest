@@ -223,23 +223,10 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
             color: p.surface,
             border: Border(right: BorderSide(color: p.line)),
           ),
-          // 0.5.0：返回入口移到左侧栏顶部，与设置页一致（chev-l + 「返回」文字）。
-          // 顶栏的返回箭头保留 —— 移动端窄屏没有侧栏，仍需要它。
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                child: _SideBackRow(onTap: () => goBackOrFiles(context)),
-              ),
-              Expanded(
-                child: _DriverList(
-                  names: names,
-                  selected: _driver,
-                  onSelect: (name) => setState(() => _selectDriver(drivers[name]!)),
-                ),
-              ),
-            ],
+          child: _DriverList(
+            names: names,
+            selected: _driver,
+            onSelect: (name) => setState(() => _selectDriver(drivers[name]!)),
           ),
         ),
         Expanded(
@@ -369,7 +356,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
                 label: '挂载路径',
                 required: true,
                 controller: _nameCtrl,
-                hint: '根目录中显示的文件夹名称',
+                hint: '根目录中显示的文件夹名称，如「本地存储6」',
               ),
               _textField(
                 label: '缓存时长（秒）',
@@ -970,50 +957,6 @@ class _PageTopBar extends StatelessWidget {
             const Spacer(),
           OlGhostButton(label: '取消', height: 32, fontSize: 12, onTap: onBack),
         ],
-      ),
-    );
-  }
-}
-
-/// 左侧栏顶部的返回行。
-///
-/// 规格与设置页 `SettingsSidebar` 的返回项完全一致：chev-l 图标 15px +
-/// 文字 12.5/600，padding 9/10、圆角 9。
-class _SideBackRow extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _SideBackRow({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Row(
-            children: [
-              OlIcon('chev-l', size: 15, color: p.ink3),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '返回',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: p.ink2),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

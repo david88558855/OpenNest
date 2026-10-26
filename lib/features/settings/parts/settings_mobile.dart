@@ -68,11 +68,72 @@ class _MobileSettings extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    final session = ref.watch(sessionProvider);
+    final profile = session.profile;
     return ColoredBox(
       color: p.card,
       child: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 10, OlGap.pageMobile, 0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0B2233), Color(0xFF0D3B46)],
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(gradient: OlTokens.gradientBrand, borderRadius: BorderRadius.circular(14)),
+                  child: const Center(child: OlIcon('user', size: 22, color: Colors.white)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile?.username ?? '未登录',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        profile == null
+                            ? '未连接服务器'
+                            : AppInfo.hostWithVersion(
+                                profile.displayHost,
+                                profile.version ?? session.site?.version,
+                              ),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF9DB4C8)),
+                      ),
+                    ],
+                  ),
+                ),
+                OlBadge(
+                  label: session.offline ? '离线' : (session.signedIn ? '已连接' : '未登录'),
+                  fg: session.offline ? const Color(0xFF5E4A22) : const Color(0xFF0B5C4C),
+                  bg: session.offline ? const Color(0xFFFCD9A0) : const Color(0xFF7DD3FC),
+                ),
+              ],
+            ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: OlGap.pageMobile),
             child: Column(
@@ -98,6 +159,12 @@ class _MobileSettings extends ConsumerWidget {
                     _MobileTile(icon: 'play', label: '播放', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
                     _MobileTile(icon: 'info', label: '关于', value: AppInfo.version, onTap: () => context.go('/settings/about')),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${AppInfo.shortLabel} · 安卓 · 接口版本 v4',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 8.5, color: p.ink4),
                 ),
               ],
             ),
