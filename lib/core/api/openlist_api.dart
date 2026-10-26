@@ -112,12 +112,33 @@ class OpenListApi {
     }
   }
 
-  Future<dynamic> _post(String path, [Map<String, dynamic>? body], {Map<String, dynamic>? query}) async {
+  Future<dynamic> _post(String path, [Map<String, dynamic>? body]) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final res = await _dio.post(path, data: body ?? const {}, options: _opts());
+        return _handle(res);
+      } on DioException catch (e) {
+        throw ApiException.fromDio(e);
+      } on ApiException catch (e) {
+        if (e.code == 429 && attempt == 0) {
+          await Future<void>.delayed(_rateLimitBackoff);
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  /// 带 query 参数的 POST。
+  ///
+  /// 单独一个方法而不是给 [_post] 加命名参数：Dart 不允许一个函数同时有
+  /// 可选位置参数与命名参数，而 [_post] 的 body 是位置参数、已被大量调用。
+  Future<dynamic> _postQuery(String path, Map<String, dynamic> query) async {
     for (var attempt = 0; ; attempt++) {
       try {
         final res = await _dio.post(
           path,
-          data: body ?? const {},
+          data: const {},
           queryParameters: query,
           options: _opts(),
         );
@@ -344,11 +365,11 @@ class OpenListApi {
 
   Future<void> deleteStorage(int id) async {
     // 用 query 参数而不是手工拼字符串：dio 会负责编码。
-    await _post('/api/admin/storage/delete', null, query: {'id': id});
+    await _postQuery('/api/admin/storage/delete', {'id': id});
   }
 
   Future<void> setStorageEnabled(int id, bool enabled) async {
-    await _post('/api/admin/storage/${enabled ? 'enable' : 'disable'}', null, query: {'id': id});
+    await _postQuery('/api/admin/storage/${enabled ? 'enable' : 'disable'}', {'id': id});
   }
 
   Future<List<ServerTask>> tasks() async {
