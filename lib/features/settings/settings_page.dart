@@ -104,6 +104,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       showNav: false,
       handleBack: true,
       child: Row(
+        // 0.5.0：Row 默认 crossAxisAlignment 是 center —— 主区 ColoredBox
+        // 会被压缩到内容高度并垂直居中，导致「关于」这类短页顶部留出大片空白，
+        // 而「传输」这类长页几乎占满，页面之间表现不一致。
+        // stretch 让主区撑满可用高度，背景铺满、内容从顶部 padding 起算。
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SettingsSidebar(active: _section, onSelect: _select),
           Expanded(

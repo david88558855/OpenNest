@@ -226,22 +226,35 @@ class _SourceTable extends ConsumerWidget {
 }
 
 /// 表格行（设计稿 `.trow`）。
-class _SourceTableRow extends ConsumerWidget {
+class _SourceTableRow extends ConsumerStatefulWidget {
   final StorageSource source;
   final int? lastUsed;
 
   const _SourceTableRow({required this.source, this.lastUsed});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SourceTableRow> createState() => _SourceTableRowState();
+}
+
+class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
     final p = context.ol;
     final actions = ref.read(sourceActionsProvider);
+    final source = widget.source;
     final tag = driverShortTag(source.driver);
     final status = _statusOf(source);
 
-    return Container(
+    return MouseRegion(
+      // 设计稿 D8 `.trow:hover`：底色变 #FBFDFF。
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
+        color: _hover ? const Color(0xFFFBFDFF) : Colors.transparent,
         border: Border(bottom: BorderSide(color: p.line2)),
       ),
       child: Row(
@@ -333,7 +346,8 @@ class _SourceTableRow extends ConsumerWidget {
                 ),
                 const SizedBox(width: 6),
                 _TableAction(
-                  icon: 'more',
+                  // 设计稿 D8 的编辑键是铅笔（`edit`），不是三点。
+                  icon: 'edit',
                   tooltip: '编辑',
                   onTap: () => _editSource(context, ref, source),
                 ),
@@ -364,6 +378,7 @@ class _SourceTableRow extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -591,7 +606,7 @@ class _SourceEditDialogState extends State<_SourceEditDialog> {
 }
 
 /// 表格内的操作按钮（设计稿 `.ia`）：28×28、圆角 8、描边。
-class _TableAction extends StatelessWidget {
+class _TableAction extends StatefulWidget {
   final String icon;
   final String tooltip;
   final bool danger;
@@ -605,27 +620,42 @@ class _TableAction extends StatelessWidget {
   });
 
   @override
+  State<_TableAction> createState() => _TableActionState();
+}
+
+class _TableActionState extends State<_TableAction> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
     final p = context.ol;
+    // 设计稿 D8 `.ia:hover`：描边变 #38BDF8、图标变 #0EA5E9。
+    // 删除键悬停时保持红色语义（危险操作不该在悬停时变蓝）。
+    final borderColor = _hover ? const Color(0xFF38BDF8) : p.line;
+    final iconColor = widget.danger
+        ? const Color(0xFFD92D4B)
+        : (_hover ? const Color(0xFF0EA5E9) : p.ink2);
     return Tooltip(
-      message: tooltip,
+      message: widget.tooltip,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Container(
             width: 28,
             height: 28,
             decoration: BoxDecoration(
               color: p.card,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: p.line),
+              border: Border.all(color: borderColor),
             ),
             child: Center(
               child: OlIcon(
-                icon,
+                widget.icon,
                 size: 13,
-                color: danger ? const Color(0xFFD92D4B) : p.ink2,
+                color: iconColor,
                 strokeWidth: 2,
               ),
             ),
