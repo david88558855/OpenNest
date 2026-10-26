@@ -22,7 +22,7 @@ box-shadow:0 22px 60px rgba(14,58,70,.13);overflow:hidden}
 .wbtn{width:26px;height:22px;display:flex;align-items:center;justify-content:center;color:#6B7F94;font-size:12px}
 .wbtn.close:hover{background:#FDE8EC;color:#D92D4B}
 
-.body{display:grid;grid-template-columns:200px 1fr;height:582px}
+.body{display:grid;grid-template-columns:200px 1fr;height:540px}
 
 /* ---------- 侧栏（白底 200，对应 _QueueSidebar） ---------- */
 .side{background:#FFFFFF;border-right:1px solid #E3EBF3;padding:18px 12px 12px;display:flex;flex-direction:column}
@@ -53,16 +53,17 @@ font-size:12px;font-weight:700;color:#0D1B2A;background:#FFFFFF;border:1px solid
 .gbtn:hover{border-color:#BDE7FA;color:#08799F}
 
 /* ---------- 操作类型筛选（新增） ---------- */
-.filters{padding:10px 24px 12px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #E3EBF3;margin-bottom:2px}
+.bar{padding:10px 24px;display:flex;align-items:center;gap:10px;
+border-bottom:1px solid #E3EBF3;margin-top:8px}
+.chips{display:flex;align-items:center;gap:7px}
 .fchip{height:26px;border-radius:99px;padding:0 11px;display:inline-flex;align-items:center;gap:6px;
 font-size:11.5px;font-weight:700;color:#42566B;background:#FFFFFF;border:1px solid #E3EBF3;cursor:pointer}
 .fchip.on{background:#EAF8FE;border-color:#BDE7FA;color:#08799F}
 .fchip .n{font-size:10px;font-weight:800;color:#6B7F94;background:#EDF2F8;border-radius:99px;padding:1px 6px}
 .fchip.on .n{background:#FFFFFF;color:#08799F}
-.fhint{margin-left:auto;font-size:10.5px;color:#9DB2C4}
 
 /* ---------- 全局控制条（透明 + 底边线） ---------- */
-.gbar{padding:10px 24px;display:flex;align-items:center;gap:10px;margin-top:8px;justify-content:flex-end}
+
 .stat{font-size:11.5px;color:#6B7F94;display:flex;align-items:center;gap:6px}
 
 /* ---------- 任务列表 ---------- */
@@ -178,20 +179,18 @@ display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
         <div class="gbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0D1B2A" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>新建任务</div>
       </div>
 
-      <!-- 全局控制条：全部暂停整体移到最右 -->
-      <div class="gbar">
+      <!-- 一条工具栏：左＝类型筛选，右＝总计 + 全部暂停（与总计同一高度） -->
+      <div class="bar">
+        <div class="chips">
+          <span class="fchip on">全部<span class="n">9</span></span>
+          <span class="fchip">下载<span class="n">1</span></span>
+          <span class="fchip">上传<span class="n">0</span></span>
+          <span class="fchip">复制<span class="n">4</span></span>
+          <span class="fchip">移动<span class="n">2</span></span>
+        </div>
+        <div class="sp"></div>
         <span class="stat">总计 6.8 GB · 剩余约 3 分钟</span>
         <div class="gbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0D1B2A" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg>全部暂停</div>
-      </div>
-
-      <!-- 类型筛选：下移到控制条之下，与列表左边缘对齐 -->
-      <div class="filters">
-        <span class="fchip on">全部<span class="n">9</span></span>
-        <span class="fchip">下载<span class="n">1</span></span>
-        <span class="fchip">上传<span class="n">0</span></span>
-        <span class="fchip">复制<span class="n">4</span></span>
-        <span class="fchip">移动<span class="n">2</span></span>
-        <span class="fhint">按操作类型筛选 · 数量实时统计</span>
       </div>
 
       <div class="tasks">
@@ -350,7 +349,7 @@ display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
 </div>
 
 <div class="legend">
-  <div class="lg"><div class="lg-t"><b>只动布局</b>：并发 / 限速 并到副标题「断点续传」右侧，控制条只留「总计 + 全部暂停」并右对齐；类型筛选行随之上移一档，分割线仍在筛选行底部。</div></div>
+  <div class="lg"><div class="lg-t"><b>只动布局</b>：并发 / 限速 并到副标题「断点续传」右侧；类型筛选与控制条的「总计 + 全部暂停」合成一条工具栏（左筛选、右操作），分割线在它底部。</div></div>
   <div class="lg"><div class="lg-t"><b>类型标识</b>：路径前胶囊 复制 紫 / 移动 橙 / 下载 蓝 / 上传 绿；图标块底色跟随类型（<code>tileViolet</code> / <code>tileAmber</code>）。</div></div>
   <div class="lg"><div class="lg-t"><b>分组沿用「按方向」</b>：由「下载中 / 上传中」扩为「下载中 / 上传中 / 复制中 / 移动中」，空组自动不显示。</div></div>
   <div class="lg"><div class="lg-t"><b>方式徽标改中性灰</b>：原来固定在琥珀色，与「移动」的橙撞色；改成灰底后颜色只用来区分操作类型。</div></div>
