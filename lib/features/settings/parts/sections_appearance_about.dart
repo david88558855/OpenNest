@@ -21,6 +21,8 @@ class _AboutSection extends ConsumerWidget {
                 icon: 'info',
                 title: '版本',
                 subtitle: '${AppInfo.shortLabel} ${AppInfo.version}',
+                // 只读行，没有尾部动作；_Row 的 trailing 是必填参数。
+                trailing: const SizedBox.shrink(),
               ),
               _Row(
                 icon: 'external',
