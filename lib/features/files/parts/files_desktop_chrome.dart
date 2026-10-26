@@ -52,7 +52,8 @@ class _TopBar extends ConsumerWidget {
       height: OlDesktop.topBar,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: p.card,
+        // 0.5.0：主区底色改为浅蓝灰后，顶栏透明化，透出同一层。
+        color: Colors.transparent,
         border: Border(bottom: BorderSide(color: p.line)),
       ),
       child: Row(
@@ -270,7 +271,8 @@ class _StatusBar extends ConsumerWidget {
       height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: p.surfaceAlt,
+        // 0.5.0：与顶栏一致，透明化透出主区的浅蓝灰底。
+        color: Colors.transparent,
         border: Border(top: BorderSide(color: p.line2)),
       ),
       child: Row(

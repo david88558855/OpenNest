@@ -26,7 +26,8 @@ class _ListView extends ConsumerWidget {
           height: OlDesktop.listHeader,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: p.tableHeadBg,
+            // 0.5.0：主区底色改浅蓝灰后，表头透明化透出同一层。
+            color: Colors.transparent,
             border: Border(bottom: BorderSide(color: p.line)),
           ),
           child: Row(

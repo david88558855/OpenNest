@@ -28,7 +28,8 @@ class _GlobalBar extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
       decoration: BoxDecoration(
-        color: p.card,
+        // 0.5.0：主区底色改浅蓝灰后，标题区透明化透出同一层。
+        color: Colors.transparent,
         border: Border(bottom: BorderSide(color: p.line)),
       ),
       child: Row(

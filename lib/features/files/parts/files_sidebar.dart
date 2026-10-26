@@ -16,7 +16,9 @@ class _Sidebar extends ConsumerWidget {
     return Container(
       width: 236,
       decoration: BoxDecoration(
-        color: p.surface,
+        // 0.5.0：侧栏与主区背景互换 —— 侧栏改白底，主区改浅蓝灰。
+        // 与设置页 D8 的结构保持一致（导航白、内容区 #F8FBFE）。
+        color: p.card,
         border: Border(right: BorderSide(color: p.line)),
       ),
       child: Column(

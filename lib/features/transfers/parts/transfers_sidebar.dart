@@ -15,18 +15,26 @@ class _QueueSidebar extends ConsumerWidget {
     return Container(
       width: 200,
       decoration: BoxDecoration(
-        color: p.surface,
+        // 0.5.0：与文件页一致 —— 侧栏改白底，主区改浅蓝灰。
+        color: p.card,
         border: Border(right: BorderSide(color: p.line)),
       ),
+      // 0.5.0：外层 padding 与设置页一致（18/12），返回行的图标位置、
+      // 与下方列表的横向起点都与设置页对齐。
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 0.5.0：返回入口放在侧栏顶部靠左，规格与设置页的返回行完全一致
+          // （padding 9/10、圆角 9、chev-l 15px + 文字 12.5/600）。
+          _SideBackRow(onTap: () => goBackOrFiles(context)),
           Expanded(
             child: ListView(
               // 设计稿 D5：侧栏 padding 16/10。
-              padding: const EdgeInsets.fromLTRB(10, 16, 10, 0),
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
               children: [
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(10, 0, 10, 6),
+                  padding: EdgeInsets.fromLTRB(0, 0, 0, 6),
                   child: Text(
                     '存储源',
                     style: TextStyle(
@@ -41,7 +49,7 @@ class _QueueSidebar extends ConsumerWidget {
                   _SourceRow(source: source),
                 if (sources.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 6),
                     child: Text(
                       '还没有存储源',
                       style: TextStyle(fontSize: 11.5, color: p.ink4),
@@ -52,7 +60,7 @@ class _QueueSidebar extends ConsumerWidget {
           ),
           // 底部两个 mini 按钮（设计稿 D5）
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -77,6 +85,50 @@ class _QueueSidebar extends ConsumerWidget {
 }
 
 /// 侧栏源行：名称 + 右侧类型胶囊（设计稿 D5 `.src` + `.pt`）。
+/// 侧栏顶部的返回行。
+///
+/// 规格与设置页 `SettingsSidebar` 的返回项一致：chev-l 图标 15px + 文字
+/// 12.5/600，padding 9/10、圆角 9。两页的返回入口位置与样式统一。
+class _SideBackRow extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _SideBackRow({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Row(
+            children: [
+              OlIcon('chev-l', size: 15, color: p.ink3),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '返回',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: p.ink2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SourceRow extends StatelessWidget {
   final StorageSource source;
 

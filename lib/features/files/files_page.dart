@@ -132,6 +132,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   // ------------------------------------------------------------------ W2 桌面
   Widget _buildDesktop(BuildContext context) {
+    final p = context.ol;
     final state = ref.watch(filesProvider);
     return AppFrame(
       navIndex: 0,
@@ -162,7 +163,12 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                   },
                   child: Stack(
                     children: [
-                      Column(
+                      // 0.5.0：主区底色改浅蓝灰（与侧栏互换）。
+                      // 顶栏 / 列表 / 状态栏各自透明化，透出这一层，
+                      // 表格行、卡片等白底层次不受影响。
+                      ColoredBox(
+                        color: p.surface,
+                        child: Column(
                         children: [
                           _TopBar(
                             kind: _kind,
@@ -177,6 +183,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           const _DropHint(),
                           const _StatusBar(),
                         ],
+                        ),
                       ),
                       if (_dragging) const _DropOverlay(),
                       // v1.0.26：桌面批量模式之前只有复选框、没有任何操作条，
