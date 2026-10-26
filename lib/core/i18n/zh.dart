@@ -777,12 +777,21 @@ String storageStatusLabel(String raw) {
 /// - `passwd` 也是常见拼写，必须覆盖，否则密码会漏出；
 /// - 形如 `private_key_path` / `key_path` 的字段只是**文件路径**，
 ///   本身不是密钥内容，剔除掉会导致导入后连不上，因此排除。
+/// 明确**不**遮蔽的字段（名字里带机密关键字，但实际不是密钥）。
+///
+/// `share_pwd` 是分享提取码：用户要靠它确认填对了，遮蔽后反而填错。
+const Set<String> kNonSecretFields = {'share_pwd'};
+
 bool isSecretFieldName(String name) {
   final n = name.toLowerCase();
+  if (kNonSecretFields.contains(n)) return false;
   if (n.endsWith('_path') || n.endsWith('_file') || n.endsWith('_dir')) return false;
   const keys = [
     'password',
     'passwd',
+    // 引擎里还有 pwd（115 系）与 repoPwd（GitHub）两种写法，
+    // 不覆盖的话这两类密码会明文显示在表单上。
+    'pwd',
     'passphrase',
     'token',
     'secret',

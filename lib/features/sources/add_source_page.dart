@@ -523,8 +523,13 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       child: TextField(
         controller: controller,
         obscureText: secret,
-        maxLines: multiline ? 4 : 1,
-        minLines: multiline ? 3 : 1,
+        // 机密字段强制单行：Flutter 的 TextField 不允许 obscureText 与
+        // maxLines > 1 同时使用（会触发断言崩溃）。
+        // 引擎里 type=text 的机密字段有 private_key / mail_cookies /
+        // accesstoken / qrcode_token / gpg_private_key 五个 —— 选到
+        // SFTP / 139Yun 等驱动时原本会直接把表单渲染崩掉。
+        maxLines: (multiline && !secret) ? 4 : 1,
+        minLines: (multiline && !secret) ? 3 : 1,
         keyboardType: keyboardType,
         style: TextStyle(fontSize: 12.5, color: context.ol.ink),
         decoration: InputDecoration(

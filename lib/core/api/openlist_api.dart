@@ -112,10 +112,15 @@ class OpenListApi {
     }
   }
 
-  Future<dynamic> _post(String path, [Map<String, dynamic>? body]) async {
+  Future<dynamic> _post(String path, [Map<String, dynamic>? body], {Map<String, dynamic>? query}) async {
     for (var attempt = 0; ; attempt++) {
       try {
-        final res = await _dio.post(path, data: body ?? const {}, options: _opts());
+        final res = await _dio.post(
+          path,
+          data: body ?? const {},
+          queryParameters: query,
+          options: _opts(),
+        );
         return _handle(res);
       } on DioException catch (e) {
         throw ApiException.fromDio(e);
@@ -338,11 +343,12 @@ class OpenListApi {
   }
 
   Future<void> deleteStorage(int id) async {
-    await _post('/api/admin/storage/delete?id=$id');
+    // 用 query 参数而不是手工拼字符串：dio 会负责编码。
+    await _post('/api/admin/storage/delete', null, query: {'id': id});
   }
 
   Future<void> setStorageEnabled(int id, bool enabled) async {
-    await _post('/api/admin/storage/${enabled ? 'enable' : 'disable'}?id=$id');
+    await _post('/api/admin/storage/${enabled ? 'enable' : 'disable'}', null, query: {'id': id});
   }
 
   Future<List<ServerTask>> tasks() async {

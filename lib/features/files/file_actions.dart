@@ -615,9 +615,16 @@ class _PreviewBodyState extends State<_PreviewBody> {
 
   Future<void> _loadText() async {
     try {
+      // 裸 Dio 没有超时，服务端不回数据时会一直挂着（预览转圈到天荒地老）。
+      // 这里给 connect/receive 都设上限。
       final response = await Dio().get<List<int>>(
         widget.url,
-        options: Options(responseType: ResponseType.bytes, validateStatus: (s) => s != null && s < 400),
+        options: Options(
+          responseType: ResponseType.bytes,
+          validateStatus: (s) => s != null && s < 400,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 20),
+        ),
       );
       final bytes = response.data ?? const <int>[];
       final slice = bytes.length > 200000 ? bytes.sublist(0, 200000) : bytes;
