@@ -13,6 +13,7 @@ import '../../core/models/transfer_task.dart';
 import '../../core/storage/download_paths.dart';
 import '../../core/storage/prefs.dart';
 import '../../data/db/app_database.dart';
+import '../files/files_controller.dart';
 
 class TransfersState {
   final List<TransferTask> tasks;
@@ -287,6 +288,51 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     return null;
   }
 
+  /// 把「复制 / 移动到…」入队。
+  ///
+  /// 与下载/上传共用同一条队列与同一个并发上限：一次操作里选中的每个条目
+  /// 生成一条任务（`name` 是条目名，`remotePath` 是源目录，`localPath` 是
+  /// 目标目录），由 `_run` 逐个调引擎的 `/api/fs/copy` `/api/fs/move`。
+  ///
+  /// 服务端搬运没有字节级进度，所以 [TransferTask.total] 只用于展示大小，
+  /// 不参与进度计算。
+  Future<String?> enqueueCopyMove({
+    required List<FileItem> items,
+    required String srcDir,
+    required String dstDir,
+    required bool move,
+  }) async {
+    if (items.isEmpty) return null;
+    final session = ref.read(sessionProvider);
+    final profile = session.profile;
+    if (profile == null || session.api == null) return '尚未连接服务器';
+    final kind = move ? TransferKind.move : TransferKind.copy;
+    final prefix = move ? 'mv' : 'cp';
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final created = <TransferTask>[];
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      created.add(TransferTask(
+        id: '$prefix-$stamp-$i-${item.name.hashCode}',
+        serverId: profile.id,
+        serverLabel: profile.name,
+        kind: kind,
+        name: item.name,
+        remotePath: srcDir,
+        localPath: dstDir,
+        total: item.size > 0 ? item.size : 0,
+      ));
+    }
+    state = state.copyWith(
+      tasks: [...created, ...state.tasks],
+      clearError: true,
+      pausedGlobally: false,
+    );
+    _persist();
+    await _pump();
+    return null;
+  }
+
   // --------------------------------------------------------------- control
 
   void pause(String id) {
@@ -448,7 +494,23 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     task.error = null;
     _emit();
     try {
-      if (task.kind == TransferKind.download) {
+      if (task.isServerOp) {
+        // 服务端复制 / 移动：一次请求处理一个条目，引擎递归处理目录。
+        // 没有字节进度可拿，total/done 保持 0，完成即置 done。
+        final names = [task.name];
+        if (task.kind == TransferKind.copy) {
+          await api.copy(task.remotePath, task.localPath, names);
+        } else {
+          await api.move(task.remotePath, task.localPath, names);
+        }
+        if (task.status != TransferStatus.paused) {
+          task.status = TransferStatus.done;
+        }
+        // 复制/移动会改变目录内容（移动还会让源消失），刷一次当前列表。
+        if (task.status == TransferStatus.done) {
+          unawaited(ref.read(filesProvider.notifier).refresh());
+        }
+      } else if (task.kind == TransferKind.download) {
         var sign = task.sign;
         if (sign == null || sign.isEmpty) {
           final info = await api.get(task.remotePath);

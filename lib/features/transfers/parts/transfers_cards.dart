@@ -4,18 +4,38 @@ part of '../transfers_page.dart';
 // ---------------------------------------------------------------------------
 // 顶部条 / 速度卡 / 指标
 // ---------------------------------------------------------------------------
-/// 全局控制条（设计稿 D5 `.gbar`）：全部暂停 + 并发 + 限速 + 汇总。
-class _GlobalBar extends ConsumerWidget {
-  const _GlobalBar();
+/// 限速文案：任一方向有上限就显示具体值，两边都无限速显示「不限」。
+String _limitLabel(int down, int up) {
+  if (down <= 0 && up <= 0) return '不限';
+  if (down > 0 && up > 0) {
+    return '下载 ${formatLimitSpeed(down)} · 上传 ${formatLimitSpeed(up)}';
+  }
+  if (down > 0) return '下载 ${formatLimitSpeed(down)}';
+  return '上传 ${formatLimitSpeed(up)}';
+}
+
+/// 工具栏（设计稿 D5b `.bar`）：左＝类型筛选，右＝汇总 + 全部暂停。
+///
+/// 0.5.0 把原来的「全局控制条」与「类型筛选行」合并成一行：
+/// - 「并发 / 限速」搬到标题区副标题右侧（那是只读信息，不占这两行的位置）
+/// - 左侧留给操作类型筛选（全部 / 下载 / 上传 / 复制 / 移动）
+/// - 右侧只留「总计 + 全部暂停」，与左侧胶囊同高一行
+class _QueueBar extends ConsumerWidget {
+  /// 当前类型筛选，null = 全部。
+  final TransferKind? kind;
+  final ValueChanged<TransferKind?> onKind;
+
+  const _QueueBar({required this.kind, required this.onKind});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
-    final settings = ref.watch(appSettingsProvider);
     final notifier = ref.read(transfersProvider.notifier);
 
-    // 汇总：已完成 + 进行中的总字节，以及按当前速度估算的剩余时间。
+    int countOf(TransferKind kind) => state.tasks.where((e) => e.kind == kind).length;
+
+    // 汇总：全部任务的总字节，以及按当前速度估算的剩余时间。
     var totalBytes = 0;
     var remaining = 0;
     for (final task in state.tasks) {
@@ -25,15 +45,37 @@ class _GlobalBar extends ConsumerWidget {
     final speed = state.downSpeed + state.upSpeed;
     final eta = speed > 0 ? (remaining / speed).round() : 0;
 
+    final chips = <(TransferKind?, String, int)>[
+      (null, '全部', state.tasks.length),
+      (TransferKind.download, '下载', countOf(TransferKind.download)),
+      (TransferKind.upload, '上传', countOf(TransferKind.upload)),
+      (TransferKind.copy, '复制', countOf(TransferKind.copy)),
+      (TransferKind.move, '移动', countOf(TransferKind.move)),
+    ];
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       decoration: BoxDecoration(
-        // 0.5.0：主区底色改浅蓝灰后，标题区透明化透出同一层。
         color: Colors.transparent,
         border: Border(bottom: BorderSide(color: p.line)),
       ),
       child: Row(
         children: [
+          for (final chip in chips) ...[
+            _TypeChip(
+              label: chip.$2,
+              count: chip.$3,
+              selected: kind == chip.$1,
+              onTap: () => onKind(chip.$1),
+            ),
+            const SizedBox(width: 7),
+          ],
+          const Spacer(),
+          Text(
+            totalBytes <= 0 ? '暂无任务' : '总计 ${formatBytes(totalBytes)} · 剩余约 ${formatCountdown(eta)}',
+            style: TextStyle(fontSize: 11.5, color: p.ink3),
+          ),
+          const SizedBox(width: 10),
           OlGhostButton(
             label: state.pausedGlobally ? '全部继续' : '全部暂停',
             icon: state.pausedGlobally ? 'play' : 'pause',
@@ -49,35 +91,74 @@ class _GlobalBar extends ConsumerWidget {
               }
             },
           ),
-          const SizedBox(width: 10),
-          const OlIcon('clock', size: 13, color: Color(0xFF6B7F94)),
-          const SizedBox(width: 6),
-          Text('并发 ${settings.concurrency}', style: TextStyle(fontSize: 11.5, color: p.ink3)),
-          const SizedBox(width: 10),
-          const OlIcon('sort', size: 13, color: Color(0xFF6B7F94)),
-          const SizedBox(width: 6),
-          Text(
-            '限速：${_limitLabel(settings.downLimitKbps, settings.upLimitKbps)}',
-            style: TextStyle(fontSize: 11.5, color: p.ink3),
-          ),
-          const Spacer(),
-          Text(
-            totalBytes <= 0 ? '暂无任务' : '总计 ${formatBytes(totalBytes)} · 剩余约 ${formatCountdown(eta)}',
-            style: TextStyle(fontSize: 11.5, color: p.ink3),
-          ),
         ],
       ),
     );
   }
+}
 
-  /// 限速文案：任一方向有上限就显示具体值，两边都无限速显示「不限」。
-  String _limitLabel(int down, int up) {
-    if (down <= 0 && up <= 0) return '不限';
-    if (down > 0 && up > 0) {
-      return '下载 ${formatLimitSpeed(down)} · 上传 ${formatLimitSpeed(up)}';
-    }
-    if (down > 0) return '下载 ${formatLimitSpeed(down)}';
-    return '上传 ${formatLimitSpeed(up)}';
+/// 类型筛选胶囊：26 高、圆角 99；选中浅蓝底 + 蓝字，计数徽标反白。
+class _TypeChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TypeChip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: 26,
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFEAF8FE) : p.card,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: selected ? const Color(0xFFBDE7FA) : p.line),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? const Color(0xFF08799F) : p.ink2,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: selected ? p.card : const Color(0xFFEDF2F8),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? const Color(0xFF08799F) : const Color(0xFF6B7F94),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -107,7 +188,8 @@ class _GroupTitle extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // 任务列表（sliver 版：按需构建任务行，v1.0.30）
 // ---------------------------------------------------------------------------
-/// 任务列表（设计稿 D5）：按方向分组，每行 64 高紧凑卡。
+/// 任务列表（设计稿 D5b）：按**操作类型**分组（下载中 / 上传中 / 复制中 / 移动中），
+/// 每行 64 高紧凑卡；空组自动不显示。
 class _TaskListSliver extends StatelessWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
@@ -115,21 +197,15 @@ class _TaskListSliver extends StatelessWidget {
 
   const _TaskListSliver({required this.tasks, required this.filter, required this.onFilter});
 
+  static const Map<TransferKind, String> _groupTitles = {
+    TransferKind.download: '下载中',
+    TransferKind.upload: '上传中',
+    TransferKind.copy: '复制中',
+    TransferKind.move: '移动中',
+  };
+
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
-
-    // 设计稿 D5：按方向分组（下载中 / 上传中）。离线任务并入下载组。
-    final downloads = <TransferTask>[];
-    final uploads = <TransferTask>[];
-    for (final task in tasks) {
-      if (task.kind == TransferKind.upload) {
-        uploads.add(task);
-      } else {
-        downloads.add(task);
-      }
-    }
-
     if (tasks.isEmpty) {
       return SliverToBoxAdapter(
         child: SizedBox(
@@ -154,44 +230,38 @@ class _TaskListSliver extends StatelessWidget {
       );
     }
 
+    // 按类型分组，并展平成「[标题, 行, 行, 标题, 行…]」。
+    // 分组只在 build 里算一次，不再像原来那样在每个 item 的 builder 里重算。
+    final groups = <TransferKind, List<TransferTask>>{};
+    for (final task in tasks) {
+      groups.putIfAbsent(task.kind, () => <TransferTask>[]).add(task);
+    }
+    final flat = <Object>[];
+    for (final kind in TransferKind.values) {
+      final list = groups[kind];
+      if (list == null || list.isEmpty) continue;
+      flat.add(_GroupTitle(_groupTitles[kind]!));
+      flat.addAll(list);
+    }
+
     return SliverPadding(
       // 设计稿 D5 `.tasks`：padding 8/24/16。
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            final groups = <String, List<TransferTask>>{
-              '下载中': downloads,
-              '上传中': uploads,
-            };
-            // 展平成「[标题, 行, 行, 标题, 行…]」的顺序列表。
-            final flat = <Object>[];
-            for (final entry in groups.entries) {
-              if (entry.value.isEmpty) continue;
-              flat.add(_GroupTitle(entry.key));
-              flat.addAll(entry.value);
-            }
             if (index >= flat.length) return const SizedBox.shrink();
             final item = flat[index];
             if (item is _GroupTitle) return item;
-            final task = item as TransferTask;
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _TaskRow(task: task),
+              child: _TaskRow(task: item as TransferTask),
             );
           },
-          // 先算展开后的长度，避免闭包里每帧都重建 groups。
-          childCount: _flatCount(downloads, uploads),
+          childCount: flat.length,
         ),
       ),
     );
-  }
-
-  int _flatCount(List<TransferTask> downloads, List<TransferTask> uploads) {
-    var n = 0;
-    if (downloads.isNotEmpty) n += downloads.length + 1;
-    if (uploads.isNotEmpty) n += uploads.length + 1;
-    return n;
   }
 }
 
@@ -210,7 +280,23 @@ class _TaskRow extends ConsumerWidget {
     final running = task.status == TransferStatus.running;
     final paused = task.status == TransferStatus.paused;
     final done = task.status == TransferStatus.done;
-    final upload = task.kind == TransferKind.upload;
+    final serverOp = task.isServerOp;
+    // 操作类型 → 图标 / 图标色 / 图标块底色（复制紫、移动橙，与设计稿 D5b 一致）
+    final (kindIcon, kindColor, kindTile) = switch (task.kind) {
+      TransferKind.download => ('download', const Color(0xFF0EA5E9), OlTokens.tileSky),
+      TransferKind.upload => ('upload', const Color(0xFF0E9F6E), OlTokens.tileTeal),
+      TransferKind.copy => ('copy', OlTokens.tagVioletFg, OlTokens.tileViolet),
+      TransferKind.move => ('move', const Color(0xFFD97706), OlTokens.tileAmber),
+    };
+    // 名称前胶囊：类型 + 配色
+    final (badgeLabel, badgeFg, badgeBg) = failed
+        ? ('失败', const Color(0xFF8A2438), const Color(0xFFFFF1F3))
+        : switch (task.kind) {
+            TransferKind.download => ('下载', OlTokens.tagSkyFg, OlTokens.tagSkyBg),
+            TransferKind.upload => ('上传', OlTokens.tagGreenFg, OlTokens.tagGreenBg),
+            TransferKind.copy => ('复制', OlTokens.tagVioletFg, OlTokens.tagVioletBg),
+            TransferKind.move => ('移动', OlTokens.tagAmberFg, OlTokens.tagAmberBg),
+          };
 
     return Container(
       height: dense ? null : 64,
@@ -227,18 +313,14 @@ class _TaskRow extends ConsumerWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: failed
-                  ? const Color(0xFFFFF1F3)
-                  : (upload ? OlTokens.tileTeal : OlTokens.tileSky),
+              color: failed ? const Color(0xFFFFF1F3) : kindTile,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
               child: OlIcon(
-                failed ? 'alert' : (upload ? 'upload' : 'download'),
+                failed ? 'alert' : kindIcon,
                 size: 18,
-                color: failed
-                    ? const Color(0xFFD92D4B)
-                    : (upload ? const Color(0xFF0E9F6E) : const Color(0xFF0EA5E9)),
+                color: failed ? const Color(0xFFD92D4B) : kindColor,
                 strokeWidth: 1.9,
               ),
             ),
@@ -259,17 +341,7 @@ class _TaskRow extends ConsumerWidget {
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    _TaskBadge(
-                      label: failed
-                          ? '失败'
-                          : (upload ? '上传' : '下载'),
-                      fg: failed
-                          ? const Color(0xFF8A2438)
-                          : (upload ? OlTokens.tagGreenFg : OlTokens.tagSkyFg),
-                      bg: failed
-                          ? const Color(0xFFFFF1F3)
-                          : (upload ? OlTokens.tagGreenBg : OlTokens.tagSkyBg),
-                    ),
+                    _TaskBadge(label: badgeLabel, fg: badgeFg, bg: badgeBg),
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
@@ -288,33 +360,65 @@ class _TaskRow extends ConsumerWidget {
           // 进度 + meta（190）
           SizedBox(
             width: 190,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _ProgressBar(ratio: ratio, failed: failed, paused: paused),
-                const SizedBox(height: 5),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${(ratio * 100).round()}% · ${formatBytes(task.done)} / ${formatBytes(task.total)}',
-                      style: TextStyle(fontSize: 10.5, color: p.ink3),
-                    ),
-                    Text(
-                      failed
-                          ? '已暂停'
-                          : (done ? '已完成' : formatSpeed(task.speed)),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: failed ? const Color(0xFF8A2438) : p.ink3,
-                        fontWeight: failed ? FontWeight.w700 : FontWeight.w400,
+            child: serverOp
+                // 复制 / 移动由服务端整条目搬运，拿不到字节进度：不画进度条，
+                // 用两行状态文字，高度节奏与字节传输行保持一致。
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        failed
+                            ? '失败'
+                            : (done
+                                ? '已完成'
+                                : (paused
+                                    ? '已暂停'
+                                    : (running ? '处理中…' : '排队中'))),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: failed
+                              ? const Color(0xFF8A2438)
+                              : (done ? const Color(0xFF0B6B4A) : p.ink2),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                      const SizedBox(height: 4),
+                      Text(
+                        failed ? (task.error ?? '操作失败，可重试') : '服务端直传',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 10.5, color: p.ink3),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _ProgressBar(ratio: ratio, failed: failed, paused: paused),
+                      const SizedBox(height: 5),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${(ratio * 100).round()}% · ${formatBytes(task.done)} / ${formatBytes(task.total)}',
+                            style: TextStyle(fontSize: 10.5, color: p.ink3),
+                          ),
+                          Text(
+                            failed
+                                ? '已暂停'
+                                : (done ? '已完成' : formatSpeed(task.speed)),
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: failed ? const Color(0xFF8A2438) : p.ink3,
+                              fontWeight: failed ? FontWeight.w700 : FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
           ),
           const SizedBox(width: 14),
           // 方式徽标（150）
@@ -322,10 +426,12 @@ class _TaskRow extends ConsumerWidget {
             width: 150,
             child: Align(
               alignment: Alignment.centerLeft,
+              // 方式徽标统一中性灰：琥珀色留给「移动」的类型胶囊，
+              // 否则一行里两个橙色徽标会互相干扰。
               child: _TaskBadge(
-                label: _modeLabel(),
-                fg: OlTokens.tagAmberFg,
-                bg: OlTokens.tagAmberBg,
+                label: _modeLabel(task, failed),
+                fg: const Color(0xFF42566B),
+                bg: const Color(0xFFEDF2F8),
               ),
             ),
           ),
@@ -369,7 +475,10 @@ class _TaskRow extends ConsumerWidget {
     );
   }
 
-  /// 路径文案：源 → 目标。取远端路径与本地路径，缺失时退回来源标签。
+  /// 路径文案：源 → 目标。
+  ///
+  /// 下载/上传取「远端完整路径 → 本地完整路径」；
+  /// 复制/移动取「源目录 → 目标目录」（条目名在名称那行）。
   String _pathText() {
     final remote = task.remotePath.isEmpty ? task.serverLabel : task.remotePath;
     final local = task.localPath.isEmpty ? '' : task.localPath;
@@ -377,12 +486,17 @@ class _TaskRow extends ConsumerWidget {
     return '$remote → $local';
   }
 
-  /// 方式徽标：失败可续传、上传流式、下载分片。
-  String _modeLabel() {
-    if (task.status == TransferStatus.failed) return '可续传';
-    if (task.kind == TransferKind.upload) return '流式上传';
-    return '分片下载';
-  }
+}
+
+/// 方式徽标：字节传输写传输方式，复制/移动写服务端直传，失败统一「可续传」。
+String _modeLabel(TransferTask task, bool failed) {
+  if (failed) return '可续传';
+  return switch (task.kind) {
+    TransferKind.download => '分片 + 续传',
+    TransferKind.upload => '流式上传',
+    TransferKind.copy => '服务端直传',
+    TransferKind.move => '服务端直传',
+  };
 }
 
 /// 任务徽标（设计稿 `.badge`）：9.5/800、圆角 99、padding 2/7。

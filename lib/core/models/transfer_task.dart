@@ -1,4 +1,9 @@
-enum TransferKind { download, upload }
+/// 传输任务的类型。
+///
+/// `download` / `upload` 是字节级传输（有进度、可续传）；
+/// `copy` / `move` 走引擎的服务端接口（`/api/fs/copy` `/api/fs/move`），
+/// 由服务端在同一存储内搬数据，没有字节级进度，只有「处理中 / 完成」。
+enum TransferKind { download, upload, copy, move }
 
 enum TransferStatus { queued, running, paused, done, failed }
 
@@ -8,6 +13,9 @@ class TransferTask {
   final String serverLabel;
   final TransferKind kind;
   final String name;
+
+  /// 下载/上传：远端完整路径 / 本地完整路径。
+  /// 复制/移动：**源目录** / **目标目录**（条目名在 [name] 里）。
   final String remotePath;
   final String localPath;
 
@@ -48,6 +56,9 @@ class TransferTask {
   }
 
   bool get isActive => status == TransferStatus.running;
+
+  /// 复制 / 移动：服务端操作，没有字节进度。
+  bool get isServerOp => kind == TransferKind.copy || kind == TransferKind.move;
 
   TransferTask copyWith({TransferStatus? status}) => TransferTask(
         id: id,
@@ -90,7 +101,10 @@ class TransferTask {
         id: (j['id'] ?? '').toString(),
         serverId: (j['serverId'] ?? '').toString(),
         serverLabel: (j['serverLabel'] ?? '').toString(),
-        kind: (j['kind'] ?? 'download') == 'upload' ? TransferKind.upload : TransferKind.download,
+        kind: TransferKind.values.firstWhere(
+          (e) => e.name == j['kind'],
+          orElse: () => TransferKind.download,
+        ),
         name: (j['name'] ?? '').toString(),
         remotePath: (j['remotePath'] ?? '').toString(),
         localPath: (j['localPath'] ?? '').toString(),

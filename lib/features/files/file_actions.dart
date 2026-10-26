@@ -134,15 +134,20 @@ Future<void> moveOrCopyItems(BuildContext context, WidgetRef ref, List<FileItem>
       return;
     }
   }
-  final names = items.map((e) => e.name).toList();
-  final error = await ref.read(filesProvider.notifier).mutate(
-        (api) => move ? api.move(dir, target, names) : api.copy(dir, target, names),
+  // 0.5.0：复制 / 移动改为入传输队列（与下载/上传共用一条队列、同一个并发上限），
+  // 不再阻塞等接口返回。服务端搬运没有字节进度，队列里显示「处理中 / 已完成」。
+  final error = await ref.read(transfersProvider.notifier).enqueueCopyMove(
+        items: items,
+        srcDir: dir,
+        dstDir: target,
+        move: move,
       );
   if (!context.mounted) return;
   if (error != null) {
     olToast(context, error, error: true);
   } else {
-    olToast(context, move ? '已移动 ${names.length} 个项目' : '已复制 ${names.length} 个项目');
+    final verb = move ? '移动' : '复制';
+    olToast(context, '已加入队列：$verb ${items.length} 个项目');
     ref.read(filesProvider.notifier).clearSelection();
   }
 }

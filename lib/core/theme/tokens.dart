@@ -62,6 +62,10 @@ class OlTokens {
   static const tagGreenBg = Color(0xFFD3F2E6);
 
   /// 琥珀徽标（网盘 / 续传）：字 / 底
+  /// 复制（服务端操作）用的紫色标签，与 tileViolet 同族。
+  static const tagVioletFg = Color(0xFF5B3FD1);
+  static const tagVioletBg = Color(0xFFF0EDFF);
+
   static const tagAmberFg = Color(0xFFB7791F);
   static const tagAmberBg = Color(0xFFFEF3C7);
 

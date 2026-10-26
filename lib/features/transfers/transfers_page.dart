@@ -33,6 +33,12 @@ enum _Filter { active, all, download, upload, offline, done, failed }
 class _TransfersPageState extends ConsumerState<TransfersPage> {
   _Filter _filter = _Filter.active;
 
+  /// 类型筛选（第二个维度）：null = 全部。
+  ///
+  /// 与「进行中 / 已完成」是**两个独立维度**，可以叠加：
+  /// 比如「已完成 + 复制」= 看历史里的复制任务。
+  TransferKind? _kind;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +48,12 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
   }
 
   List<TransferTask> _visible(TransfersState state) {
+    final byState = _visibleByState(state);
+    if (_kind == null) return byState;
+    return byState.where((e) => e.kind == _kind).toList();
+  }
+
+  List<TransferTask> _visibleByState(TransfersState state) {
     switch (_filter) {
       case _Filter.active:
         // v2.6：「进行中」只放真正的在途任务。已完成 / 失败的一律归到各自分组，
@@ -106,7 +118,11 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                     onFilter: (f) => setState(() => _filter = f),
                     onNew: () => offlineDownload(context, ref),
                   ),
-                  const _GlobalBar(),
+                  // 工具栏：左＝类型筛选，右＝汇总 + 全部暂停（合并成一行）
+                  _QueueBar(
+                    kind: _kind,
+                    onKind: (k) => setState(() => _kind = k),
+                  ),
                   Expanded(
                     // v1.0.30：整页改 sliver 体系。原来任务列表是
                     // SingleChildScrollView + Column + for 循环，会把所有任务行
@@ -258,6 +274,7 @@ class _QueueHead extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
+    final settings = ref.watch(appSettingsProvider);
     final active = state.tasks.where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed).length;
     final done = state.done.length;
 
@@ -278,19 +295,46 @@ class _QueueHead extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // 0.5.0：返回入口移到左侧栏顶部（与设置页一致），标题区不再放返回按钮。
-          Column(
+          Expanded(
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('传输队列', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: p.ink)),
               const SizedBox(height: 4),
-              Text(
-                '任务持久化保存 · 重启后自动恢复 · 断点续传',
-                style: TextStyle(fontSize: 11.5, color: p.ink3),
+              // 0.5.0：并发 / 限速从工具栏挪到副标题右侧 —— 这两项是「看」的
+              // 信息，跟说明文字同一行更省纵向空间，工具栏那行留给筛选与操作。
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      '任务持久化保存 · 重启后自动恢复 · 断点续传',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11.5, color: p.ink3),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 10,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: p.line,
+                  ),
+                  const OlIcon('clock', size: 12, color: Color(0xFF6B7F94)),
+                  const SizedBox(width: 5),
+                  Text('并发 ${settings.concurrency}', style: TextStyle(fontSize: 11.5, color: p.ink3)),
+                  const SizedBox(width: 12),
+                  const OlIcon('sort', size: 12, color: Color(0xFF6B7F94)),
+                  const SizedBox(width: 5),
+                  Text(
+                    '限速：${_limitLabel(settings.downLimitKbps, settings.upLimitKbps)}',
+                    style: TextStyle(fontSize: 11.5, color: p.ink3),
+                  ),
+                ],
               ),
             ],
+            ),
           ),
-          const Spacer(),
           // 设计稿 `.tabs`：底 #F1F6FB、圆角 10、padding 3，段高 30。
           Container(
             padding: const EdgeInsets.all(3),
