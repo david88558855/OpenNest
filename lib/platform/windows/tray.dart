@@ -227,16 +227,12 @@ class TrayService with TrayListener {
   Future<void> showMainWindow() async {
     if (_quitting) return;
     try {
-      final wasHidden = !await windowManager.isVisible();
-      final wasMinimized = await windowManager.isMinimized();
-      if (wasHidden) await windowManager.show();
-      if (wasMinimized) await windowManager.restore();
-      // 0.5.0：重复启动（再次双击 / 命令行再次启动）走的是这条唤醒路径，
-      // 与冷启动保持一致 —— 从隐藏或最小化唤起时一律最大化。
-      // 窗口本来就可见时不动它，免得覆盖用户自己取消最大化的选择。
-      if (wasHidden || wasMinimized) {
-        await _maximizeForWake();
-      }
+      // 0.5.0：不做「唤起即最大化」—— 窗口的大小与是否最大化完全由
+      // 用户决定（标题栏按钮、双击标题栏、拖拽边缘）。重复启动（再次
+      // 双击 / 命令行再次启动）走这条唤醒路径，也只把窗口唤回前台，
+      // 不改变它的尺寸。
+      if (!await windowManager.isVisible()) await windowManager.show();
+      if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.setSkipTaskbar(false);
       await windowManager.show();
       await windowManager.focus();
@@ -245,18 +241,6 @@ class TrayService with TrayListener {
       await windowManager.focus();
     } catch (error) {
       debugPrint('tray: showMainWindow failed ($error)');
-    }
-  }
-
-  /// 唤醒时把窗口置为最大化。
-  ///
-  /// 与冷启动同一套策略：不做窗口状态持久化，每次唤起都是最大化。
-  /// 平台不支持 maximize 时忽略即可（窗口仍能正常显示）。
-  Future<void> _maximizeForWake() async {
-    try {
-      await windowManager.maximize();
-    } catch (_) {
-      // 某些平台/驱动不支持 maximize，保持现状即可。
     }
   }
 

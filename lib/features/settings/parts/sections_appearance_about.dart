@@ -15,8 +15,13 @@ class _AboutSection extends ConsumerWidget {
         _Card(
           child: Column(
             children: [
-              // v1.0.28：关于页只保留「项目主页」，其余（客户端版本 / 服务端 /
-              // 数据目录 / 检查更新 / 退出登录）已移除。
+              // 0.5.0：版本号从设置侧栏底部移到「关于」分区 ——
+              // 版本信息归到一处，侧栏只留导航。
+              _Row(
+                icon: 'info',
+                title: '版本',
+                subtitle: '${AppInfo.shortLabel} ${AppInfo.version}',
+              ),
               _Row(
                 icon: 'external',
                 title: '项目主页',

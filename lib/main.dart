@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -39,13 +38,13 @@ Future<void> main() async {
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();
     const options = WindowOptions(
-      // 初始尺寸只是「窗口创建瞬间」的占位：下面紧接着就 maximize，
-      // 不会真的以这个尺寸显示。取值保守一些，避免在小分辨率屏上
-      // （如 1366×768）创建瞬间超出屏幕边缘。
-      size: Size(1280, 800),
+      // 默认窗口尺寸 1024×768。不做「启动即最大化」：用户可以自己
+      // 最大化、缩放、拖拽调整大小，窗口状态完全由用户掌控。
+      // 1024×768 在 1366×768 这类常见屏上也放得下，不会超出屏幕。
+      size: Size(1024, 768),
       // 最小尺寸取 960×600：1366×768 与 1280×720 这类常见屏的工作区
-      // 高度都不足 680，下限定太高会导致用户取消最大化后没法把窗口
-      // 缩回可见范围。960 宽仍容得下侧栏（236）+ 主区（≥724）。
+      // 高度都不足 680，下限定太高会导致用户没法把窗口缩回可见范围。
+      // 960 宽仍容得下侧栏（236）+ 主区（≥724）。
       minimumSize: Size(960, 600),
       center: true,
       title: 'OpenNest',
@@ -53,12 +52,12 @@ Future<void> main() async {
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
     );
-    // 0.5.0：窗口默认以最大化状态打开，且**不做窗口状态持久化** ——
-    // 不保存也不恢复窗口尺寸、位置与最大化状态，每次启动都是最大化。
-    // 真正的最大化在 runApp 之后做（见 [_maximizeAfterFirstFrame]）。
+    // 0.5.0：**不做窗口状态持久化** —— 不保存也不恢复窗口尺寸、位置与
+    // 最大化状态，每次启动都用上面这组默认尺寸打开。窗口的大小与是否
+    // 最大化完全由用户自己决定（标题栏按钮、双击标题栏、拖拽边缘）。
     //
-    // 这里不把「显示 + 最大化」放进 waitUntilReadyToShow 的回调：
-    // 那个回调是同步调用、返回值不被 await，时序不可控。
+    // 这里不把「显示」放进 waitUntilReadyToShow 的回调：那个回调是同步
+    // 调用、返回值不被 await，时序不可控。
     await windowManager.waitUntilReadyToShow(options);
     await windowManager.show();
     await windowManager.setPreventClose(true);
@@ -76,40 +75,6 @@ Future<void> main() async {
     ),
   );
 
-  // 0.5.0：窗口默认以最大化状态打开。
-  //
-  // 必须放在 runApp 之后：window_manager 的 maximize 在 Windows 上是
-  // `PostMessage(WM_SYSCOMMAND, SC_MAXIMIZE)` —— 异步投递到窗口消息队列，
-  // 需要平台消息循环在跑才会被处理。runApp 之前调用，消息还在队列里没人
-  // 处理，窗口会以普通尺寸显示（实测 1280×788、IsZoomed=False）。
-  //
-  // 等首帧 + 一小段延迟，确保原生窗口已经显示出来。
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    unawaited(_maximizeAfterFirstFrame());
-  }
-}
-
-/// 首帧后把窗口最大化。
-///
-/// 幂等且带重试：maximize 是异步投递的，第一次可能因为窗口尚未真正显示
-/// 而没生效，这里校验一次，没成就在短暂延迟后再试一次。
-Future<void> _maximizeAfterFirstFrame() async {
-  try {
-    await WidgetsBinding.instance.endOfFrame;
-  } catch (_) {
-    // endOfFrame 不可用时直接继续。
-  }
-  for (var attempt = 0; attempt < 4; attempt++) {
-    try {
-      await windowManager.show();
-      await windowManager.maximize();
-      if (await windowManager.isMaximized()) return;
-    } catch (_) {
-      // 平台不支持 maximize（如 Linux 未实现该方法）时保持原状即可。
-      return;
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-  }
 }
 
 /// 全平台统一 edge-to-edge：内容自己画到状态栏/导航栏下方，再由 AppFrame 用

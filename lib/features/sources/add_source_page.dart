@@ -180,7 +180,9 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       child: Column(
         children: [
           // 0.5.0：整页只被 push 进来，此前「选类型 / 加载 / 失败」三态都没有返回入口。
-          _PageTopBar(onBack: () => goBackOrFiles(context)),
+          // 桌面端不再显示这根顶栏 —— 左侧栏顶部已有「返回」入口，顶栏再放
+          // 一份是重复的。窄屏（移动端）没有侧栏，仍需要它。
+          if (context.isNarrow) _PageTopBar(onBack: () => goBackOrFiles(context)),
           Expanded(
             child: catalog.when(
               loading: () => const Center(child: _Loading(text: '正在读取驱动列表')),
@@ -220,11 +222,13 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
         Container(
           width: 264,
           decoration: BoxDecoration(
-            color: p.surface,
+            // 0.5.0：侧栏与主区背景对调 —— 侧栏改白底、主区改浅蓝灰，
+            // 与文件页、传输页、设置页保持一致。
+            color: p.card,
             border: Border(right: BorderSide(color: p.line)),
           ),
           // 0.5.0：返回入口移到左侧栏顶部，与设置页一致（chev-l + 「返回」文字）。
-          // 顶栏的返回箭头保留 —— 移动端窄屏没有侧栏，仍需要它。
+          // 桌面端顶栏已移除；窄屏（移动端）没有侧栏，顶栏的返回箭头仍保留。
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -244,7 +248,8 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
         ),
         Expanded(
           child: ColoredBox(
-            color: p.card,
+            // 0.5.0：与侧栏对调，主区改浅蓝灰（表单卡片仍是白底，层次不变）。
+            color: p.surface,
             child: info == null
                 ? const Center(child: _Hint(text: '从左侧选择一种存储类型'))
                 : SingleChildScrollView(

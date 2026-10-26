@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/frame.dart';
 import '../../app/providers.dart';
-import '../../core/app_info.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
@@ -13,7 +12,7 @@ import '../sources/sources_controller.dart';
 /// 设置侧栏（设计稿 D8 `.nav`）。
 ///
 /// 设计稿的导航是 5 项：**通用 / 存储源 / 传输 / 播放 / 关于**，
-/// 存储源带一个数量徽标，底部是版本与许可说明。
+/// 存储源带一个数量徽标。底部不显示版本号 —— 版本信息在「关于」分区里。
 ///
 /// 0.5.0 之前这里是「下载目录 / 传输 / 播放与预览 / 外观 / 关于与更新」
 /// 加两个外链（引擎状态、存储源），与稿面结构不符，现按稿重划：
@@ -69,17 +68,9 @@ class SettingsSidebar extends ConsumerWidget {
               active: active == item[0],
               onTap: () => openSection(item[0], item[3]),
             ),
+          // 0.5.0：侧栏底部不再显示版本号 —— 版本信息统一放在
+          // 「关于」分区里，侧栏只留导航。
           const Spacer(),
-          // 0.5.0：只保留应用版本号一行。
-          // 内核版本与 AGPL 许可信息此前在这里各占一行，用户反馈不需要 ——
-          // 内核版本可在「关于」分区里看，许可信息放应用商店/仓库页更合适。
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Text(
-              '${AppInfo.shortLabel} ${AppInfo.version}',
-              style: TextStyle(fontSize: 10, height: 1.6, color: p.ink4),
-            ),
-          ),
         ],
       ),
     );
