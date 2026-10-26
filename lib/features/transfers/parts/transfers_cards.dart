@@ -195,7 +195,18 @@ class _TaskListSliver extends StatelessWidget {
   final _Filter filter;
   final ValueChanged<_Filter> onFilter;
 
-  const _TaskListSliver({required this.tasks, required this.filter, required this.onFilter});
+  /// 历史任务数：仅用于「进行中为空但历史里有内容」时给出跳转引导。
+  /// 服务端复制 / 移动是秒级完成的，不提示的话用户会以为没入队。
+  final int doneCount;
+  final int failedCount;
+
+  const _TaskListSliver({
+    required this.tasks,
+    required this.filter,
+    required this.onFilter,
+    this.doneCount = 0,
+    this.failedCount = 0,
+  });
 
   static const Map<TransferKind, String> _groupTitles = {
     TransferKind.download: '下载中',
@@ -207,6 +218,9 @@ class _TaskListSliver extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tasks.isEmpty) {
+      // 「进行中」为空但历史里有任务：给一个跳转。复制 / 移动在服务端是秒级
+      // 完成的，用户切到传输页时任务往往已经 done —— 不给引导会被当成「没入队」。
+      final historyHint = filter == _Filter.active && (doneCount > 0 || failedCount > 0);
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 260,
@@ -225,6 +239,19 @@ class _TaskListSliver extends StatelessWidget {
               _Filter.upload => '没有上传任务',
               _ => '没有进行中的任务',
             },
+            subtitle: historyHint
+                ? '最近已完成 $doneCount 个${failedCount > 0 ? '，失败 $failedCount 个' : ''}'
+                : null,
+            action: historyHint
+                ? OlGhostButton(
+                    label: failedCount > 0 ? '查看失败任务' : '查看已完成',
+                    icon: failedCount > 0 ? 'alert' : 'check',
+                    height: 28,
+                    fontSize: 11,
+                    horizontalPadding: 12,
+                    onTap: () => onFilter(failedCount > 0 ? _Filter.failed : _Filter.done),
+                  )
+                : null,
           ),
         ),
       );
@@ -607,11 +634,15 @@ class _EmptyTransfers extends StatelessWidget {
   final String icon;
   final Color? iconColor;
 
+  /// 可选的引导按钮：目前用于「进行中为空，但历史里有已完成任务」的场景。
+  final Widget? action;
+
   const _EmptyTransfers({
     this.title,
     this.subtitle,
     this.icon = 'arrow-down',
     this.iconColor,
+    this.action,
   });
 
   @override
@@ -632,6 +663,10 @@ class _EmptyTransfers extends StatelessWidget {
             subtitle ?? '下载或上传文件后，这里会显示实时进度',
             style: TextStyle(fontSize: 9.5, color: p.ink4),
           ),
+          if (action != null) ...[
+            const SizedBox(height: 10),
+            action!,
+          ],
         ],
       ),
     );

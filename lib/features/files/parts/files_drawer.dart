@@ -25,37 +25,12 @@ class _SourceDrawer extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          // 稿子这里是 52px 顶部留白（盖住手机状态栏）。AppFrame 已经把内容
-          // 推到状态栏下方了，照抄会多避让一次，所以用 18px。
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line))),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    gradient: OlTokens.gradientDusk,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: const Center(child: OlIcon('layers', size: 18, color: Colors.white)),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('OpenNest', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: p.ink)),
-                    const SizedBox(height: 1),
-                    Text('免账户 · 直连存储', style: TextStyle(fontSize: 10, color: p.ink3)),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // 0.5.0：去掉顶部「OpenNest / 免账户 · 直连存储」品牌块 ——
+          // 抽屉的职责是切存储源，品牌信息在关于页已有，占掉 70px 反而把源列表推低。
+          const SizedBox(height: 10),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
               children: [
                 const _DrawerSection('存储源'),
                 for (final source in sources)

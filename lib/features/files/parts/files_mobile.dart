@@ -52,14 +52,6 @@ class _MobileAppBar extends ConsumerWidget {
               ],
             ),
           ),
-          // 0.5.0：移动端此前没有传输列表入口 —— 复制/移动确实入了队，
-          // 但手机上无处查看进度，看起来像「点了没反应」。补带徽标的入口。
-          _AppBarBtn(
-            icon: 'arrow-down',
-            badge: ref.watch(transfersProvider).pendingCount,
-            onTap: () => context.go('/transfers'),
-          ),
-          const SizedBox(width: 8),
           _AppBarBtn(icon: 'search', onTap: () => context.go('/search')),
           const SizedBox(width: 8),
           _AppBarBtn(
@@ -285,7 +277,7 @@ class _MobileCrumb extends ConsumerWidget {
                   for (var i = 0; i < segs.length; i++) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Text('/', style: TextStyle(fontSize: 12, color: p.ink4)),
+                      child: Text('/', style: TextStyle(fontSize: 13, color: p.ink4)),
                     ),
                     _CrumbTap(
                       label: i == 0 && current != null ? current.displayName : segs[i],
@@ -298,7 +290,7 @@ class _MobileCrumb extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text('${state.items.length} 个项目', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: p.ink4)),
+          Text('${state.items.length} 个项目', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: p.ink4)),
         ],
       ),
     );
@@ -321,7 +313,8 @@ class _CrumbTap extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12.5,
+            // 0.5.0：12.5 → 14。手机上路径是唯一的层级线索，原字号偏小。
+            fontSize: 14,
             fontWeight: current ? FontWeight.w800 : FontWeight.w600,
             color: current ? p.ink : p.ink3,
           ),
