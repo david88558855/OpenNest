@@ -55,11 +55,21 @@ final sourceUsageProvider = FutureProvider<Map<String, int>>((ref) async {
 });
 
 /// 驱动字典：一次拉全，添加向导按分组展示。
+/// 引擎里不开放的驱动。
+///
+/// `AList V3`（远程 AList）：本应用内嵌的就是 OpenList 服务端，再挂一个
+/// 远程 AList 没有意义 —— 用户要接远程 OpenList，用 `OpenList` 那个驱动即可。
+const Set<String> kHiddenDrivers = {'AList V3'};
+
 final driverCatalogProvider = FutureProvider<Map<String, DriverInfo>>((ref) async {
   final api = ref.watch(sessionProvider).api;
   if (api == null) return const {};
   try {
-    return await api.driverList();
+    final all = await api.driverList();
+    return {
+      for (final entry in all.entries)
+        if (!kHiddenDrivers.contains(entry.key)) entry.key: entry.value,
+    };
   } on ApiException catch (_) {
     return const {};
   }

@@ -9,10 +9,8 @@ import 'server_store.dart';
 /// 下载落盘路径的唯一来源（v2.5）。
 ///
 /// 规则：
-///   - Android：公共「下载」目录 `/storage/emulated/0/Download/OpenNest`；
-///     开启「按实例隔离」时再拼服务器显示名
-///     `/storage/emulated/0/Download/OpenNest/<服务器名>`。
-///   - Windows / macOS / Linux：系统下载目录下的 `OpenList`，隔离开启时再拼服务器名。
+///   - Android：公共「下载」目录 `/storage/emulated/0/Download/OpenNest`。
+///   - Windows / macOS / Linux：系统下载目录下的 `OpenNest` 子目录。
 ///   - 用户在设置里显式选过目录时，显式目录优先。
 /// 把任意名字压成**安全的单段路径**（v1.0.22）。
 ///
@@ -81,9 +79,10 @@ Future<String> resolveDownloadDirFor(ServerStore store, ServerProfile profile) a
   final saved = store.readDownloadDir(profile.id);
   if (saved != null && saved.isNotEmpty) return saved;
   final base = await defaultDownloadBase();
-  final sep = Platform.pathSeparator;
-  final root = base + sep + 'OpenNest';
-  return profile.isolatedDownload ? root + sep + safePathSegment(profile.name) : root;
+  // 0.5.0：不再按实例再分一层目录。本应用只连本机引擎
+  // （profile.id 恒为 'local'、profile.name 恒为 '本机存储'），
+  // 那层目录永远叫同一个名字，起不到区分作用。
+  return base + Platform.pathSeparator + 'OpenNest';
 }
 
 /// 解析并确保目录存在；Android 未授予「所有文件访问权限」时退回应用私有目录，
@@ -95,18 +94,19 @@ Future<String> ensureDownloadDirFor(ServerStore store, ServerProfile profile) as
     return dir;
   } catch (error) {
     debugPrint('download: 无法创建 $dir（$error），退回应用私有目录');
-    // v1.0.22：回退目录也要保留「按实例隔离」，否则多台服务器的同名文件互相覆盖；
-    // 同时与设置页显示的目标目录区分开，避免用户以为文件在显式目录里。
+    // 回退到应用私有目录。仍与设置页显示的目标目录区分开，
+    // 避免用户以为文件在显式目录里。
     final fallback = await getApplicationDocumentsDirectory();
     final root = fallback.path + Platform.pathSeparator + 'OpenNest';
-    final alt = profile.isolatedDownload ? root + Platform.pathSeparator + safePathSegment(profile.name) : root;
     try {
-      await Directory(alt).create(recursive: true);
-      return alt;
-    } catch (second) {
-      debugPrint('download: 私有目录也不可写（$second），退回 OpenList 根');
       await Directory(root).create(recursive: true);
       return root;
+    } catch (second) {
+      debugPrint('download: 私有目录也不可写（$second），退回下载根目录');
+      final base = await defaultDownloadBase();
+      final alt = base + Platform.pathSeparator + 'OpenNest';
+      await Directory(alt).create(recursive: true);
+      return alt;
     }
   }
 }
