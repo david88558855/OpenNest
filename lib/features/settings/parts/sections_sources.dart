@@ -498,6 +498,7 @@ class _SourceEditDialogState extends State<_SourceEditDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.ol;
     return Center(
       child: Material(
         color: Colors.transparent,

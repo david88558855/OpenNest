@@ -74,10 +74,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   static const _known = {'general', 'sources', 'transfer', 'playback', 'about'};
 
   /// 桌面内容区实际渲染的分区：`root` 归一化为「通用」。
-  String get _section {
-    final tab = _tab == 'root' ? 'general' : _tab;
-    return _aliases[tab] ?? tab;
-  }
+  String get _section => SettingsPage.normalizeTab(_tab);
 
   @override
   void didUpdateWidget(covariant SettingsPage oldWidget) {
