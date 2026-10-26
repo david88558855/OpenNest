@@ -52,17 +52,21 @@ Future<void> main() async {
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
     );
-    await windowManager.waitUntilReadyToShow(options, () async {
-      // 0.5.0：窗口默认以最大化状态打开，且**不做窗口状态持久化** ——
-      // 不保存也不恢复窗口尺寸、位置与最大化状态，每次启动都是最大化。
-      //
-      // 先 maximize 再 show：waitUntilReadyToShow 的回调在窗口创建完成、
-      // 尚未显示之前执行，这样不会先闪出一个小窗口再放大。
-      await _maximizeWindow();
-      await windowManager.show();
-      await windowManager.focus();
-      await windowManager.setPreventClose(true);
-    });
+    // 0.5.0：窗口默认以最大化状态打开，且**不做窗口状态持久化** ——
+    // 不保存也不恢复窗口尺寸、位置与最大化状态，每次启动都是最大化。
+    //
+    // 顺序很关键：**先 show 再 maximize**。
+    // Windows 上第一次 ShowWindow 会忽略调用参数（改用启动时的
+    // nCmdShow），对尚未显示的窗口调 maximize 是无效的 —— 实测
+    // 先 maximize 会得到一个 1280×788 的普通窗口（IsZoomed=False），
+    // 先 show 再 maximize 才真正铺满工作区。
+    //
+    // window_manager 的 waitUntilReadyToShow 会同步调用回调、且不等待
+    // 回调的返回值，所以这里不把「显示 + 最大化」放进回调 —— 改成在
+    // 它返回之后显式 await，时序完全可控，也只执行一次。
+    await windowManager.waitUntilReadyToShow(options);
+    await _showMaximized();
+    await windowManager.setPreventClose(true);
     if (Platform.isWindows) {
       await TrayService.instance.attach(container);
       TrayService.instance.markWindowReady();
@@ -78,21 +82,18 @@ Future<void> main() async {
   );
 }
 
-/// 让窗口以最大化状态显示。
+/// 显示窗口并立即最大化。
 ///
-/// window_manager 的 `maximize` 只在 Windows / macOS 上实现，Linux 上
-/// 会抛 MissingPluginException —— 那里退回「按屏幕尺寸铺满」的近似做法，
-/// 保证任何桌面平台都不会因为这一步失败而启动不了。
-Future<void> _maximizeWindow() async {
+/// 幂等：重复调用只会把窗口重新显示并置为最大化，不会叠加副作用。
+Future<void> _showMaximized() async {
   try {
+    await windowManager.show();
+    await windowManager.focus();
+    // 首次 ShowWindow 之后，maximize 才对窗口生效。
     await windowManager.maximize();
   } catch (_) {
-    try {
-      final size = await windowManager.getSize();
-      await windowManager.setSize(Size(size.width * 1.6, size.height * 1.4));
-    } catch (_) {
-      // 连近似都失败就保持原尺寸，至少窗口能正常显示。
-    }
+    // 某些平台/驱动不支持 maximize（例如 Linux 上该方法未实现），
+    // 至少保证窗口能正常显示，不让应用卡在启动阶段。
   }
 }
 
