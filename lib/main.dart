@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -54,18 +55,12 @@ Future<void> main() async {
     );
     // 0.5.0：窗口默认以最大化状态打开，且**不做窗口状态持久化** ——
     // 不保存也不恢复窗口尺寸、位置与最大化状态，每次启动都是最大化。
+    // 真正的最大化在 runApp 之后做（见 [_maximizeAfterFirstFrame]）。
     //
-    // 顺序很关键：**先 show 再 maximize**。
-    // Windows 上第一次 ShowWindow 会忽略调用参数（改用启动时的
-    // nCmdShow），对尚未显示的窗口调 maximize 是无效的 —— 实测
-    // 先 maximize 会得到一个 1280×788 的普通窗口（IsZoomed=False），
-    // 先 show 再 maximize 才真正铺满工作区。
-    //
-    // window_manager 的 waitUntilReadyToShow 会同步调用回调、且不等待
-    // 回调的返回值，所以这里不把「显示 + 最大化」放进回调 —— 改成在
-    // 它返回之后显式 await，时序完全可控，也只执行一次。
+    // 这里不把「显示 + 最大化」放进 waitUntilReadyToShow 的回调：
+    // 那个回调是同步调用、返回值不被 await，时序不可控。
     await windowManager.waitUntilReadyToShow(options);
-    await _showMaximized();
+    await windowManager.show();
     await windowManager.setPreventClose(true);
     if (Platform.isWindows) {
       await TrayService.instance.attach(container);
@@ -80,20 +75,40 @@ Future<void> main() async {
       child: const OpenNestApp(),
     ),
   );
+
+  // 0.5.0：窗口默认以最大化状态打开。
+  //
+  // 必须放在 runApp 之后：window_manager 的 maximize 在 Windows 上是
+  // `PostMessage(WM_SYSCOMMAND, SC_MAXIMIZE)` —— 异步投递到窗口消息队列，
+  // 需要平台消息循环在跑才会被处理。runApp 之前调用，消息还在队列里没人
+  // 处理，窗口会以普通尺寸显示（实测 1280×788、IsZoomed=False）。
+  //
+  // 等首帧 + 一小段延迟，确保原生窗口已经显示出来。
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    unawaited(_maximizeAfterFirstFrame());
+  }
 }
 
-/// 显示窗口并立即最大化。
+/// 首帧后把窗口最大化。
 ///
-/// 幂等：重复调用只会把窗口重新显示并置为最大化，不会叠加副作用。
-Future<void> _showMaximized() async {
+/// 幂等且带重试：maximize 是异步投递的，第一次可能因为窗口尚未真正显示
+/// 而没生效，这里校验一次，没成就在短暂延迟后再试一次。
+Future<void> _maximizeAfterFirstFrame() async {
   try {
-    await windowManager.show();
-    await windowManager.focus();
-    // 首次 ShowWindow 之后，maximize 才对窗口生效。
-    await windowManager.maximize();
+    await WidgetsBinding.instance.endOfFrame;
   } catch (_) {
-    // 某些平台/驱动不支持 maximize（例如 Linux 上该方法未实现），
-    // 至少保证窗口能正常显示，不让应用卡在启动阶段。
+    // endOfFrame 不可用时直接继续。
+  }
+  for (var attempt = 0; attempt < 4; attempt++) {
+    try {
+      await windowManager.show();
+      await windowManager.maximize();
+      if (await windowManager.isMaximized()) return;
+    } catch (_) {
+      // 平台不支持 maximize（如 Linux 未实现该方法）时保持原状即可。
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 150));
   }
 }
 
