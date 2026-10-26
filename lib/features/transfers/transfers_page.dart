@@ -264,9 +264,15 @@ class _QueueHead extends ConsumerWidget {
     return Container(
       // 设计稿 D5 `.head`：padding 20/24/0。
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      decoration: BoxDecoration(
-        color: p.card,
-        border: Border(bottom: BorderSide(color: p.line)),
+      decoration: const BoxDecoration(
+        // 0.5.0：标题区与下方全局条同属主区，底色必须一致。
+        //
+        // 此前这里写死 p.card（白），而主区底色已改为 p.surface（浅蓝灰），
+        // 于是标题区变成一条突兀的白带，与紧邻的全局条割裂开。
+        // 改为透明后透出主区的浅蓝灰，与下方完全连成一片。
+        color: Colors.transparent,
+        // 设计稿的 `.head` 没有分隔线（分隔线在 `.gbar` 底部）。
+        // 这里也不重复画，避免标题区下方多出一道多余的横线。
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
