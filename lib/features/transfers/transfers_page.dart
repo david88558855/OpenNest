@@ -6,14 +6,11 @@ import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
-import '../../core/i18n/zh.dart';
-import '../../core/models/storage_source.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../files/file_actions.dart';
-import '../sources/sources_controller.dart';
 import '../settings/download_dir.dart';
 import 'transfers_controller.dart';
 

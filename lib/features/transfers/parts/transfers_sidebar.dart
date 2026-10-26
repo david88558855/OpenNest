@@ -1,6 +1,6 @@
 part of '../transfers_page.dart';
 
-// 左侧栏：存储源列表（设计稿 D5）
+// 左侧栏：返回入口 + 下载目录 / 设置
 // ---------------------------------------------------------------------------
 // 左侧栏
 // ---------------------------------------------------------------------------
@@ -10,7 +10,6 @@ class _QueueSidebar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
-    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
 
     return Container(
       width: 200,
@@ -19,8 +18,8 @@ class _QueueSidebar extends ConsumerWidget {
         color: p.card,
         border: Border(right: BorderSide(color: p.line)),
       ),
-      // 0.5.0：外层 padding 与设置页一致（18/12），返回行的图标位置、
-      // 与下方列表的横向起点都与设置页对齐。
+      // 0.5.0：外层 padding 与设置页一致（18/12），返回行的图标位置
+      // 与下方按钮的横向起点都与设置页对齐。
       padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -28,63 +27,28 @@ class _QueueSidebar extends ConsumerWidget {
           // 0.5.0：返回入口放在侧栏顶部靠左，规格与设置页的返回行完全一致
           // （padding 9/10、圆角 9、chev-l 15px + 文字 12.5/600）。
           _SideBackRow(onTap: () => goBackOrFiles(context)),
-          Expanded(
-            child: ListView(
-              // 设计稿 D5：侧栏 padding 16/10。
-              padding: const EdgeInsets.fromLTRB(0, 16, 0, 0),
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(0, 0, 0, 6),
-                  child: Text(
-                    '存储源',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF9DB2C4),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-                for (final source in sources)
-                  _SourceRow(source: source),
-                if (sources.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 6, 0, 6),
-                    child: Text(
-                      '还没有存储源',
-                      style: TextStyle(fontSize: 11.5, color: p.ink4),
-                    ),
-                  ),
-              ],
-            ),
+          // 0.5.0：移除侧栏的存储源列表 —— 存储源切换属于文件页的职责，
+          // 传输页只关心队列本身。两个 mini 按钮随之从底部上移到返回行下方。
+          const SizedBox(height: 10),
+          _MiniButton(
+            icon: 'download',
+            label: '下载目录',
+            onTap: () => showDownloadDirDialog(context, ref),
           ),
-          // 底部两个 mini 按钮（设计稿 D5）
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MiniButton(
-                  icon: 'download',
-                  label: '下载目录',
-                  onTap: () => showDownloadDirDialog(context, ref),
-                ),
-                const SizedBox(height: 8),
-                _MiniButton(
-                  icon: 'settings',
-                  label: '设置',
-                  onTap: () => context.go('/settings'),
-                ),
-              ],
-            ),
+          const SizedBox(height: 8),
+          _MiniButton(
+            icon: 'settings',
+            label: '设置',
+            onTap: () => context.go('/settings'),
           ),
+          // 剩余空间留白，按钮不再贴着窗口底边。
+          const Spacer(),
         ],
       ),
     );
   }
 }
 
-/// 侧栏源行：名称 + 右侧类型胶囊（设计稿 D5 `.src` + `.pt`）。
 /// 侧栏顶部的返回行。
 ///
 /// 规格与设置页 `SettingsSidebar` 的返回项一致：chev-l 图标 15px + 文字
@@ -126,67 +90,6 @@ class _SideBackRow extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _SourceRow extends StatelessWidget {
-  final StorageSource source;
-
-  const _SourceRow({required this.source});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ol;
-    final tag = driverShortTag(source.driver);
-    final (fg, bg) = _tagColors(tag);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => context.go('/files?path=${Uri.encodeComponent(source.mountPath)}'),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  source.displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12.5, color: p.ink2),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
-                child: Text(
-                  tag,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: fg),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 类型胶囊配色：本地/WebDAV 蓝、网盘琥珀、SFTP/FTP/SMB 绿。
-  (Color, Color) _tagColors(String tag) {
-    const sky = {'本地', 'WebDAV'};
-    const green = {'SFTP', 'FTP', 'SMB'};
-    if (sky.contains(tag)) {
-      return (const Color(0xFF08799F), const Color(0xFFEAF8FE));
-    }
-    if (green.contains(tag)) {
-      return (const Color(0xFF0B6B4A), const Color(0xFFD3F2E6));
-    }
-    return (const Color(0xFFB7791F), const Color(0xFFFEF3C7));
   }
 }
 
