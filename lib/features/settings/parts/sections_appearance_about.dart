@@ -1,48 +1,7 @@
 part of '../settings_page.dart';
 
-// 外观 / 关于分区（主题、版本、项目主页）
+// 关于分区（项目链接、版本与许可）
 // ---------------------------------------------------------------------------
-// 外观
-// ---------------------------------------------------------------------------
-class _AppearanceSection extends ConsumerWidget {
-  const _AppearanceSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 0.4.0：主题切换已彻底移除，全局只有一套浅色主题，这里不再提供任何入口。
-        // 0.5.0：并入「通用」分区后不再自带标题，改为区块标题 + 子分组。
-        const _GroupHead(
-          title: '外观',
-          subtitle: '统一浅色主题 · 不支持切换',
-        ),
-        _GroupLabel('列表'),
-        _Card(
-          child: Column(
-            children: [
-              _Row(
-                icon: 'panel',
-                title: '紧凑列表',
-                subtitle: '行高 36px，单屏显示更多',
-                trailing: Text('固定 44px', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ),
-              _Row(
-                icon: 'image',
-                title: '显示缩略图',
-                subtitle: '图片与视频封面预览',
-                trailing: Text('自动', style: TextStyle(fontSize: 9.5, color: p.ink4)),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _AboutSection extends ConsumerWidget {
   const _AboutSection();
 

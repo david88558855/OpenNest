@@ -20,6 +20,18 @@ String formatSpeed(double bytesPerSecond) {
   return '${formatBytes(bytesPerSecond)}/s';
 }
 
+/// 限速文案：以 M/s 为主，不足 1 M/s 时退回 KB/s；0 表示不限速。
+///
+/// 设置页与传输页共用，避免两处单位口径不一致。
+String formatLimitSpeed(int kbps) {
+  if (kbps <= 0) return '不限';
+  if (kbps < 1024) return '$kbps KB/s';
+  final mbps = kbps / 1024;
+  // 整数 M/s 优先；有小数才显示一位（1.5 M/s），避免 1.00 M/s 这种噪声。
+  if (mbps == mbps.roundToDouble()) return '${mbps.round()} M/s';
+  return '${mbps.toStringAsFixed(1)} M/s';
+}
+
 String formatCountdown(int seconds) {
   if (seconds <= 0) return '—';
   if (seconds < 60) return '$seconds 秒';

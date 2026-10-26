@@ -774,7 +774,9 @@ class _DataCard extends StatelessWidget {
         border: Border.all(color: p.line),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // stretch：子节点拿到紧宽度约束。路径框文本很长，不加约束时
+        // 会把整张卡撑得比旁边那张宽（左右就不齐了）。
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
@@ -787,10 +789,8 @@ class _DataCard extends StatelessWidget {
           Text(description, style: TextStyle(fontSize: 11, height: 1.6, color: p.ink3)),
           if (path != null) ...[
             const SizedBox(height: 8),
-            // 路径框必须限宽：不加约束时 Container 会按文本撑开，
-            // 把整张卡撑得比旁边那张宽（左右就不齐了）。
-            // 用 Align 而不是 ConstrainedBox：后者在 Column 里没有约束力
-            // （Column 主轴宽度由子节点内容决定）。
+            // 路径框：Align 让它按内容收缩（符合稿面 inline-block），
+            // 同时受父级紧约束限制，不会超出卡片宽度。
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
@@ -811,7 +811,8 @@ class _DataCard extends StatelessWidget {
           ],
           if (action != null) ...[
             const SizedBox(height: 10),
-            action!,
+            // stretch 下子节点会被拉满宽，按钮要靠左（设计稿是 inline 排布）。
+            Align(alignment: Alignment.centerLeft, child: action!),
           ],
         ],
       ),

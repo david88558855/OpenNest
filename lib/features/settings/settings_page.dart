@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
+import '../../core/format.dart';
 import '../../core/i18n/zh.dart';
 import '../../core/models/driver_schema.dart';
 import '../../core/models/storage_source.dart';

@@ -23,7 +23,7 @@ class _TransferSection extends ConsumerWidget {
                 icon: 'download',
                 title: '下载限速',
                 subtitle: '0 表示不限速',
-                trailing: _ValuePill('${settings.downLimitKbps} KB/s'),
+                trailing: _ValuePill(formatLimitSpeed(settings.downLimitKbps)),
                 onTap: () => _editNumber(
                   context,
                   title: '下载限速',
@@ -35,7 +35,7 @@ class _TransferSection extends ConsumerWidget {
                 icon: 'upload',
                 title: '上传限速',
                 subtitle: '0 表示不限速',
-                trailing: _ValuePill('${settings.upLimitKbps} KB/s'),
+                trailing: _ValuePill(formatLimitSpeed(settings.upLimitKbps)),
                 onTap: () => _editNumber(
                   context,
                   title: '上传限速',
@@ -64,22 +64,10 @@ class _TransferSection extends ConsumerWidget {
           child: Column(
             children: [
               _Row(
-                icon: 'wifi',
-                title: '仅在 Wi-Fi 下传输',
-                subtitle: '移动网络下排队等待',
-                trailing: OlSwitch(value: settings.wifiOnly, small: true, onChanged: notifier.setWifiOnly),
-              ),
-              _Row(
                 icon: 'cloud',
                 title: '后台保持传输',
                 subtitle: '关闭窗口后继续下载',
                 trailing: OlSwitch(value: settings.backgroundTransfer, small: true, onChanged: notifier.setBackgroundTransfer),
-              ),
-              _Row(
-                icon: 'anchor',
-                title: '切换服务器时暂停旧任务',
-                subtitle: '避免多实例抢占带宽',
-                trailing: OlSwitch(value: settings.pauseOnSwitch, small: true, onChanged: notifier.setPauseOnSwitch),
               ),
             ],
           ),

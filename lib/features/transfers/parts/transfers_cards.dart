@@ -72,9 +72,11 @@ class _GlobalBar extends ConsumerWidget {
   /// 限速文案：任一方向有上限就显示具体值，两边都无限速显示「不限」。
   String _limitLabel(int down, int up) {
     if (down <= 0 && up <= 0) return '不限';
-    if (down > 0 && up > 0) return '下载 ${down}KB/s · 上传 ${up}KB/s';
-    if (down > 0) return '下载 ${down}KB/s';
-    return '上传 ${up}KB/s';
+    if (down > 0 && up > 0) {
+      return '下载 ${formatLimitSpeed(down)} · 上传 ${formatLimitSpeed(up)}';
+    }
+    if (down > 0) return '下载 ${formatLimitSpeed(down)}';
+    return '上传 ${formatLimitSpeed(up)}';
   }
 }
 
