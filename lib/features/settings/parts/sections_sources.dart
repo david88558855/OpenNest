@@ -282,7 +282,9 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
             ),
             child: Center(
               child: OlIcon(
-                source.driver == 'Local' ? 'hard-drive' : 'cloud',
+                // 设计稿 D8 按具体类型给图标：本地=硬盘、WebDAV=云、
+                // 网盘=加号、远程=服务器。底色则按协议族（本地/对象/网盘/远程）区分。
+                _iconForDriver(source.driver),
                 size: 16,
                 color: source.disabled ? p.ink4 : _tileFg(source.driver),
                 strokeWidth: 1.9,
@@ -425,6 +427,26 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
     if (diff.inHours < 24) return '${diff.inHours} 小时前';
     if (diff.inDays < 30) return '${diff.inDays} 天前';
     return '${at.year}-${at.month.toString().padLeft(2, '0')}-${at.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 按驱动类型取图标（对齐设计稿 D8 的四个示例图标）。
+  static String _iconForDriver(String driver) {
+    switch (driver) {
+      case 'Local':
+        return 'hard-drive';
+      case 'WebDav':
+        return 'cloud';
+      case 'S3':
+      case 'Doge':
+      case 'Azure Blob Storage':
+        return 'layers';
+      case 'OpenList':
+      case 'AList V3':
+        return 'server';
+      default:
+        // 网盘与分享类：设计稿用「加号」表示可添加内容的存储。
+        return driverGroupOf(driver) == DriverGroup.cloud ? 'plus' : 'globe';
+    }
   }
 
   /// 协议族的图标底色（与设计稿一致：本地/文件蓝、对象紫、网盘橙、远程绿）。

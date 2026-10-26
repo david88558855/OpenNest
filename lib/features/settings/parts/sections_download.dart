@@ -45,8 +45,11 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 0.5.0：并入「通用」分区后不再自带标题，改为分组标签。
-        _GroupLabel('下载目录'),
+        // 0.5.0：并入「通用」分区后不再自带分区标题，改为区块标题 + 子分组。
+        const _GroupHead(
+          title: '下载目录',
+          subtitle: '下载与断点续传的落盘位置，按实例隔离',
+        ),
         _GroupLabel('当前目录'),
         _Card(
           padding: const EdgeInsets.all(11),
