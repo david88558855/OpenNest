@@ -22,7 +22,7 @@ box-shadow:0 22px 60px rgba(14,58,70,.13);overflow:hidden}
 .wbtn{width:26px;height:22px;display:flex;align-items:center;justify-content:center;color:#6B7F94;font-size:12px}
 .wbtn.close:hover{background:#FDE8EC;color:#D92D4B}
 
-.body{display:grid;grid-template-columns:200px 1fr;height:580px}
+.body{display:grid;grid-template-columns:200px 1fr;height:592px}
 
 /* ---------- 侧栏（白底 200，对应 _QueueSidebar） ---------- */
 .side{background:#FFFFFF;border-right:1px solid #E3EBF3;padding:18px 12px 12px;display:flex;flex-direction:column}
@@ -50,7 +50,7 @@ font-size:12px;font-weight:700;color:#0D1B2A;background:#FFFFFF;border:1px solid
 .gbtn:hover{border-color:#BDE7FA;color:#08799F}
 
 /* ---------- 操作类型筛选（新增） ---------- */
-.filters{padding:11px 24px 0;display:flex;align-items:center;gap:7px}
+.filters{padding:12px 24px;display:flex;align-items:center;gap:7px;border-bottom:1px solid #E3EBF3;margin-bottom:2px}
 .fchip{height:26px;border-radius:99px;padding:0 11px;display:inline-flex;align-items:center;gap:6px;
 font-size:11.5px;font-weight:700;color:#42566B;background:#FFFFFF;border:1px solid #E3EBF3;cursor:pointer}
 .fchip.on{background:#EAF8FE;border-color:#BDE7FA;color:#08799F}
@@ -59,7 +59,7 @@ font-size:11.5px;font-weight:700;color:#42566B;background:#FFFFFF;border:1px sol
 .fhint{margin-left:auto;font-size:10.5px;color:#9DB2C4}
 
 /* ---------- 全局控制条（透明 + 底边线） ---------- */
-.gbar{padding:12px 24px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #E3EBF3;margin-top:12px}
+.gbar{padding:12px 24px;display:flex;align-items:center;gap:10px;margin-top:12px}
 .stat{font-size:11.5px;color:#6B7F94;display:flex;align-items:center;gap:6px}
 
 /* ---------- 任务列表 ---------- */
@@ -169,7 +169,16 @@ display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
         <div class="gbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0D1B2A" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>新建任务</div>
       </div>
 
-      <!-- 新增：按操作类型筛选 -->
+      <!-- 全局控制条：全部暂停整体移到最右 -->
+      <div class="gbar">
+        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>并发 3</span>
+        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><path d="M3 17l6-6-6-6M12 19h8"/></svg>限速：不限</span>
+        <div class="sp"></div>
+        <span class="stat">总计 6.8 GB · 剩余约 3 分钟</span>
+        <div class="gbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0D1B2A" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg>全部暂停</div>
+      </div>
+
+      <!-- 类型筛选：下移到控制条之下，与列表左边缘对齐 -->
       <div class="filters">
         <span class="fchip on">全部<span class="n">9</span></span>
         <span class="fchip">下载<span class="n">1</span></span>
@@ -177,14 +186,6 @@ display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
         <span class="fchip">复制<span class="n">4</span></span>
         <span class="fchip">移动<span class="n">2</span></span>
         <span class="fhint">按操作类型筛选 · 数量实时统计</span>
-      </div>
-
-      <div class="gbar">
-        <div class="gbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0D1B2A" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg>全部暂停</div>
-        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>并发 3</span>
-        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><path d="M3 17l6-6-6-6M12 19h8"/></svg>限速：不限</span>
-        <div class="sp"></div>
-        <span class="stat">总计 6.8 GB · 剩余约 3 分钟</span>
       </div>
 
       <div class="tasks">
@@ -343,7 +344,7 @@ display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
 </div>
 
 <div class="legend">
-  <div class="lg"><div class="lg-t"><b>不改现有骨架</b>：侧栏、标题区（渐变分段 + 新建任务）、全局控制条、64 高任务行全部沿用当前实现，只在标题下加一行类型筛选。</div></div>
+  <div class="lg"><div class="lg-t"><b>只动布局</b>：侧栏、标题区、64 高任务行都不动；「全部暂停」移到控制条最右，类型筛选整行下移到控制条之下，分割线随之落在筛选行底部。</div></div>
   <div class="lg"><div class="lg-t"><b>类型标识</b>：路径前胶囊 复制 紫 / 移动 橙 / 下载 蓝 / 上传 绿；图标块底色跟随类型（<code>tileViolet</code> / <code>tileAmber</code>）。</div></div>
   <div class="lg"><div class="lg-t"><b>分组沿用「按方向」</b>：由「下载中 / 上传中」扩为「下载中 / 上传中 / 复制中 / 移动中」，空组自动不显示。</div></div>
   <div class="lg"><div class="lg-t"><b>方式徽标改中性灰</b>：原来固定在琥珀色，与「移动」的橙撞色；改成灰底后颜色只用来区分操作类型。</div></div>
