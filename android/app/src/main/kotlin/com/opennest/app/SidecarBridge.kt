@@ -57,6 +57,15 @@ object SidecarBridge {
         if (!binary.exists()) {
             throw IllegalStateException("未找到内嵌引擎：${binary.absolutePath}")
         }
+        // Android 10+ 从 APK 解压出的原生库默认没有可执行位，直接 exec 会
+        // 报 "Permission denied"。这里显式补上（系统允许应用对自己的
+        // nativeLibraryDir 里的文件改权限）。
+        if (!binary.canExecute()) {
+            runCatching { binary.setExecutable(true, /* ownerOnly = */ false) }
+        }
+        if (!binary.canExecute()) {
+            throw IllegalStateException("内嵌引擎没有可执行权限：${binary.absolutePath}")
+        }
 
         val config = File(dataDir, "config.json")
         val builder = ProcessBuilder(
@@ -72,6 +81,16 @@ object SidecarBridge {
         val started = builder.start()
         process = started
         attachLog(started, logPath)
+
+        // 引擎若因参数或权限问题秒退，这里返回 true 会让 Dart 侧干等
+        // 40 秒健康检查超时才报错。短暂等待一次，把「立刻就挂」的情况
+        // 变成明确的失败信息。
+        Thread.sleep(600)
+        if (!isAlive(started)) {
+            val code = runCatching { started.exitValue() }.getOrDefault(-1)
+            process = null
+            throw IllegalStateException("内嵌引擎启动后立即退出（退出码 $code），请查看日志")
+        }
         return true
     }
 
