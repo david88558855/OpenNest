@@ -61,6 +61,12 @@
   挂载路径，就是根文件夹里显示的目录名。填「本地存储6」，根目录就显示
   「本地存储6」，点进去是它的内容（引擎实测支持中文挂载路径）。
   添加存储不再预填名称；「显示名称」输入框改为「挂载路径」
+- **添加存储页下拉弹层里每行字下面的黄线**：弹层用的是裸 `Container`，
+  没有 `Material` 祖先 —— 它的 `Text` 会继承 Flutter `WidgetsApp` 最外层的
+  `_errorTextStyle`（红色、等宽、黄色双下划线），而 `Text` 只覆盖自己写了的
+  字号/字重/颜色，`decoration` 一路传下来，于是标题与每个选项下面都挂一条黄线。
+  已给弹层套 `Material(type: MaterialType.transparency)`，
+  与 `showOlMenu`、`_SourceEditDialog`、`_EnginePasswordDialog` 的做法一致
 
 ### 存储表单对齐 OpenList Web 端
 - **补齐引擎的 common 字段**：客户端此前只渲染驱动的 additional 字段，把引擎的

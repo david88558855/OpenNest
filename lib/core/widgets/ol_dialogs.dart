@@ -369,7 +369,9 @@ void olToast(BuildContext context, String message, {bool error = false}) {
                     message,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    // decoration 显式置 none：部分 Android 机型会把默认样式渲染出下划线
+                    // decoration 显式置 none：Toast 直接挂在根 Overlay 上，没有
+                    // Material 祖先，会继承 WidgetsApp 最外层的 _errorTextStyle
+                    // （红色、等宽、黄色双下划线），不置 none 就会挂一条黄线。
                     style: TextStyle(
                       fontSize: 11.5,
                       height: 1.3,

@@ -910,56 +910,71 @@ class _OptionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ol;
     return Center(
-      child: Container(
-        width: 380,
-        constraints: const BoxConstraints(maxHeight: 460),
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-        decoration: BoxDecoration(
-          color: p.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: p.line),
-          boxShadow: const [BoxShadow(color: Color(0x330B1622), blurRadius: 40, offset: Offset(0, 18))],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
-            const SizedBox(height: 10),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final option in options)
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(option),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: option == current ? p.rowSel : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                optionLabel(option),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: option == current ? FontWeight.w700 : FontWeight.w500,
-                                  color: p.ink,
+      // 弹层内容必须套一层 Material。
+      //
+      // MaterialApp 在最外层把 DefaultTextStyle 设成了 Flutter 内部那个
+      // _errorTextStyle（material/app.dart）：
+      //   color 0xD0FF0000 / fontFamily monospace / fontSize 48 /
+      //   decoration underline, decorationColor 0xFFFFFF00, style double
+      // 它就是「红线 + 黄线」那个 fallback 样式，注释原话是
+      // "consider putting your text in a Material widget"。
+      // Text 只覆盖自己显式写了的字号/字重/颜色，decoration 与
+      // decorationColor 会一路继承 —— 不套 Material 时每行字下面都挂一条黄线。
+      // 本文件以外的弹层（_SourceEditDialog / _EnginePasswordDialog /
+      // showOlMenu）都套了 Material，只有这里漏了。
+      child: Material(
+        type: MaterialType.transparency,
+        child: Container(
+          width: 380,
+          constraints: const BoxConstraints(maxHeight: 460),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          decoration: BoxDecoration(
+            color: p.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: p.line),
+            boxShadow: const [BoxShadow(color: Color(0x330B1622), blurRadius: 40, offset: Offset(0, 18))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: p.ink)),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final option in options)
+                      InkWell(
+                        onTap: () => Navigator.of(context).pop(option),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: option == current ? p.rowSel : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  optionLabel(option),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: option == current ? FontWeight.w700 : FontWeight.w500,
+                                    color: p.ink,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (option == current) const OlIcon('check', size: 13, color: OlTokens.ok),
-                          ],
+                              if (option == current) const OlIcon('check', size: 13, color: OlTokens.ok),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
