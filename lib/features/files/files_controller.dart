@@ -159,8 +159,14 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
       if (seq != _seq || !mounted) return;
       final store = ref.read(serverStoreProvider);
+      // 0.5.0：根目录下的每一项就是一个存储源的挂载点。引擎返回的名字是
+      // 挂载路径段（`s_aaaaaaaa`），用户看到的应该是自己起的名字
+      // （如「本地存储6」）。这里只改展示名，路径拼接仍用原始 name。
+      final items = normalized == '/'
+          ? _withSourceNames(result.items)
+          : result.items;
       state = state.copyWith(
-        items: result.items,
+        items: items,
         total: result.total,
         loading: false,
         showSkeleton: false,
@@ -170,7 +176,7 @@ class FilesNotifier extends StateNotifier<FilesState> {
         clearError: true,
       );
       await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
-      await store.cacheListing(profile.id, normalized, result.items.map((e) => e.toJson()).toList());
+      await store.cacheListing(profile.id, normalized, items.map((e) => e.toJson()).toList());
       // 0.5.0：记录本次访问的存储源，设置页「最近使用」列要用。
       // 路径形如 `/s_xxxxxxxx/子目录`，取第一段作为源标识。
       final sourceId = _sourceIdOfPath(normalized);
@@ -192,13 +198,16 @@ class FilesNotifier extends StateNotifier<FilesState> {
           if (raw is Map) cachedItems.add(FileItem.fromJson(Map<String, dynamic>.from(raw)));
         }
       }
+      // 离线回读同样要把根目录的挂载点换成存储源名称，否则一断网
+      // 根目录就退回显示 s_xxxxxxxx，与在线时表现不一致。
+      final cachedItems2 = normalized == '/' ? _withSourceNames(cachedItems) : cachedItems;
       state = state.copyWith(
         loading: false,
         showSkeleton: false,
         error: e.friendly,
-        items: cachedItems.isEmpty ? state.items : cachedItems,
-        total: cachedItems.isEmpty ? state.total : cachedItems.length,
-        offline: cachedItems.isNotEmpty && e.network,
+        items: cachedItems2.isEmpty ? state.items : cachedItems2,
+        total: cachedItems2.isEmpty ? state.total : cachedItems2.length,
+        offline: cachedItems2.isNotEmpty && e.network,
       );
     }
   }
@@ -293,4 +302,45 @@ String _sourceIdOfPath(String path) {
   // 只认客户端生成的挂载路径（`/s_` 前缀），避免把普通目录名误当源。
   if (!first.startsWith('s_')) return '';
   return '/$first';
+}
+
+/// 把根目录下的挂载点项的展示名换成存储源名称。
+///
+/// 引擎在根目录返回的目录名是挂载路径段（`s_xxxxxxxx`），但用户是通过
+/// 「添加存储源」时填的名称来认识它们的（「本地存储6」）。这里按挂载路径
+/// 前缀匹配存储源，取其 remark 作为展示名。
+///
+/// 只改 [FileItem.displayName]，[FileItem.name] 保持不变 —— 后者参与
+/// 路径拼接（`joinPath(path, item.name)`），改了会跳错目录。
+List<FileItem> _withSourceNames(List<FileItem> items) {
+  if (items.isEmpty) return items;
+  final sources = ref.read(sourcesProvider).valueOrNull;
+  if (sources == null || sources.isEmpty) return items;
+  // 挂载路径段 → 存储源
+  final byMount = <String, StorageSource>{};
+  for (final source in sources) {
+    final mount = source.mountPath;
+    if (mount.isEmpty) continue;
+    byMount[mount.startsWith('/') ? mount.substring(1) : mount] = source;
+  }
+  if (byMount.isEmpty) return items;
+  return items.map((item) {
+    final source = byMount[item.name];
+    if (source == null) return item;
+    final label = source.displayName;
+    if (label.isEmpty || label == item.name) return item;
+    return FileItem(
+      name: item.name,
+      size: item.size,
+      isDir: item.isDir,
+      modified: item.modified,
+      sign: item.sign,
+      thumb: item.thumb,
+      type: item.type,
+      hashInfo: item.hashInfo,
+      parent: item.parent,
+      provider: item.provider,
+      displayName: label,
+    );
+  }).toList();
 }

@@ -94,7 +94,10 @@ class _TopBar extends ConsumerWidget {
             ),
             Flexible(
               child: _Crumb(
-                text: segs[i],
+                // 0.5.0：挂载点那一段显示存储源名称（如「本地存储6」），
+                // 不显示引擎的挂载路径段（s_xxxxxxxx）。
+                // 跳转路径仍用原始段 —— 那是引擎侧的真实路径。
+                text: i == 0 && current != null ? current.displayName : segs[i],
                 current: i == segs.length - 1,
                 onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
               ),

@@ -82,6 +82,13 @@ class FileItem {
   final String? parent;
   final String? provider;
 
+  /// 展示用名称。为空时回落到 [name]。
+  ///
+  /// 引擎在根目录返回的是挂载路径段（如 `s_aaaaaaaa`），用户看到的应该是
+  /// 自己给存储源起的名字（如「本地存储6」）。这个字段只影响显示，
+  /// 路径拼接仍必须用 [name] —— 它是引擎侧的真实路径段。
+  final String? displayName;
+
   const FileItem({
     required this.name,
     required this.size,
@@ -93,7 +100,14 @@ class FileItem {
     this.hashInfo,
     this.parent,
     this.provider,
+    this.displayName,
   });
+
+  /// 界面上应当展示的名称。
+  String get label {
+    final d = displayName?.trim();
+    return (d == null || d.isEmpty) ? name : d;
+  }
 
   factory FileItem.fromJson(Map<String, dynamic> j) {
     final modifiedRaw = j['modified']?.toString();

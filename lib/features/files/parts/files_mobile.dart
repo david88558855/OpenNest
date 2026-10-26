@@ -213,6 +213,16 @@ class _MobileCrumb extends ConsumerWidget {
     final p = context.ol;
     final segs = state.path.split('/').where((e) => e.isNotEmpty).toList();
     final notifier = ref.read(filesProvider.notifier);
+    // 0.5.0：挂载点那一段显示存储源名称（如「本地存储6」），
+    // 不显示引擎的挂载路径段（s_xxxxxxxx）。跳转路径仍用原始段。
+    final sources = ref.watch(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+    StorageSource? current;
+    for (final source in sources) {
+      if (state.path == source.mountPath || state.path.startsWith('${source.mountPath}/')) {
+        current = source;
+        break;
+      }
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(OlGap.pageMobile, 2, OlGap.pageMobile, 6),
       child: Row(
@@ -234,7 +244,7 @@ class _MobileCrumb extends ConsumerWidget {
                       child: Text('/', style: TextStyle(fontSize: 12, color: p.ink4)),
                     ),
                     _CrumbTap(
-                      label: segs[i],
+                      label: i == 0 && current != null ? current.displayName : segs[i],
                       current: i == segs.length - 1,
                       onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
                     ),
@@ -324,7 +334,7 @@ class _MobileRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.name,
+                    item.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.ink),

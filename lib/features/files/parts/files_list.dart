@@ -213,7 +213,9 @@ class _FileRowState extends State<_FileRow> {
                     const SizedBox(width: 9),
                     Expanded(
                       child: Text(
-                        item.name,
+                        // 0.5.0：根目录下的挂载点显示存储源名称（item.label），
+                        // 其余目录显示原始文件名。item.name 仍用于路径与选择。
+                        item.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
@@ -331,7 +333,7 @@ class _GridView extends ConsumerWidget {
                   child: Align(
                     alignment: Alignment.topLeft,
                     child: Text(
-                      item.name,
+                      item.label,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
