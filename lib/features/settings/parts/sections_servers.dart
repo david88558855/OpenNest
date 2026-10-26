@@ -187,7 +187,8 @@ class _ServersSection extends ConsumerWidget {
                 icon: 'chev-r',
                 height: 28,
                 fontSize: 10.5,
-                onTap: () => context.push('/sources'),
+                // 0.5.0：存储源已是设置内的一个分区，直接进分区（不再走旧路由重定向）。
+                onTap: () => context.go('/settings/sources'),
               ),
             ],
           ),
