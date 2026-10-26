@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/frame.dart';
 import '../../app/providers.dart';
 import '../../core/app_info.dart';
+import '../../core/i18n/zh.dart';
+import '../../core/models/driver_schema.dart';
 import '../../core/models/storage_source.dart';
 import '../../core/sidecar/engine_password_dialog.dart';
 import '../../core/sidecar/sidecar_controller.dart';
@@ -43,6 +45,22 @@ class SettingsPage extends ConsumerStatefulWidget {
   final String tab;
   const SettingsPage({super.key, this.tab = 'root'});
 
+  /// 旧分区名 → 新分区名。
+  static const _aliases = {
+    'servers': 'general',
+    'download': 'general',
+    'appearance': 'general',
+    'profile': 'general',
+  };
+
+  /// 旧深链（/settings/servers 等）归一化到新分区，避免 404。
+  ///
+  /// 0.5.0 按设计稿 D8 重划分区后，旧分区名全部并入「通用」。
+  static String normalizeTab(String tab) {
+    if (tab == 'root') return 'general';
+    return _aliases[tab] ?? tab;
+  }
+
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
@@ -54,13 +72,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   // 旧分区名（servers / download / appearance）保留在 _aliases 里做深链兼容，
   // 会被归一化到新分区，不至于 404。
   static const _known = {'general', 'sources', 'transfer', 'playback', 'about'};
-
-  static const _aliases = {
-    'servers': 'general',
-    'download': 'general',
-    'appearance': 'general',
-    'profile': 'general',
-  };
 
   /// 桌面内容区实际渲染的分区：`root` 归一化为「通用」。
   String get _section {
@@ -78,12 +89,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (!_known.contains(tab)) return;
     setState(() => _tab = tab);
     context.go('/settings/$tab');
-  }
-
-  /// 旧深链（/settings/servers 等）重定向到新分区，避免 404。
-  static String normalizeTab(String tab) {
-    if (tab == 'root') return 'general';
-    return _aliases[tab] ?? tab;
   }
 
   @override

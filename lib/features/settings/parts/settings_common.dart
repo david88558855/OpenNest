@@ -35,29 +35,20 @@ class _SectionBody extends ConsumerWidget {
 class _SectionHead extends StatelessWidget {
   final String title;
   final String subtitle;
-  final Widget? action;
-  const _SectionHead({required this.title, required this.subtitle, this.action});
+  const _SectionHead({required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 设计稿 D8 `.h1` / `.sub`：19/800 与 11.5 副标题。
-                Text(title, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: p.ink)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 11.5, color: p.ink3)),
-              ],
-            ),
-          ),
-          if (action != null) action!,
+          // 设计稿 D8 `.h1` / `.sub`：19/800 与 11.5 副标题。
+          Text(title, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: p.ink)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(fontSize: 11.5, color: p.ink3)),
         ],
       ),
     );

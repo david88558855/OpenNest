@@ -13,7 +13,7 @@ class _GeneralSection extends StatelessWidget {
   const _GeneralSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -183,7 +183,7 @@ class _SourceTable extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     // 最近使用：按源记的最后打开时间。
-    final usage = ref.watch(sourceUsageProvider);
+    final usage = ref.watch(sourceUsageProvider).valueOrNull ?? const <String, int>{};
     return Container(
       decoration: BoxDecoration(
         color: p.card,
@@ -411,6 +411,7 @@ class _SourceTableRow extends ConsumerWidget {
       case DriverGroup.server:
         return const Color(0xFFE8FBF3);
       case DriverGroup.other:
+      default:
         return const Color(0xFFF1F6FB);
     }
   }
@@ -426,6 +427,7 @@ class _SourceTableRow extends ConsumerWidget {
       case DriverGroup.server:
         return const Color(0xFF0E9F6E);
       case DriverGroup.other:
+      default:
         return const Color(0xFF6B7F94);
     }
   }
@@ -496,7 +498,6 @@ class _SourceEditDialogState extends State<_SourceEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
     return Center(
       child: Material(
         color: Colors.transparent,
