@@ -1,6 +1,8 @@
 /// 驱动元数据：来自引擎的 `/api/admin/driver/list`，用于动态生成表单。
 library;
 
+import '../i18n/zh.dart';
+
 class DriverItem {
   final String name;
   final String type; // string | number | bool | select | text
@@ -24,11 +26,10 @@ class DriverItem {
   bool get isMultiline => type == 'text';
 
   /// 引擎没有 password 类型，只能按字段名判断敏感项。
-  bool get isSecret {
-    final n = name.toLowerCase();
-    const keys = ['password', 'passphrase', 'token', 'secret', 'private', 'cookie', 'access_key', 'secret_key', 'key'];
-    return keys.any(n.contains);
-  }
+  ///
+  /// 判定规则集中在 `isSecretFieldName`（i18n 层），与配置导出共用一套，
+  /// 避免两处各写一份后判定漂移 —— 那会造成「表单里标了密码、导出却带出去了」。
+  bool get isSecret => isSecretFieldName(name);
 
   factory DriverItem.fromJson(Map<String, dynamic> json) {
     final rawOptions = json['options'];

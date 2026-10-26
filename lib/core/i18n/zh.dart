@@ -261,3 +261,26 @@ String storageStatusLabel(String raw) {
   if (value == 'error' || value == 'failed') return '异常';
   return '未知';
 }
+
+/// 字段名是否属于机密（表单标注 + 配置导出剔除共用一套判定）。
+///
+/// - `passwd` 也是常见拼写，必须覆盖，否则密码会漏出；
+/// - 形如 `private_key_path` / `key_path` 的字段只是**文件路径**，
+///   本身不是密钥内容，剔除掉会导致导入后连不上，因此排除。
+bool isSecretFieldName(String name) {
+  final n = name.toLowerCase();
+  if (n.endsWith('_path') || n.endsWith('_file') || n.endsWith('_dir')) return false;
+  const keys = [
+    'password',
+    'passwd',
+    'passphrase',
+    'token',
+    'secret',
+    'private',
+    'cookie',
+    'access_key',
+    'secret_key',
+    'key',
+  ];
+  return keys.any(n.contains);
+}

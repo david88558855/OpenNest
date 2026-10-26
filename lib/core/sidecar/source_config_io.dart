@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 
+import '../i18n/zh.dart';
 import '../models/storage_source.dart';
 import 'sidecar_paths.dart';
 
@@ -131,20 +132,6 @@ class SourceConfigBundle {
 
 /// 字段名是否属于机密（导出时剔除）。
 ///
-/// 与驱动表单的敏感判定保持同一套关键字表，避免「表单里标了密码、
-/// 导出却带出去了」这种漏洞。
-bool isSecretField(String name) {
-  final n = name.toLowerCase();
-  const keys = [
-    'password',
-    'passphrase',
-    'token',
-    'secret',
-    'private',
-    'cookie',
-    'access_key',
-    'secret_key',
-    'key',
-  ];
-  return keys.any(n.contains);
-}
+/// 判定规则集中在 i18n 层的 `isSecretFieldName`，与驱动表单共用一套，
+/// 避免「表单里标了密码、导出却带出去了」这类漏洞。
+bool isSecretField(String name) => isSecretFieldName(name);
