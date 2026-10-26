@@ -81,26 +81,8 @@ class _SourcesSection extends ConsumerWidget {
               ),
             ),
             data: (items) {
-              if (items.isEmpty) {
-                // 滚动容器里的 Center 会塌成零高（内容贴顶），给一个明确高度
-                // 让空态落在视觉舒适的位置。
-                return SizedBox(
-                  height: 260,
-                  child: Center(
-                    child: OlEmptyState(
-                      icon: 'folder-plus',
-                      title: '还没有存储源',
-                      subtitle: '添加一个本地目录或网络存储，就能开始管理文件',
-                      action: OlPrimaryButton(
-                        label: '添加存储源',
-                        icon: 'plus',
-                        height: 36,
-                        onTap: () => context.push('/sources/add'),
-                      ),
-                    ),
-                  ),
-                );
-              }
+              // 空态也要保持设计稿 D8 的页面骨架：表头 + 空列表 + 双卡，
+              // 只是列表里没有行。整页结构不跳变，用户才知道「这里该有内容」。
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
@@ -225,6 +207,16 @@ class _SourceTable extends ConsumerWidget {
           ),
           for (final source in sources)
             _SourceTableRow(source: source, lastUsed: usage[source.mountPath]),
+          // 空列表时给一行占位说明，保持表格结构完整（表头 + 空行）。
+          if (sources.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
+              child: Text(
+                '还没有存储源。点左上角「添加存储源」连接一个本地目录或网络存储。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11.5, color: p.ink4),
+              ),
+            ),
         ],
       ),
     );
@@ -713,9 +705,12 @@ class _DataAndCredentialsRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final dir = ref.watch(prefsProvider).storagePath;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    // IntrinsicHeight：两张卡内容长度不同（右卡多一个按钮），
+    // 用 Row + start 会让右卡更高、左右不齐。取两者最大高度让它们等高。
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         Expanded(
           child: _DataCard(
             icon: 'download',
@@ -744,7 +739,8 @@ class _DataAndCredentialsRow extends ConsumerWidget {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -791,18 +787,25 @@ class _DataCard extends StatelessWidget {
           Text(description, style: TextStyle(fontSize: 11, height: 1.6, color: p.ink3)),
           if (path != null) ...[
             const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: p.surface,
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: p.line),
-              ),
-              child: Text(
-                path!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10.5, color: p.ink2),
+            // 路径框必须限宽：不加约束时 Container 会按文本撑开，
+            // 把整张卡撑得比旁边那张宽（左右就不齐了）。
+            // 用 Align 而不是 ConstrainedBox：后者在 Column 里没有约束力
+            // （Column 主轴宽度由子节点内容决定）。
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: p.surface,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: p.line),
+                ),
+                child: Text(
+                  path!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 10.5, color: p.ink2),
+                ),
               ),
             ),
           ],

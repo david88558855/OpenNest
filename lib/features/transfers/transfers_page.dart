@@ -273,6 +273,12 @@ class _QueueHead extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // 0.5.0：桌面端补返回入口。此前传输页只能靠底部导航或系统返回键离开，
+          // 键盘用户没有可见的返回按钮。
+          Padding(
+            padding: const EdgeInsets.only(right: 12, bottom: 2),
+            child: OlBackButton(onTap: () => goBackOrFiles(context)),
+          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
