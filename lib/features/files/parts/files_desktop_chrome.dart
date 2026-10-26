@@ -45,7 +45,11 @@ class _TopBar extends ConsumerWidget {
         break;
       }
     }
-    final rootLabel = current?.displayName ?? '全部文件';
+    // 0.5.0：根段恒为「全部文件」，点它回到根目录。
+    // 之前这里用的是 current?.displayName，于是路径落在某个源上时
+    // 根段变成了源名（如「666」），和紧随其后的挂载点段重复显示。
+    // 源名由下面的 segs[0] 承担（挂载点段显示存储源名称）。
+    const rootLabel = '全部文件';
     final atRoot = state.path == '/';
 
     return Container(
