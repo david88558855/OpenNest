@@ -91,21 +91,21 @@ const Map<String, String> _driverShortTags = {
 const Map<String, String> _fieldLabels = {
   // 公共字段
   'mount_path': '挂载路径',
-  'order': '排序值',
+  'order': '序号',
   'remark': '备注',
-  'cache_expiration': '缓存时长（秒）',
+  'cache_expiration': '缓存过期时间（秒）',
   'custom_cache_policies': '自定义缓存策略',
-  'web_proxy': '网页代理',
+  'web_proxy': '网盘代理',
   'webdav_policy': 'WebDAV 策略',
   'proxy_range': '代理范围',
-  'down_proxy_url': '下载代理地址',
-  'disable_proxy_sign': '关闭代理签名',
-  'order_by': '排序字段',
+  'down_proxy_url': '下载代理网址',
+  'disable_proxy_sign': '禁用代理签名',
+  'order_by': '用于排序',
   'order_direction': '排序方向',
   'extract_folder': '解压目录',
-  'disable_index': '关闭索引',
-  'enable_sign': '开启签名',
-  'seed_policy': '秒传策略',
+  'disable_index': '禁用索引',
+  'enable_sign': '启用签名',
+  'seed_policy': '种子策略',
   // 通用连接
   'address': '服务器地址',
   'username': '用户名',
@@ -115,7 +115,7 @@ const Map<String, String> _fieldLabels = {
   'tls_insecure_skip_verify': '跳过证书校验',
   'vendor': '服务商',
   'encoding': '编码',
-  'cwd_list': '目录列表',
+  'cwd_list': '按工作目录列出',
   'share_name': '共享名',
   'private_key': '私钥',
   'passphrase': '私钥口令',
@@ -124,7 +124,7 @@ const Map<String, String> _fieldLabels = {
   'bucket': '存储桶',
   'endpoint': '接入地址',
   'region': '区域',
-  'access_key_id': '访问密钥',
+  'access_key_id': '访问密钥编号',
   'secret_access_key': '访问密钥密码',
   'session_token': '会话令牌',
   'custom_host': '自定义域名',
@@ -135,7 +135,7 @@ const Map<String, String> _fieldLabels = {
   'add_filename_to_disposition': '下载文件名参数',
   'enable_direct_upload': '允许直传',
   'direct_upload_host': '直传域名',
-  'user_agent': '客户端标识',
+  'user_agent': '客户端标识（User-Agent）',
   'placeholder': '占位图',
   'container_name': '容器名称',
   'operator_name': '操作员账号',
@@ -151,13 +151,13 @@ const Map<String, String> _fieldLabels = {
   'share_id': '分享编号',
   'share_pwd': '分享提取码',
   'share_password': '分享提取码',
-  'url': '分享链接',
-  'cookie': '登录凭证',
+  'url': '服务器链接地址',
+  'cookie': 'Cookie',
   'base_path': '基础路径',
   'page_size': '每页数量',
   'limit_rate': '限速（字节/秒）',
   'alipan_type': '网盘类型',
-  'drive_type': '存储类型',
+  'drive_type': '网盘类型',
   'rapid_upload': '秒传',
   'remove_way': '删除方式',
   'client_temp_dir': '客户端临时目录',
@@ -225,7 +225,7 @@ const Map<String, String> _fieldLabels = {
   'cloud_id': '云盘编号',
   'committer_email': '提交者邮箱',
   'committer_name': '提交者名称',
-  'cookies': '登录 Cookie',
+  'cookies': 'Cookie',
   'copy_commit_message': '复制提交信息',
   'credit_key': '信用密钥',
   'custom_crack_ua': '破解版 User-Agent',
@@ -270,7 +270,7 @@ const Map<String, String> _fieldLabels = {
   'internal_upload': '内网直传',
   'ip': 'IP 地址',
   'is_sharepoint': 'SharePoint 站点',
-  'item_xpath': '条目 XPath',
+  'item_xpath': '文件条目 XPath',
   'jg_open_id': '开放编号',
   'largeChannelName': '大文件通道名',
   'largeChannelType': '大文件通道类型',
@@ -306,7 +306,7 @@ const Map<String, String> _fieldLabels = {
   'pass_ua_to_upsteam': '传递 UA 给服务端',
   'pdf_thumbnail': '生成 PDF 首页缩略图',
   'per_page': '每页数量',
-  'phone': '手机号',
+  'phone': '手机号码',
   'phone_number': '手机号码',
   'platform': '平台',
   'project_id': '项目编号',
@@ -336,7 +336,7 @@ const Map<String, String> _fieldLabels = {
   'shareUrl': '分享链接',
   'share_code': '分享提取码',
   'share_ids': '分享编号列表',
-  'share_link': '生成分享链接',
+  'share_link': '使用分享链接下载',
   'sharekey': '分享密钥',
   'sharepassword': '分享密码',
   'show_all_version': '显示全部版本',
@@ -402,11 +402,15 @@ const Map<String, String> _fieldLabels = {
   'withSign': '带签名访问',
   'withoutUrl': '不含地址前缀',
   'write_conflict_policy': '写入冲突策略',
-
+  'bbsid': '业务标识',
+  'generate_torrent': '生成种子文件',
+  'ignore_jwt_check': '忽略 JWT 校验',
+  'order_desc': '倒序排列',
+  'writable': '可写入',
 };
 
 const Map<String, String> _optionLabels = {
-  '302_redirect': '302 跳转',
+  '302_redirect': '302 重定向',
   'use_proxy_url': '使用代理地址',
   'native_proxy': '本机代理',
   'name': '名称',
@@ -489,6 +493,74 @@ const Map<String, String> _optionLabels = {
   'web': '网页版',
   'webp': 'WebP',
   'windows': 'Windows',
+  'ASC': '升序',
+  'Asc': '升序',
+  'DESC': '降序',
+  'Desc': '降序',
+  'created': '创建时间',
+  'created_at': '创建时间',
+  'updated': '更新时间',
+  'updated_at': '更新时间',
+  'time': '时间',
+  'title': '标题',
+  'path': '路径',
+  'user_utime': '用户上传时间',
+  'lastOpTime': '最后操作时间',
+  'fileName': '文件名',
+  'filename': '文件名',
+  'file_name': '文件名',
+  'file_size': '文件大小',
+  'filesize': '文件大小',
+  'file_type': '文件类型',
+  'none': '不排序',
+  'time_asc': '时间升序',
+  'time_desc': '时间降序',
+  'ext_asc': '扩展名升序',
+  'ext_desc': '扩展名降序',
+  'all': '全部',
+  'all_strict': '全部（严格）',
+  'random': '随机',
+  'quota': '配额',
+  'quota_strict': '配额（严格）',
+  'deterministic': '确定性',
+  'deterministic_or_all': '确定性或全部',
+  'password': '账号密码',
+  'refresh_token': '刷新令牌',
+  'tv': '电视端',
+  'alipanTV': '阿里云盘 TV 版',
+  'alipaymini': '支付宝小程序',
+  'wechatmini': '微信小程序',
+  'qandroid': 'QQ 端',
+  'Business': '商业版',
+  'china': '国内版',
+  'international': '国际版',
+  'personal': '个人版',
+  'personal_new': '个人版（新）',
+  'family': '家庭版',
+  'group': '群组版',
+  'share': '分享版',
+  'backup': '备份',
+  'resource': '资源',
+  'default': '默认',
+  'sync': '同步',
+  'update': '更新',
+  'rapid': '秒传',
+  'get_file_url': '获取文件直链',
+  'get_download_info': '获取下载信息',
+  'crack_video': '破解视频源',
+  'old': '旧版',
+  'streaming': '流式',
+  'ipfs': 'IPFS',
+  'ipns': 'IPNS',
+  'mfs': 'MFS',
+  'url': '链接',
+  'mov': 'MOV 格式',
+  'hmac_sha256': 'HMAC-SHA256',
+  'cfr2': 'Cloudflare R2',
+  'true': '是',
+  'false': '否',
+  'root_only_album': '仅根目录相册',
+  'root_only_file': '仅根目录文件',
 
 };
 
@@ -649,6 +721,26 @@ String _fallbackTag(String key) {
   return label.length <= 4 ? label : '其它';
 }
 
+/// 驱动专属的字段标签（优先于全局同名标签）。
+///
+/// 同一个字段名在不同驱动里含义可能不同：`url` 在 OpenList / WebDAV
+/// 驱动里是「服务器链接地址」，但在 Onedrive Sharelink / OpenListShare
+/// 这类分享驱动里确实是「分享链接」。全局表只能给一个名字，
+/// 这里按驱动补齐差异。
+const Map<String, Map<String, String>> _driverFieldLabels = {
+  'Onedrive Sharelink': {'url': '分享链接'},
+  'OpenListShare': {'url': '分享链接'},
+  'AliyundriveShare': {'url': '分享链接'},
+  'AliyundriveOpen': {'url': '分享链接'},
+};
+
+/// 取字段的中文名：驱动专属表优先，其次全局表，最后回落到原始字段名。
+String fieldLabelFor(String driver, String raw) {
+  final specific = _driverFieldLabels[driver]?[raw];
+  if (specific != null) return specific;
+  return fieldLabel(raw);
+}
+
 String fieldLabel(String raw) {
   final label = _fieldLabels[raw];
   if (label != null) return label;
@@ -660,7 +752,15 @@ String fieldHelp(String? raw) {
   return _helpLabels[raw.trim()] ?? '';
 }
 
-String optionLabel(String value) => _optionLabels[value] ?? value;
+/// 取下拉选项的中文名。
+///
+/// 纯数字（如某些驱动的排序规则编号 0/1/2/3）原样返回 —— 它们是编号，
+/// 翻译成文字反而看不懂。
+String optionLabel(String value) {
+  if (value.trim().isEmpty) return value;
+  if (int.tryParse(value.trim()) != null) return value;
+  return _optionLabels[value] ?? value;
+}
 
 /// 存储源状态：引擎返回 `work` / `ok` / `disabled` 等原始标识。
 String storageStatusLabel(String raw) {

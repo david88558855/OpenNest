@@ -75,7 +75,9 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     _driver = info.name;
     _error = null;
     _created = false;
-    for (final item in info.additional) {
+    // common + additional 都要建控制器 —— 与 OpenList Web 端一致，
+    // 那边的表单同样包含排序、缓存策略、WebDAV 策略等通用字段。
+    for (final item in info.formFields) {
       if (item.isBool) {
         _bools[item.name] = item.defaultValue == 'true';
       } else if (item.isSelect && item.options.isNotEmpty) {
@@ -86,7 +88,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     }
     // 预填必须放在字段控制器重建之后（上面刚 dispose 过 _ctrls）。
     if (!_prefillApplied && widget.initialDriver == info.name && widget.initialPrefill != null) {
-      final mapped = mapShareFields(widget.initialPrefill!, info.additional);
+      final mapped = mapShareFields(widget.initialPrefill!, info.formFields);
       mapped.forEach((name, value) {
         final controller = _ctrls[name];
         if (controller != null && controller.text.trim().isEmpty) controller.text = value;
@@ -115,7 +117,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
         return;
       }
     }
-    for (final item in info.additional) {
+    for (final item in info.formFields) {
       if (!item.required) continue;
       final value = item.isBool
           ? '${_bools[item.name] ?? false}'
@@ -123,20 +125,40 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
               ? (_selects[item.name] ?? '')
               : (_ctrls[item.name]?.text ?? '');
       if (value.trim().isEmpty) {
-        setState(() => _error = '「${fieldLabel(item.name)}」为必填项');
+        setState(() => _error = '「${fieldLabelFor(info.name, item.name)}」为必填项');
         return;
       }
     }
 
+    // common 字段（排序、缓存策略、WebDAV 策略……）在引擎里是**存储顶层字段**，
+    // additional 字段才进 addition —— 两者不能混在一起提交。
     final addition = <String, dynamic>{};
-    for (final item in info.additional) {
+    final options = <String, dynamic>{};
+    for (final item in info.formFields) {
+      final isTopLevel = kStorageOptionKeys.contains(item.name);
       if (item.isBool) {
-        addition[item.name] = _bools[item.name] ?? false;
+        final value = _bools[item.name] ?? false;
+        if (isTopLevel) {
+          options[item.name] = value;
+        } else {
+          addition[item.name] = value;
+        }
       } else if (item.isSelect) {
-        addition[item.name] = _selects[item.name] ?? '';
+        final value = _selects[item.name] ?? '';
+        if (isTopLevel) {
+          options[item.name] = value;
+        } else {
+          addition[item.name] = value;
+        }
       } else {
         final raw = _ctrls[item.name]?.text ?? '';
-        if (raw.trim().isNotEmpty) addition[item.name] = coerceItemValue(item, raw);
+        if (raw.trim().isEmpty) continue;
+        final value = coerceItemValue(item, raw);
+        if (isTopLevel) {
+          options[item.name] = value;
+        } else {
+          addition[item.name] = value;
+        }
       }
     }
 
@@ -149,6 +171,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       driver: info.name,
       remark: name,
       addition: addition,
+      options: options,
       cacheExpiration: int.tryParse(_cacheCtrl.text.trim()) ?? 30,
     );
     final error = await ref.read(sourceActionsProvider).create(source);
@@ -377,12 +400,13 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
                 hint: '根目录中显示的文件夹名称',
               ),
               _textField(
-                label: '缓存时长（秒）',
+                // 与字段标签（cache_expiration → 缓存过期时间（秒））保持一致
+                label: '缓存过期时间（秒）',
                 controller: _cacheCtrl,
                 hint: '目录列表缓存时间',
                 keyboardType: TextInputType.number,
               ),
-              for (final item in info.additional) _buildItem(item),
+              for (final item in info.formFields) _buildItem(item, info.name),
             ];
             if (!twoColumn) {
               return Column(
@@ -445,10 +469,16 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     );
   }
 
-  Widget _buildItem(DriverItem item) {
+  /// 渲染一个驱动字段。
+  ///
+  /// [driver] 传进来是为了让同名字段在不同驱动下显示不同的中文名
+  /// （如 `url` 在 OpenList 驱动是「服务器链接地址」，在分享驱动是
+  /// 「分享链接」）—— 见 `fieldLabelFor`。
+  Widget _buildItem(DriverItem item, String driver) {
+    final label = fieldLabelFor(driver, item.name);
     if (item.isBool) {
       return _SwitchField(
-        label: fieldLabel(item.name),
+        label: label,
         help: fieldHelp(item.help),
         value: _bools[item.name] ?? false,
         onChanged: (value) => setState(() => _bools[item.name] = value),
@@ -456,7 +486,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     }
     if (item.isSelect) {
       return _SelectField(
-        label: fieldLabel(item.name),
+        label: label,
         help: fieldHelp(item.help),
         value: _selects[item.name] ?? (item.options.isEmpty ? '' : item.options.first),
         options: item.options,
@@ -466,7 +496,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     final controller = _ctrls[item.name];
     if (controller == null) return const SizedBox.shrink();
     return _textField(
-      label: fieldLabel(item.name),
+      label: label,
       required: item.required,
       controller: controller,
       hint: fieldHelp(item.help),

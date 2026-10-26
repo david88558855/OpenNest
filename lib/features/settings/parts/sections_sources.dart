@@ -474,7 +474,7 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
     }
   }
 
-  /// 编辑存储源：名称、备注、缓存时长与启停。
+  /// 编辑存储源：名称、备注、缓存过期时间与启停。
   ///
   /// 凭据字段不在这里改 —— 驱动表单有几十个字段且各驱动不同，
   /// 凭据改动走「删除后重新添加」更安全（也避免把密码写进日志）。
@@ -583,7 +583,8 @@ class _SourceEditDialogState extends State<_SourceEditDialog> {
               const SizedBox(height: 6),
               OlField(controller: _remark, icon: 'server', hint: '显示名称（留空则用挂载路径）'),
               const SizedBox(height: 12),
-              Text('缓存时长（分钟）', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink2)),
+              // 与字段标签（cache_expiration → 缓存过期时间）保持一致
+              Text('缓存过期时间（分钟）', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: p.ink2)),
               const SizedBox(height: 6),
               OlField(controller: _cache, icon: 'clock', hint: '30', keyboardType: TextInputType.number),
               const SizedBox(height: 14),

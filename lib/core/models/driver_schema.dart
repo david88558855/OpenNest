@@ -3,6 +3,9 @@ library;
 
 import '../i18n/zh.dart';
 
+/// 由客户端自己处理、不走通用字段渲染的引擎字段。
+const Set<String> kHandledStorageFields = {'mount_path', 'cache_expiration', 'remark'};
+
 class DriverItem {
   final String name;
   final String type; // string | number | bool | select | text
@@ -70,6 +73,22 @@ class DriverInfo {
     this.additional = const [],
     this.config = const {},
   });
+
+  /// 表单要渲染的字段：引擎的 common + additional。
+  ///
+  /// OpenList 的 Web 端添加存储表单 = 存储顶层字段（驱动 / 挂载路径 / 序号 /
+  /// 备注 / 缓存过期时间）+ 驱动 common 字段 + 驱动特有（additional）字段。
+  /// 客户端此前只渲染 additional，把 common 那一整组（排序、备注、缓存策略、
+  /// WebDAV 策略、下载代理网址、种子策略……）整组漏掉了，用户无法配置。
+  ///
+  /// 这里排除三个由客户端自己手写、不走通用字段渲染的字段：
+  /// - `mount_path`：客户端由「名称」派生，语义同 Web 端（见 mountPathOf）
+  /// - `cache_expiration`：客户端有独立的「缓存过期时间（秒）」输入框
+  /// - `remark`：客户端用名称作为备注（与 Web 端「备注」字段语义重合）
+  List<DriverItem> get formFields => [
+        ...common.where((e) => !kHandledStorageFields.contains(e.name)),
+        ...additional.where((e) => !kHandledStorageFields.contains(e.name)),
+      ];
 
   factory DriverInfo.fromJson(String name, Map<String, dynamic> json) {
     List<DriverItem> parse(Object? raw) {
