@@ -22,24 +22,24 @@ class _TransferSection extends ConsumerWidget {
               _Row(
                 icon: 'download',
                 title: '下载限速',
-                subtitle: '0 表示不限速',
+                subtitle: '0 表示不限速，单位 Mbps',
                 trailing: _ValuePill(formatLimitSpeed(settings.downLimitKbps)),
-                onTap: () => _editNumber(
+                onTap: () => _editLimit(
                   context,
                   title: '下载限速',
-                  current: settings.downLimitKbps,
+                  currentKbps: settings.downLimitKbps,
                   onDone: notifier.setDownLimit,
                 ),
               ),
               _Row(
                 icon: 'upload',
                 title: '上传限速',
-                subtitle: '0 表示不限速',
+                subtitle: '0 表示不限速，单位 Mbps',
                 trailing: _ValuePill(formatLimitSpeed(settings.upLimitKbps)),
-                onTap: () => _editNumber(
+                onTap: () => _editLimit(
                   context,
                   title: '上传限速',
-                  current: settings.upLimitKbps,
+                  currentKbps: settings.upLimitKbps,
                   onDone: notifier.setUpLimit,
                 ),
               ),
@@ -74,6 +74,46 @@ class _TransferSection extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  /// 限速编辑：输入单位是 **Mbps（带宽口径）**，内部仍以 KB/s 存储。
+  ///
+  /// 1 Mbps = 1000 Kbps = 125 KB/s。显示与输入都用 Mbps，用户不必心算字节率。
+  Future<void> _editLimit(
+    BuildContext context, {
+    required String title,
+    required int currentKbps,
+    required ValueChanged<int> onDone,
+  }) async {
+    final mbps = limitMbps(currentKbps);
+    final controller = TextEditingController(
+      text: currentKbps <= 0 ? '0' : (mbps == mbps.roundToDouble() ? '${mbps.round()}' : mbps.toStringAsFixed(1)),
+    );
+    final value = await showOlDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(hintText: '0 表示不限', suffixText: 'Mbps'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
+          TextButton(
+            onPressed: () {
+              final raw = double.tryParse(controller.text.trim()) ?? 0;
+              final mbpsValue = raw < 0 ? 0.0 : raw;
+              Navigator.of(dialogContext).pop(limitKbpsFromMbps(mbpsValue));
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null) onDone(value);
   }
 
   Future<void> _editNumber(

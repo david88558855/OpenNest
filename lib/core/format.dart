@@ -20,16 +20,30 @@ String formatSpeed(double bytesPerSecond) {
   return '${formatBytes(bytesPerSecond)}/s';
 }
 
-/// 限速文案：以 M/s 为主，不足 1 M/s 时退回 KB/s；0 表示不限速。
+/// 带宽换算：1 Mbps = 1000 Kbps = 125 KB/s。
+///
+/// 限速用的是**带宽**口径（M 兆比特/秒），不是字节速率（MiB/s）。
+const int kBytesPerMegabit = 125;
+
+/// KB/s → Mbps（带宽口径）。
+double limitMbps(int kbps) => kbps / kBytesPerMegabit;
+
+/// Mbps（带宽口径）→ KB/s。
+int limitKbpsFromMbps(double mbps) => (mbps * kBytesPerMegabit).round();
+
+/// 限速文案：带宽口径，以 Mbps 为主。
+///
+/// 不足 1 Mbps 时用 Kbps（千比特/秒）表示，避免出现 0.1 Mbps 这类噪声。
+/// 0 表示不限速。
 ///
 /// 设置页与传输页共用，避免两处单位口径不一致。
 String formatLimitSpeed(int kbps) {
   if (kbps <= 0) return '不限';
-  if (kbps < 1024) return '$kbps KB/s';
-  final mbps = kbps / 1024;
-  // 整数 M/s 优先；有小数才显示一位（1.5 M/s），避免 1.00 M/s 这种噪声。
-  if (mbps == mbps.roundToDouble()) return '${mbps.round()} M/s';
-  return '${mbps.toStringAsFixed(1)} M/s';
+  final mbps = limitMbps(kbps);
+  if (mbps < 1) return '${(kbps * 8).round()} Kbps';
+  // 整数 Mbps 优先；有小数才显示一位（1.5 Mbps），避免 1.00 Mbps 这种噪声。
+  if (mbps == mbps.roundToDouble()) return '${mbps.round()} Mbps';
+  return '${mbps.toStringAsFixed(1)} Mbps';
 }
 
 String formatCountdown(int seconds) {

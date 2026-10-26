@@ -45,6 +45,17 @@
   （OpenNest v + 内嵌 OpenList v + AGPL-3.0 源码公开）
 
 ### 功能删减与调整
+- **字段文案全量中文化**：从引擎 `/api/admin/driver/list` 拉取全部 93 个驱动、306 个字段，
+  补齐到 309 条字段标签 + 83 条枚举选项 + 139 条 help 翻译。此前只覆盖 75 个字段，
+  「添加存储源」表单里大量字段直接显示英文原名（directory_size / pdf_thumbnail /
+  thumb_concurrency / show_hidden / recycle_bin_path 等）
+- **移除「通用」分区的「外观」区块**：全局已只有一套浅色主题，外观分区只剩两条只读说明
+- **移除「传输」分区的两个开关**：「仅在 Wi-Fi 下传输」「切换服务器时暂停旧任务」；
+  对应的 `AppSettings` 字段、setter 与持久化键一并清理
+- **下载限速单位改为带宽口径 Mbps**：1 Mbps = 1000 Kbps = 125 KB/s。
+  显示与输入统一用 Mbps（不足 1 Mbps 显示 Kbps），内部仍以 KB/s 存储，
+  传输逻辑零改动；设置页与传输页共用 `formatLimitSpeed`，
+  避免两处单位口径不一致。限速上限 2000 Mbps
 - **取消收藏功能**：移除 `/favorites` 路由与页面、底部导航与侧栏入口、移动端抽屉分组、
   右键菜单与预览页动作、数据模型与 `FavoriteDao`；数据库 `favorites` 表随之删除
   （schema 升到 v3，升级时 `DROP TABLE`），星形图标字形一并移除

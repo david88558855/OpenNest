@@ -131,13 +131,18 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     _persist();
   }
 
+  /// 限速上限：2000 Mbps（= 250 MB/s）。
+  ///
+  /// 内部以 KB/s 存储，2000 Mbps × 125 = 250000 KB/s。
+  static const int kMaxLimitKbps = 250000;
+
   void setDownLimit(int kbps) {
-    state = state.copyWith(downLimitKbps: kbps.clamp(0, 1024 * 200).toInt());
+    state = state.copyWith(downLimitKbps: kbps.clamp(0, kMaxLimitKbps).toInt());
     _persist();
   }
 
   void setUpLimit(int kbps) {
-    state = state.copyWith(upLimitKbps: kbps.clamp(0, 1024 * 200).toInt());
+    state = state.copyWith(upLimitKbps: kbps.clamp(0, kMaxLimitKbps).toInt());
     _persist();
   }
 
