@@ -106,6 +106,15 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     // 填的挂载路径就是根文件夹显示的目录名。这里保持同样语义 ——
     // 用户填「本地存储6」，根目录里就显示「本地存储6」，点进去是它的内容。
     final mountPath = mountPathOf(name);
+    // 挂载路径必须全局唯一。提交前先查一次已有存储，
+    // 直接给出中文提示，不用等引擎回一句英文 SQL 约束错误。
+    final existing = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+    for (final source in existing) {
+      if (source.mountPath == mountPath) {
+        setState(() => _error = '该挂载路径已存在，请换一个名称');
+        return;
+      }
+    }
     for (final item in info.additional) {
       if (!item.required) continue;
       final value = item.isBool

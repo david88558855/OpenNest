@@ -79,7 +79,7 @@ class SourceActions {
     try {
       id = await api.createStorage(source);
     } on ApiException catch (error) {
-      return error.friendly;
+      return _friendlyCreateError(error);
     } catch (error) {
       return '保存失败：$error';
     }
@@ -156,3 +156,19 @@ class SourceActions {
 }
 
 final sourceActionsProvider = Provider<SourceActions>((ref) => SourceActions(ref));
+
+/// 创建存储失败时的中文提示。
+///
+/// 引擎对「挂载路径已存在」返回的是 500 + 一句英文 SQL 约束错误
+/// （`UNIQUE constraint failed: x_storages.mount_path`），
+/// 直接透给用户没法看懂，这里翻译成「换个名称」。
+String _friendlyCreateError(ApiException error) {
+  final raw = error.message.toLowerCase();
+  if (raw.contains('mount_path') && raw.contains('unique')) {
+    return '该挂载路径已存在，请换一个名称';
+  }
+  if (raw.contains('already exists') || raw.contains('duplicate')) {
+    return '该挂载路径已存在，请换一个名称';
+  }
+  return error.friendly;
+}
