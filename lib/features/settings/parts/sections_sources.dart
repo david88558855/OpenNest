@@ -19,8 +19,11 @@ class _SourcesSection extends ConsumerWidget {
     final p = context.ol;
     final sources = ref.watch(sourcesProvider);
 
+    // 0.5.0：设置主区是 SingleChildScrollView（无界高度），这里**不能**用
+    // Expanded —— 会抛 unbounded height。改成整体 Column，列表区自己滚动。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         // 设计稿 D8 `.h1` + `.sub`
         const _SectionHead(
@@ -60,36 +63,47 @@ class _SourcesSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        Expanded(
-          child: sources.when(
-            loading: () => const Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: OlTokens.sky600),
+        sources.when(
+            loading: () => const SizedBox(
+              height: 200,
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: OlTokens.sky600),
+                ),
               ),
             ),
-            error: (error, _) => Center(
-              child: Text('读取失败：$error', style: TextStyle(fontSize: 11.5, color: p.ink3)),
+            error: (error, _) => SizedBox(
+              height: 200,
+              child: Center(
+                child: Text('读取失败：$error', style: TextStyle(fontSize: 11.5, color: p.ink3)),
+              ),
             ),
             data: (items) {
               if (items.isEmpty) {
-                return Center(
-                  child: OlEmptyState(
-                    icon: 'folder-plus',
-                    title: '还没有存储源',
-                    subtitle: '添加一个本地目录或网络存储，就能开始管理文件',
-                    action: OlPrimaryButton(
-                      label: '添加存储源',
-                      icon: 'plus',
-                      height: 36,
-                      onTap: () => context.push('/sources/add'),
+                // 滚动容器里的 Center 会塌成零高（内容贴顶），给一个明确高度
+                // 让空态落在视觉舒适的位置。
+                return SizedBox(
+                  height: 260,
+                  child: Center(
+                    child: OlEmptyState(
+                      icon: 'folder-plus',
+                      title: '还没有存储源',
+                      subtitle: '添加一个本地目录或网络存储，就能开始管理文件',
+                      action: OlPrimaryButton(
+                        label: '添加存储源',
+                        icon: 'plus',
+                        height: 36,
+                        onTap: () => context.push('/sources/add'),
+                      ),
                     ),
                   ),
                 );
               }
-              return ListView(
-                padding: const EdgeInsets.only(bottom: 8),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _SourceTable(sources: items),
                   const SizedBox(height: 16),
@@ -99,7 +113,6 @@ class _SourcesSection extends ConsumerWidget {
               );
             },
           ),
-        ),
       ],
     );
   }
@@ -322,7 +335,7 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
           SizedBox(
             width: 120,
             child: Text(
-              _lastUsedLabel(lastUsed),
+              _lastUsedLabel(widget.lastUsed),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11.5, color: p.ink3),
