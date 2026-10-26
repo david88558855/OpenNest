@@ -68,7 +68,7 @@ final driverCatalogProvider = FutureProvider<Map<String, DriverInfo>>((ref) asyn
     final all = await api.driverList();
     return {
       for (final entry in all.entries)
-        if (!kHiddenDrivers.contains(entry.key)) entry: entry.value,
+        if (!kHiddenDrivers.contains(entry.key)) entry.key: entry.value,
     };
   } on ApiException catch (_) {
     return const {};
