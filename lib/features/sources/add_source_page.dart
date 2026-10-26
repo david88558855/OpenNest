@@ -472,7 +472,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   /// 渲染一个驱动字段。
   ///
   /// [driver] 传进来是为了让同名字段在不同驱动下显示不同的中文名
-  /// （如 `url` 在 OpenList 驱动是「服务器链接地址」，在分享驱动是
+  /// （如 `url` 在 OpenList 驱动是「服务器地址」，在分享驱动是
   /// 「分享链接」）—— 见 `fieldLabelFor`。
   Widget _buildItem(DriverItem item, String driver) {
     final label = fieldLabelFor(driver, item.name);

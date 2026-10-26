@@ -67,6 +67,9 @@
   字号/字重/颜色，`decoration` 一路传下来，于是标题与每个选项下面都挂一条黄线。
   已给弹层套 `Material(type: MaterialType.transparency)`，
   与 `showOlMenu`、`_SourceEditDialog`、`_EnginePasswordDialog` 的做法一致
+- **`url` 字段标签改为「服务器地址」**（原「服务器链接地址」）：远程 OpenList、
+  WebDAV 等驱动填的就是服务端地址；分享类驱动（Onedrive Sharelink /
+  OpenListShare / AliyundriveShare / AliyundriveOpen）仍显示「分享链接」
 
 ### 存储表单对齐 OpenList Web 端
 - **补齐引擎的 common 字段**：客户端此前只渲染驱动的 additional 字段，把引擎的
@@ -94,6 +97,9 @@
 - **设置页版本号移到「关于」分区**，侧栏底部不再显示版本号
 - **添加存储源页**：桌面端移除顶部标题栏（侧栏已有「返回」入口），
   侧栏与主区背景对调（侧栏白底、主区浅蓝灰）
+- **文件页顶栏补「批量」按钮**：放在「新建」右边。此前桌面端只能从「更多」菜单
+  进批量模式（移动端顶栏一直是直接可见的按钮），两端不一致；文案与移动端一致，
+  进入批量后变「完成」，再点退出并清空选择
 
 ### 功能删减与调整
 - **字段文案全量中文化**：从引擎 `/api/admin/driver/list` 拉取全部 93 个驱动、306 个字段，

@@ -26,7 +26,7 @@ OpenList Web 端的表单 = 存储顶层字段 + 引擎 `common` 字段 + 驱动
 
 | 引擎字段 | 修正前 | 修正后 | 说明 |
 |---|---|---|---|
-| `url` | 分享链接 | **服务器链接地址** | 分享类驱动（Onedrive Sharelink / OpenListShare / AliyundriveShare）仍为「分享链接」，由驱动级映射区分 |
+| `url` | 分享链接 | **服务器地址** | 分享类驱动（Onedrive Sharelink / OpenListShare / AliyundriveShare）仍为「分享链接」，由驱动级映射区分 |
 | `order` | 排序值 | **序号** | |
 | `order_by` | 排序字段 | **用于排序** | |
 | `order_direction` | 排序方向 | 排序方向 | 未变 |

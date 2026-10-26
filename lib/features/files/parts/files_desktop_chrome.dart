@@ -130,6 +130,20 @@ class _TopBar extends ConsumerWidget {
             onTap: () => createFolder(context, ref),
           ),
           const SizedBox(width: 8),
+          // 0.5.0：桌面端补一个显式的「批量」按钮（放在「新建」右边）。
+          // 此前只能从「更多」菜单里进批量模式，而移动端顶栏上一直是直接
+          // 可见的按钮 —— 两端不一致，桌面用户找不到它。
+          // 文案与移动端一致：未进入批量时是「批量」，进入后变「完成」。
+          OlGhostButton(
+            label: batch ? '完成' : '批量',
+            icon: batch ? 'check' : 'layers',
+            height: OlDesktop.btn,
+            fontSize: 12,
+            horizontalPadding: 14,
+            fgColor: p.ink,
+            onTap: onBatch,
+          ),
+          const SizedBox(width: 8),
           OlIconButton(
             icon: 'list',
             size: OlDesktop.iconBtn,

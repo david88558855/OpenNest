@@ -151,7 +151,7 @@ const Map<String, String> _fieldLabels = {
   'share_id': '分享编号',
   'share_pwd': '分享提取码',
   'share_password': '分享提取码',
-  'url': '服务器链接地址',
+  'url': '服务器地址',
   'cookie': 'Cookie',
   'base_path': '基础路径',
   'page_size': '每页数量',
@@ -724,7 +724,7 @@ String _fallbackTag(String key) {
 /// 驱动专属的字段标签（优先于全局同名标签）。
 ///
 /// 同一个字段名在不同驱动里含义可能不同：`url` 在 OpenList / WebDAV
-/// 驱动里是「服务器链接地址」，但在 Onedrive Sharelink / OpenListShare
+/// 驱动里是「服务器地址」，但在 Onedrive Sharelink / OpenListShare
 /// 这类分享驱动里确实是「分享链接」。全局表只能给一个名字，
 /// 这里按驱动补齐差异。
 const Map<String, Map<String, String>> _driverFieldLabels = {
