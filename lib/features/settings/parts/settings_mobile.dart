@@ -150,7 +150,7 @@ class _MobileSettings extends ConsumerWidget {
                       onTap: () => context.go('/settings/general'),
                     ),
                     _MobileTile(
-                      icon: 'server',
+                      icon: 'database',
                       label: '存储源',
                       value: '添加 / 测试 / 删除',
                       onTap: () => context.go('/settings/sources'),

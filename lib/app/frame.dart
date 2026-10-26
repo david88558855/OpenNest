@@ -238,8 +238,33 @@ class OlTitleBar extends ConsumerWidget {
               child: const SizedBox.expand(),
             ),
           ),
+          // 设计稿 D8 `.tb-right`：品牌胶囊在窗口控件左侧。
+          if (canDrag) ...[
+            const _BrandPill(),
+            const SizedBox(width: 10),
+          ],
           if (canDrag) const _WindowControls(),
         ],
+      ),
+    );
+  }
+}
+
+/// 标题栏右侧的品牌胶囊（设计稿 D8 `.pill`）。
+class _BrandPill extends StatelessWidget {
+  const _BrandPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF8FE),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: const Text(
+        '免账户 · 直连存储',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF08799F)),
       ),
     );
   }

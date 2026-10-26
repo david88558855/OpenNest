@@ -20,12 +20,13 @@ OpenNest 安装即用：没有注册、没有登录页、没有账号体系。�
 | 单一存储 | 全部本地数据进 `userdata/opennest.db`（SQLite），不再有 JSON 配置文件 |
 | 传输 | 下载走签名直链 + 断点续传；上传走流式接口；失败自动重试 |
 | 界面 | **只有一套浅色主题**（不提供深色与主题切换），桌面 8 个界面严格对齐设计稿 D1–D8：幽灵按钮、14–20px 卡片圆角、6px 圆角滚动条、零动画 |
+| 设置 | 侧栏 5 项：通用 / 存储源 / 传输 / 播放 / 关于；存储源是设置内的一个分区（表格 + 导入导出），不再是独立页面 |
 
 ## 数据目录
 
 ```
 userdata/
-├── opennest.db     全部本地数据（设置/浏览位置/下载目录/续播/目录缓存/传输记录）
+├── opennest.db     全部本地数据（设置/浏览位置/下载目录/续播/目录缓存/传输记录/源访问时间）
 ├── config.json     引擎配置
 ├── data.db         引擎自身数据库（存储源与账号）
 ├── logs/           引擎日志
@@ -34,7 +35,7 @@ userdata/
 
 `opennest.db` 的表：`settings`（标量偏好）、`ui_state`（每个源的浏览位置与排序）、
 `download_dirs`、`resume_positions`、`listing_cache`（离线目录快照）、
-`transfer_tasks`。
+`transfer_tasks`、`source_usage`（各存储源的最后访问时间）。
 
 ## 构建
 

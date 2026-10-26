@@ -32,7 +32,7 @@ class SettingsSidebar extends ConsumerWidget {
   /// 关于是信息圈。齿轮在现有图标库里没有，用 `settings` 代替。
   static const items = <List<String>>[
     ['general', '通用', 'settings', '/settings/general'],
-    ['sources', '存储源', 'server', '/settings/sources'],
+    ['sources', '存储源', 'database', '/settings/sources'],
     ['transfer', '传输', 'arrow-down', '/settings/transfer'],
     ['playback', '播放', 'play', '/settings/playback'],
     ['about', '关于', 'info', '/settings/about'],

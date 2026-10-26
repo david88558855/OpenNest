@@ -104,7 +104,7 @@ OpenList 的 Go 内部包（`internal/`）不对外暴露，无法作为库引�
 | 五 | 凭据 | 钥匙串封装，键名 `on:<用途>:<类型>` | `lib/core/storage/secure_store.dart` |
 | 六 | 本地配置 | 源配置、应用设置、视图偏好（便携 JSON） | `lib/core/storage/prefs.dart` |
 | 七 | 本地数据库 | 传输记录（SQLite，事务） | `lib/data/db/` |
-| 八 | 存储源 | 增删改查、测试、导入导出 | `lib/features/sources/` |
+| 八 | 存储源 | 增删改查、测试、导入导出（设置内分区） | `lib/features/sources/` |
 | 九 | 引导页 | 首启空态（D1/M1，已实现）与添加向导 | `lib/features/onboarding/` |
 | 十 | 文件浏览 | 目录状态机、面包屑、列表/网格、排序过滤 | `lib/features/files/` |
 | 十一 | 文件操作 | 上传、新建、重命名、删除、移动复制、下载 | `lib/features/files/file_actions.dart` |
@@ -112,7 +112,7 @@ OpenList 的 Go 内部包（`internal/`）不对外暴露，无法作为库引�
 | 十三 | 预览 | 图片、文本、文档 | `lib/features/preview/` |
 | 十四 | 播放 | 流式视频、播放列表、续播 | `lib/features/media/` |
 | 十五 | 搜索 | 当前目录递归搜索 | `lib/features/search/` |
-| 十六 | 设置 | 外观、服务状态、数据目录、关于 | `lib/features/settings/` |
+| 十六 | 设置 | 通用、存储源、传输、播放、关于（按设计稿 D8 侧栏 5 项） | `lib/features/settings/` |
 
 桌面集成沿用既有方案：托盘、单实例、无边框窗口。
 
@@ -188,6 +188,7 @@ userdata/
 | `resume_positions` | 播放续播位置（按源 + 路径） |
 | `listing_cache` | 离线目录快照（最多保留 24 个） |
 | `transfer_tasks` | 传输记录 |
+| `source_usage` | 各存储源的最后访问时间（设置页「最近使用」列） |
 
 （0.5.0：收藏功能取消，`favorites` 表已随 schema v3 删除。）
 
