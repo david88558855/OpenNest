@@ -32,36 +32,78 @@ class _SourcesSection extends ConsumerWidget {
         ),
         const SizedBox(height: 18),
         // 设计稿 D8 `.toolbar`：左侧主按钮 + 右侧两个幽灵按钮。
-        Row(
-          children: [
-            OlPrimaryButton(
-              label: '添加存储源',
-              icon: 'plus',
-              height: 32,
-              fontSize: 12,
-              horizontalPadding: 14,
-              onTap: () => context.push('/sources/add'),
-            ),
-            const Spacer(),
-            OlGhostButton(
-              label: '导入配置',
-              icon: 'download',
-              height: 32,
-              fontSize: 12,
-              horizontalPadding: 14,
-              onTap: () => _importConfig(context, ref),
-            ),
-            const SizedBox(width: 8),
-            OlGhostButton(
-              label: '导出配置',
-              icon: 'upload',
-              height: 32,
-              fontSize: 12,
-              horizontalPadding: 14,
-              onTap: () => _exportConfig(context, ref),
-            ),
-          ],
-        ),
+        // 窄屏三个按钮并排已接近 360dp 上限，改成「主按钮独占一行 + 两个次按钮平分」。
+        if (context.isNarrow)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OlPrimaryButton(
+                label: '添加存储源',
+                icon: 'plus',
+                height: 36,
+                fontSize: 12.5,
+                horizontalPadding: 14,
+                onTap: () => context.push('/sources/add'),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OlGhostButton(
+                      label: '导入配置',
+                      icon: 'download',
+                      height: 34,
+                      fontSize: 12,
+                      horizontalPadding: 10,
+                      onTap: () => _importConfig(context, ref),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OlGhostButton(
+                      label: '导出配置',
+                      icon: 'upload',
+                      height: 34,
+                      fontSize: 12,
+                      horizontalPadding: 10,
+                      onTap: () => _exportConfig(context, ref),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          )
+        else
+          Row(
+            children: [
+              OlPrimaryButton(
+                label: '添加存储源',
+                icon: 'plus',
+                height: 32,
+                fontSize: 12,
+                horizontalPadding: 14,
+                onTap: () => context.push('/sources/add'),
+              ),
+              const Spacer(),
+              OlGhostButton(
+                label: '导入配置',
+                icon: 'download',
+                height: 32,
+                fontSize: 12,
+                horizontalPadding: 14,
+                onTap: () => _importConfig(context, ref),
+              ),
+              const SizedBox(width: 8),
+              OlGhostButton(
+                label: '导出配置',
+                icon: 'upload',
+                height: 32,
+                fontSize: 12,
+                horizontalPadding: 14,
+                onTap: () => _exportConfig(context, ref),
+              ),
+            ],
+          ),
         const SizedBox(height: 14),
         sources.when(
             loading: () => const SizedBox(
@@ -179,6 +221,11 @@ class _SourceTable extends ConsumerWidget {
     final p = context.ol;
     // 最近使用：按源记的最后打开时间。
     final usage = ref.watch(sourceUsageProvider).valueOrNull ?? const <String, int>{};
+    // 窄屏（手机）：固定列宽 44+130+120+150 加间距已超 480，Row 会把
+    // 「名称/协议」的 Expanded 挤成 0 宽 —— 表头竖排、源名消失。改用卡片。
+    if (context.isNarrow) {
+      return _SourceCardList(sources: sources, usage: usage);
+    }
     return Container(
       decoration: BoxDecoration(
         color: p.card,
@@ -230,6 +277,145 @@ class _SourceTable extends ConsumerWidget {
   );
 }
 
+/// 窄屏存储源列表：卡片式，信息与操作都不压缩。
+///
+/// 手机宽度约 360–430dp，表格固定列（44 + 130 + 120 + 150 + 48 间距）已近 500，
+/// 用 Row 必然把「名称/协议」的 Expanded 挤成 0 宽 —— 表现就是表头文字竖排、
+/// 源名整列消失、只剩图标和状态。
+class _SourceCardList extends StatelessWidget {
+  final List<StorageSource> sources;
+  final Map<String, int> usage;
+
+  const _SourceCardList({required this.sources, required this.usage});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    if (sources.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: p.line),
+        ),
+        child: Text(
+          '还没有存储源。点上方「添加存储源」连接一个本地目录或网络存储。',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11.5, color: p.ink4),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < sources.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _SourceCard(source: sources[i], lastUsed: usage[sources[i].mountPath]),
+        ],
+      ],
+    );
+  }
+}
+
+/// 单张源卡片：图标 + 名称/协议 + 三键操作，第二行是状态与最近使用。
+class _SourceCard extends ConsumerWidget {
+  final StorageSource source;
+  final int? lastUsed;
+
+  const _SourceCard({required this.source, this.lastUsed});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final tag = driverShortTag(source.driver);
+    final status = _SourceTableRowState._statusOf(source);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 12, 11, 12),
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: p.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: source.disabled ? p.chipBg : _SourceTableRowState._tileBg(source.driver),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Center(
+                  child: OlIcon(
+                    _SourceTableRowState._iconForDriver(source.driver),
+                    size: 16,
+                    color: source.disabled ? p.ink4 : _SourceTableRowState._tileFg(source.driver),
+                    strokeWidth: 1.9,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      source.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      tag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 10.5, color: p.ink4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              for (final (i, action) in _sourceActionButtons(context, ref, source).indexed) ...[
+                if (i > 0) const SizedBox(width: 6),
+                action,
+              ],
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              OlDot(color: status.color, size: 7),
+              const SizedBox(width: 6),
+              Text(
+                status.label,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2),
+              ),
+              const SizedBox(width: 9),
+              Text('·', style: TextStyle(fontSize: 11, color: p.ink4)),
+              const SizedBox(width: 9),
+              Flexible(
+                child: Text(
+                  _SourceTableRowState._lastUsedLabel(lastUsed),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: p.ink3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 表格行（设计稿 `.trow`）。
 class _SourceTableRow extends ConsumerStatefulWidget {
   final StorageSource source;
@@ -247,7 +433,6 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    final actions = ref.read(sourceActionsProvider);
     final source = widget.source;
     final tag = driverShortTag(source.driver);
     final status = _statusOf(source);
@@ -342,45 +527,10 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _TableAction(
-                  icon: 'refresh',
-                  tooltip: '测试连接',
-                  onTap: () async {
-                    final error = await actions.test(source);
-                    if (!context.mounted) return;
-                    olToast(context, error ?? '连接正常', error: error != null);
-                  },
-                ),
-                const SizedBox(width: 6),
-                _TableAction(
-                  // 设计稿 D8 的编辑键是铅笔（`edit`），不是三点。
-                  icon: 'edit',
-                  tooltip: '编辑',
-                  onTap: () => _editSource(context, ref, source),
-                ),
-                const SizedBox(width: 6),
-                _TableAction(
-                  icon: 'trash',
-                  tooltip: '删除',
-                  danger: true,
-                  onTap: () async {
-                    final ok = await olConfirm(
-                      context,
-                      title: '删除存储源',
-                      message: '将从引擎移除「${source.displayName}」，不影响远端文件。',
-                      confirm: '删除',
-                      danger: true,
-                    );
-                    if (!ok) return;
-                    final error = await actions.remove(source);
-                    if (!context.mounted) return;
-                    if (error != null) {
-                      olToast(context, error, error: true);
-                      return;
-                    }
-                    olToast(context, '已删除「${source.displayName}」');
-                  },
-                ),
+                for (final (i, action) in _sourceActionButtons(context, ref, source).indexed) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  action,
+                ],
               ],
             ),
           ),
@@ -473,31 +623,77 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
         return const Color(0xFF6B7F94);
     }
   }
+}
 
-  /// 编辑存储源：名称、备注、缓存过期时间与启停。
-  ///
-  /// 凭据字段不在这里改 —— 驱动表单有几十个字段且各驱动不同，
-  /// 凭据改动走「删除后重新添加」更安全（也避免把密码写进日志）。
-  Future<void> _editSource(BuildContext context, WidgetRef ref, StorageSource source) async {
-    final result = await showOlDialog<_SourceEditResult>(
-      context: context,
-      builder: (dialogContext) => _SourceEditDialog(source: source),
-    );
-    if (result == null) return;
-    final actions = ref.read(sourceActionsProvider);
-    final updated = source.copyWith(
-      remark: result.remark,
-      cacheExpiration: result.cacheExpiration,
-      disabled: result.disabled,
-    );
-    final error = await actions.update(updated);
-    if (!context.mounted) return;
-    if (error != null) {
-      olToast(context, error, error: true);
-      return;
-    }
-    olToast(context, '已保存「${updated.displayName}」');
+/// 编辑存储源：名称、备注、缓存过期时间与启停。
+///
+/// 凭据字段不在这里改 —— 驱动表单有几十个字段且各驱动不同，
+/// 凭据改动走「删除后重新添加」更安全（也避免把密码写进日志）。
+Future<void> _editSource(BuildContext context, WidgetRef ref, StorageSource source) async {
+  final result = await showOlDialog<_SourceEditResult>(
+    context: context,
+    builder: (dialogContext) => _SourceEditDialog(source: source),
+  );
+  if (result == null) return;
+  final actions = ref.read(sourceActionsProvider);
+  final updated = source.copyWith(
+    remark: result.remark,
+    cacheExpiration: result.cacheExpiration,
+    disabled: result.disabled,
+  );
+  final error = await actions.update(updated);
+  if (!context.mounted) return;
+  if (error != null) {
+    olToast(context, error, error: true);
+    return;
   }
+  olToast(context, '已保存「${updated.displayName}」');
+}
+
+/// 三个操作键：测试 / 编辑 / 删除。
+///
+/// 桌面表格行与移动端卡片共用同一份闭包，避免两处各写一遍导致行为漂移。
+List<Widget> _sourceActionButtons(BuildContext context, WidgetRef ref, StorageSource source) {
+  final actions = ref.read(sourceActionsProvider);
+  return [
+    _TableAction(
+      icon: 'refresh',
+      tooltip: '测试连接',
+      onTap: () async {
+        final error = await actions.test(source);
+        if (!context.mounted) return;
+        olToast(context, error ?? '连接正常', error: error != null);
+      },
+    ),
+    _TableAction(
+      // 设计稿 D8 的编辑键是铅笔（`edit`），不是三点。
+      icon: 'edit',
+      tooltip: '编辑',
+      onTap: () => _editSource(context, ref, source),
+    ),
+    _TableAction(
+      icon: 'trash',
+      tooltip: '删除',
+      danger: true,
+      onTap: () async {
+        final ok = await olConfirm(
+          context,
+          title: '删除存储源',
+          message: '将从引擎移除「${source.displayName}」，不影响远端文件。',
+          confirm: '删除',
+          danger: true,
+        );
+        if (!ok) return;
+        final error = await actions.remove(source);
+        if (!context.mounted) return;
+        if (error != null) {
+          olToast(context, error, error: true);
+          return;
+        }
+        olToast(context, '已删除「${source.displayName}」');
+      },
+    ),
+  ];
 }
 
 /// 状态元组。
@@ -704,42 +900,54 @@ class _DataAndCredentialsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final p = context.ol;
     final dir = ref.watch(prefsProvider).storagePath;
+
+    final dataCard = _DataCard(
+      icon: 'download',
+      iconColor: const Color(0xFF0EA5E9),
+      title: '数据目录',
+      description: '内嵌服务端数据库、传输临时文件与日志均存放于此；迁移时整体拷贝即可。',
+      path: dir,
+    );
+    final credCard = _DataCard(
+      icon: 'lock',
+      iconColor: const Color(0xFF0E9F6E),
+      title: '凭据管理',
+      description: '所有密码与令牌保存在系统钥匙串，只在本机使用，永不上传。',
+      // 0.5.0：设计稿此处原为「清除所有凭据…」。引擎 admin 口令首次
+      // 初始化即写死，清掉后本机将无法再登录自己的引擎且无法从 UI 恢复，
+      // 因此改为「查看内核密码…」——明文展示当前实例实际使用的口令。
+      action: OlGhostButton(
+        label: '查看内核密码…',
+        icon: 'key',
+        height: 30,
+        fontSize: 11,
+        onTap: () => showEnginePasswordDialog(context, ref),
+      ),
+    );
+
+    // 窄屏：两卡并排会让每张只剩约 150dp，路径与说明被挤到只能省略号。
+    // 直接上下堆叠，信息完整可读。
+    if (context.isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          dataCard,
+          const SizedBox(height: 12),
+          credCard,
+        ],
+      );
+    }
     // IntrinsicHeight：两张卡内容长度不同（右卡多一个按钮），
     // 用 Row + start 会让右卡更高、左右不齐。取两者最大高度让它们等高。
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        Expanded(
-          child: _DataCard(
-            icon: 'download',
-            iconColor: const Color(0xFF0EA5E9),
-            title: '数据目录',
-            description: '内嵌服务端数据库、传输临时文件与日志均存放于此；迁移时整体拷贝即可。',
-            path: dir,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _DataCard(
-            icon: 'lock',
-            iconColor: const Color(0xFF0E9F6E),
-            title: '凭据管理',
-            description: '所有密码与令牌保存在系统钥匙串，只在本机使用，永不上传。',
-            // 0.5.0：设计稿此处原为「清除所有凭据…」。引擎 admin 口令首次
-            // 初始化即写死，清掉后本机将无法再登录自己的引擎且无法从 UI 恢复，
-            // 因此改为「查看内核密码…」——明文展示当前实例实际使用的口令。
-            action: OlGhostButton(
-              label: '查看内核密码…',
-              icon: 'key',
-              height: 30,
-              fontSize: 11,
-              onTap: () => showEnginePasswordDialog(context, ref),
-            ),
-          ),
-        ),
+          Expanded(child: dataCard),
+          const SizedBox(width: 14),
+          Expanded(child: credCard),
         ],
       ),
     );

@@ -113,26 +113,30 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
             ],
           ),
         ),
-        _GroupLabel('其他'),
-        _Card(
-          child: Column(
-            children: [
-              _Row(
-                icon: 'refresh',
-                title: '恢复默认目录',
-                subtitle: '清除本实例的自定义目录',
-                trailing: Text('重置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink3)),
-                onTap: profile == null
-                    ? null
-                    : () async {
-                        await ref.read(serverStoreProvider).clearDownloadDir(profile.id);
-                        await _load();
-                        if (context.mounted) olToast(context, '已恢复默认目录');
-                      },
-              ),
-            ],
+        // 0.5.0：Android 不提供「恢复默认目录」——「更改目录」弹窗里已有
+        // 「恢复默认」入口，重复暴露只会让移动端设置多出一整块空分组。
+        if (!Platform.isAndroid) ...[
+          _GroupLabel('其他'),
+          _Card(
+            child: Column(
+              children: [
+                _Row(
+                  icon: 'refresh',
+                  title: '恢复默认目录',
+                  subtitle: '清除本实例的自定义目录',
+                  trailing: Text('重置', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: p.ink3)),
+                  onTap: profile == null
+                      ? null
+                      : () async {
+                          await ref.read(serverStoreProvider).clearDownloadDir(profile.id);
+                          await _load();
+                          if (context.mounted) olToast(context, '已恢复默认目录');
+                        },
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

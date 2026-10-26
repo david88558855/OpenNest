@@ -52,6 +52,14 @@ class _MobileAppBar extends ConsumerWidget {
               ],
             ),
           ),
+          // 0.5.0：移动端此前没有传输列表入口 —— 复制/移动确实入了队，
+          // 但手机上无处查看进度，看起来像「点了没反应」。补带徽标的入口。
+          _AppBarBtn(
+            icon: 'arrow-down',
+            badge: ref.watch(transfersProvider).pendingCount,
+            onTap: () => context.go('/transfers'),
+          ),
+          const SizedBox(width: 8),
           _AppBarBtn(icon: 'search', onTap: () => context.go('/search')),
           const SizedBox(width: 8),
           _AppBarBtn(
@@ -83,12 +91,15 @@ class _AppBarBtn extends StatelessWidget {
   final VoidCallback? onTap;
   final ValueChanged<Offset>? onTapDown;
 
-  const _AppBarBtn({required this.icon, this.onTap, this.onTapDown});
+  /// 右上角徽标（待处理传输数）。<=0 不显示。
+  final int badge;
+
+  const _AppBarBtn({required this.icon, this.onTap, this.onTapDown, this.badge = 0});
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    return GestureDetector(
+    final button = GestureDetector(
       onTap: onTap,
       onTapDown: onTapDown == null ? null : (details) => onTapDown!(details.globalPosition),
       child: Container(
@@ -101,6 +112,39 @@ class _AppBarBtn extends StatelessWidget {
         ),
         child: Center(child: OlIcon(icon, size: 17, color: p.ink2)),
       ),
+    );
+    if (badge <= 0) return button;
+    // 徽标压在按钮右上角外侧，靠 Stack 的负偏移实现，不改变 38×38 的点击区。
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        button,
+        Positioned(
+          right: -5,
+          top: -5,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 16),
+            height: 16,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0EA5E9),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: p.card, width: 1.5),
+            ),
+            child: Center(
+              child: Text(
+                badge > 99 ? '99+' : '$badge',
+                style: const TextStyle(
+                  fontSize: 9,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

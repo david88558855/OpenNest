@@ -131,8 +131,14 @@ def main():
         print(f"assets/tray/tray_{name}.png {png_path.stat().st_size} bytes / "
               f".ico {len(tray_ico)} bytes")
 
-    # ---- Android 启动图标（圆角形态，各 dpi）----
+    # ---- Android 启动图标 ----
+    # 两套并存：
+    #   1) adaptive icon（API 26+ 生效）—— 满幅绘制，启动器不会再套白框缩小
+    #   2) 传统 mipmap PNG —— 兜底，同时供 roundIcon 引用
+    # 只用传统 PNG 时，Android 8+ 会对其做 legacy 处理（加白底框、缩到约 2/3），
+    # 这正是「装好之后图标很小」的根因。
     res = ROOT / "android" / "app" / "src" / "main" / "res"
+
     for dpi, px in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96),
                     ("xxhdpi", 144), ("xxxhdpi", 192)):
         out_dir = res / f"mipmap-{dpi}"
@@ -141,6 +147,48 @@ def main():
         for fname in ("ic_launcher.png", "ic_launcher_round.png"):
             icon.save(out_dir / fname, "PNG", optimize=True)
         print(f"mipmap-{dpi}/ic_launcher{{,_round}}.png  {px}×{px}")
+
+    # 前景：白狐剪影铺在 108dp 画布上（母版留白 25%，正好落在 66dp 安全区内）
+    mask = Image.open(BRAND / "fox-mask.png").convert("L")
+    fox = Image.new("RGBA", mask.size, (255, 255, 255, 0))
+    fox.putalpha(mask)
+    for dpi, px in (("mdpi", 108), ("hdpi", 162), ("xhdpi", 216),
+                    ("xxhdpi", 324), ("xxxhdpi", 432)):
+        out_dir = res / f"drawable-{dpi}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        fox.resize((px, px), Image.LANCZOS).save(
+            out_dir / "ic_launcher_foreground.png", "PNG", optimize=True)
+        print(f"drawable-{dpi}/ic_launcher_foreground.png  {px}×{px}")
+
+    # 背景：品牌渐变（左上深蓝 → 右下浅紫），XML 比位图省空间且任意分辨率不失真
+    (res / "drawable").mkdir(parents=True, exist_ok=True)
+    (res / "drawable" / "ic_launcher_background.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<shape xmlns:android="http://schemas.android.com/apk/res/android"\n'
+        '    android:shape="rectangle">\n'
+        '    <gradient\n'
+        '        android:angle="315"\n'
+        '        android:startColor="#3936C1"\n'
+        '        android:centerColor="#6F4ACF"\n'
+        '        android:endColor="#A66DE3"\n'
+        '        android:type="linear" />\n'
+        '</shape>\n',
+        encoding="utf-8",
+    )
+    print("drawable/ic_launcher_background.xml  渐变")
+
+    adaptive = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+        '    <background android:drawable="@drawable/ic_launcher_background" />\n'
+        '    <foreground android:drawable="@drawable/ic_launcher_foreground" />\n'
+        '</adaptive-icon>\n'
+    )
+    anydpi = res / "mipmap-anydpi-v26"
+    anydpi.mkdir(parents=True, exist_ok=True)
+    for fname in ("ic_launcher.xml", "ic_launcher_round.xml"):
+        (anydpi / fname).write_text(adaptive, encoding="utf-8")
+    print("mipmap-anydpi-v26/ic_launcher{,_round}.xml  adaptive")
 
 
 if __name__ == "__main__":
