@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>D5b · 传输队列（新增复制 / 移动）— OpenNest</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+background:radial-gradient(1200px 600px at 20% 0%,#F2F9FF 0%,#EDF2F8 55%);min-height:100vh;
+display:flex;flex-direction:column;align-items:center;padding:36px 24px 56px;color:#0D1B2A}
+.win{width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:16px;
+box-shadow:0 24px 70px rgba(14,58,70,.14);overflow:hidden}
+.titlebar{height:46px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid #E3EBF3;background:#fff}
+.dot{width:11px;height:11px;border-radius:50%}
+.dots{display:flex;gap:7px;margin-right:8px}
+.tb-title{font-size:12.5px;color:#6B7F94}
+.pill{font-size:11px;font-weight:700;color:#08799F;background:#EAF8FE;border-radius:99px;padding:4px 10px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.body{display:grid;grid-template-columns:200px 1fr;height:700px}
+
+/* ---------- 侧栏 ---------- */
+.side{border-right:1px solid #E3EBF3;background:#fff;padding:18px 12px;display:flex;flex-direction:column}
+.sec-t{font-size:10.5px;font-weight:800;color:#9DB2C4;letter-spacing:1px;padding:6px 10px}
+.src{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;font-size:12.5px;cursor:pointer;color:#42566B}
+.src:hover{background:#EDF6FD}
+.src.on{background:#EAF8FE;color:#08799F;font-weight:700}
+.pt{font-size:9px;font-weight:800;border-radius:99px;padding:2px 6px;margin-left:auto}
+.pt-local{color:#08799F;background:#EAF8FE}.pt-cloud{color:#B7791F;background:#FEF3C7}
+.pt-sftp{color:#0B6B4A;background:#D3F2E6}
+.side-b{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.mini{display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border:1px solid #E3EBF3;border-radius:9px;background:#fff;font-size:11.5px;font-weight:700;color:#42566B;cursor:pointer}
+
+/* ---------- 主区 ---------- */
+.main{display:flex;flex-direction:column;min-width:0;background:#F8FBFE}
+.head{padding:20px 24px 0;display:flex;align-items:flex-end;gap:18px}
+.h1{font-size:19px;font-weight:800}
+.sub{font-size:11.5px;color:#6B7F94;margin-top:4px}
+.tabs{margin-left:auto;display:flex;gap:6px;background:#F1F6FB;border-radius:10px;padding:3px}
+.tab{height:30px;border-radius:8px;padding:0 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;cursor:pointer;color:#42566B}
+.tab.on{background:#fff;color:#0D1B2A;box-shadow:0 2px 6px rgba(14,58,70,.10)}
+.tab .n{font-size:10px;font-weight:800;background:#EAF8FE;color:#08799F;border-radius:99px;padding:1px 7px}
+
+/* 类型筛选胶囊（新增） */
+.filters{display:flex;align-items:center;gap:7px;padding:12px 24px 0}
+.fchip{height:27px;border-radius:99px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;
+font-size:11.5px;font-weight:700;color:#42566B;background:#fff;border:1px solid #E3EBF3;cursor:pointer}
+.fchip.on{background:#08799F;border-color:#08799F;color:#fff}
+.fchip .n{font-size:10px;font-weight:800;background:#EDF2F8;color:#6B7F94;border-radius:99px;padding:1px 6px}
+.fchip.on .n{background:rgba(255,255,255,.22);color:#fff}
+.fsp{flex:1}
+.fhint{font-size:10.5px;color:#9DB2C4}
+
+.gbar{display:flex;align-items:center;gap:10px;padding:12px 24px;border-bottom:1px solid #E3EBF3;margin-top:12px}
+.btn{height:32px;border-radius:8px;padding:0 14px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px}
+.btn-ghost{background:#fff;border-color:#E3EBF3;color:#0D1B2A}
+.btn-primary{background:linear-gradient(135deg,#38BDF8,#2DD4BF);color:#fff;box-shadow:0 4px 12px rgba(56,189,248,.30)}
+.stat{font-size:11.5px;color:#6B7F94;display:flex;align-items:center;gap:6px}
+
+/* ---------- 任务行 ---------- */
+.tasks{flex:1;overflow:hidden;padding:6px 24px 14px}
+.grp-t{font-size:10.5px;font-weight:800;color:#9DB2C4;letter-spacing:1px;padding:10px 0 6px;display:flex;align-items:center;gap:8px}
+.grp-t .ln{flex:1;height:1px;background:#EDF2F8}
+.task{display:grid;grid-template-columns:40px 1fr 190px 132px 96px;gap:14px;align-items:center;
+padding:11px 12px;border:1px solid #E3EBF3;border-radius:14px;margin-bottom:8px;background:#fff}
+.task:hover{border-color:#BDE7FA}
+.task.queued{background:#FCFDFF;border-style:dashed}
+.task.done{background:#FBFEFC}
+.ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.t-nm{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-path{font-size:10.5px;color:#9DB2C4;margin-top:3px;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg{height:7px;border-radius:99px;background:#EDF2F8;overflow:hidden;margin-top:7px}
+.pg>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#38BDF8,#2DD4BF)}
+.pg.wait>i{background:#DCE6F0}
+.pg.ok>i{background:linear-gradient(90deg,#34D399,#0E9F6E)}
+.t-meta{display:flex;justify-content:space-between;font-size:10.5px;color:#6B7F94;margin-top:4px;gap:8px}
+.t-acts{display:flex;gap:6px;justify-content:flex-end}
+.ia{width:30px;height:30px;border-radius:8px;border:1px solid #E3EBF3;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#42566B}
+.ia:hover{border-color:#38BDF8;color:#0EA5E9}
+
+/* 徽标：操作类型 + 状态 */
+.badge{font-size:9.5px;font-weight:800;border-radius:99px;padding:2px 7px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.b-dl{color:#08799F;background:#EAF8FE}
+.b-up{color:#0B6B4A;background:#D3F2E6}
+.b-cp{color:#5B3FD1;background:#F0EDFF}
+.b-mv{color:#B45309;background:#FEF0D8}
+.b-ok{color:#0B6B4A;background:#D3F2E6}
+.b-wait{color:#5A6E82;background:#EEF2F7}
+.b-neutral{color:#42566B;background:#EDF2F8}
+
+/* 标注 */
+.hl{position:relative}
+.cn{position:absolute;width:23px;height:23px;border-radius:50%;background:#0EA5E9;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 9px rgba(14,165,233,.45);z-index:8;border:2px solid #fff}
+
+/* 入口示意（文件页右键菜单） */
+.entry{margin-top:22px;width:1080px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 18px;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.card-t{font-size:12.5px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card-t .tag{font-size:9.5px;font-weight:800;color:#08799F;background:#EAF8FE;border-radius:99px;padding:2px 8px}
+.menu{width:210px;border:1px solid #E3EBF3;border-radius:10px;background:#fff;box-shadow:0 18px 40px rgba(14,58,70,.14);padding:4px 0}
+.mi{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;font-size:11.5px;color:#42566B;cursor:pointer}
+.mi:hover{background:#EDF6FD}
+.mi.hi{background:#EAF8FE;color:#08799F;font-weight:700}
+.mi .k{margin-left:auto;font-size:10px;color:#9DB2C4}
+.mdiv{height:1px;background:#EDF2F8;margin:4px 0}
+.note{font-size:11.5px;color:#42566B;line-height:1.65}
+.note b{color:#0D1B2A}
+
+.legend{margin-top:18px;width:1080px;background:#fff;border:1px solid #E3EBF3;border-radius:14px;padding:16px 22px;display:flex;gap:26px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(14,58,70,.06)}
+.lg{display:flex;gap:9px;align-items:flex-start;max-width:300px}
+.lg-b{flex:none;width:22px;height:22px;border-radius:50%;background:#EAF8FE;color:#08799F;font-size:11.5px;font-weight:800;display:flex;align-items:center;justify-content:center;border:1px solid #BDE7FA}
+.lg-t{font-size:11.5px;color:#42566B;line-height:1.5}.lg-t b{color:#0D1B2A}
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="titlebar">
+    <div class="dots"><span class="dot" style="background:#F87C6E"></span><span class="dot" style="background:#F9C25B"></span><span class="dot" style="background:#5FD08A"></span></div>
+    <span class="tb-title">OpenNest — 传输队列</span>
+    <div class="tb-right"><span class="pill">免账户 · 直连存储</span></div>
+  </div>
+  <div class="body">
+
+    <!-- 侧栏 -->
+    <div class="side">
+      <div class="sec-t">存储源</div>
+      <div class="src on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>6667<span class="pt pt-local">本地</span></div>
+      <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/></svg>本地存储<span class="pt pt-local">本地</span></div>
+      <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>阿里云盘<span class="pt pt-cloud">云盘</span></div>
+      <div class="src"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 10h8M8 14h5"/></svg>公司 NAS<span class="pt pt-sftp">SFTP</span></div>
+      <div class="side-b">
+        <div class="mini"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg>下载目录</div>
+        <div class="mini"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.8-2.8 1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.4-2H3a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.4-2 1.7 1.7 0 0 0-.3-1.9 2 2 0 1 1 2.8-2.8 1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6 2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2 2 2 0 1 1 2.8 2.8 1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.4 2h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 2z"/></svg>设置</div>
+      </div>
+    </div>
+
+    <!-- 主区 -->
+    <div class="main">
+      <div class="head">
+        <div>
+          <div class="h1">传输队列</div>
+          <div class="sub">下载 · 上传 · 复制 · 移动 共用一条队列，重启后自动恢复</div>
+        </div>
+        <div class="tabs">
+          <div class="tab on">进行中<span class="n">4</span></div>
+          <div class="tab">已完成<span class="n">14</span></div>
+        </div>
+      </div>
+
+      <!-- 操作类型筛选（新增入口） -->
+      <div class="hl filters">
+        <span class="cn" style="top:-9px;left:-16px">6</span>
+        <span class="fchip on">全部<span class="n">9</span></span>
+        <span class="fchip">下载<span class="n">1</span></span>
+        <span class="fchip">上传<span class="n">0</span></span>
+        <span class="fchip">复制<span class="n">4</span></span>
+        <span class="fchip">移动<span class="n">2</span></span>
+        <div class="fsp"></div>
+        <span class="fhint">按操作类型筛选 · 数量实时统计</span>
+      </div>
+
+      <div class="hl gbar">
+        <span class="cn" style="top:-9px;left:-22px">4</span>
+        <button class="btn btn-ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#42566B" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg>全部暂停</button>
+        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>并发 3</span>
+        <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6B7F94" stroke-width="2"><path d="M3 17l6-6-6-6M12 19h8"/></svg>限速：不限</span>
+        <div style="flex:1"></div>
+        <span class="stat">总计 6.8 GB · 剩余约 3 分钟</span>
+      </div>
+
+      <div class="tasks">
+        <div class="grp-t">进行中<span class="ln"></span></div>
+
+        <!-- 1 复制 · 进行中 -->
+        <div class="hl task">
+          <span class="cn" style="top:-10px;left:-10px">2</span>
+          <div class="ic" style="background:#F0EDFF"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C5CFC" stroke-width="1.9"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></div>
+          <div>
+            <div class="t-nm">设计素材_2025</div>
+            <div class="t-path"><span class="badge b-cp">复制</span>本地存储 / 设计 / 2025 → 6667 / 备份 / 2025</div>
+          </div>
+          <div>
+            <div class="pg"><i style="width:42%"></i></div>
+            <div class="t-meta"><span>42% · 12 / 48 个文件 · 1.2 / 2.9 GB</span><span>5.8 MB/s</span></div>
+          </div>
+          <div><span class="badge b-neutral">服务端直传</span></div>
+          <div class="t-acts">
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg></span>
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D92D4B" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+        <!-- 2 移动 · 进行中 -->
+        <div class="hl task">
+          <div class="ic" style="background:#FEF0D8"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="1.9"><path d="M12 3v13"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg></div>
+          <div>
+            <div class="t-nm">系统镜像_ubuntu-24.04.iso</div>
+            <div class="t-path"><span class="badge b-mv">移动</span>本地存储 / ISO → 阿里云盘 / 软件 / 系统</div>
+          </div>
+          <div>
+            <div class="pg"><i style="width:68%"></i></div>
+            <div class="t-meta"><span>68% · 2.7 / 4.0 GB</span><span>12.4 MB/s</span></div>
+          </div>
+          <div><span class="badge b-neutral">服务端直传</span></div>
+          <div class="t-acts">
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg></span>
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D92D4B" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+        <!-- 3 下载 · 进行中（与原有类型共存） -->
+        <div class="task">
+          <div class="ic" style="background:#EAF8FE"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="1.9"><path d="M4 8v8h16V8z"/><path d="M4 8l2-3h12l2 3"/></svg></div>
+          <div>
+            <div class="t-nm">源码归档.zip</div>
+            <div class="t-path"><span class="badge b-dl">下载</span>公司 NAS / 文档 / 2026 → D:\Downloads</div>
+          </div>
+          <div>
+            <div class="pg"><i style="width:68%"></i></div>
+            <div class="t-meta"><span>68% · 30.7 / 45.2 MB</span><span>8.4 MB/s</span></div>
+          </div>
+          <div><span class="badge b-neutral">分片 + 续传</span></div>
+          <div class="t-acts">
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14M16 5v14"/></svg></span>
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D92D4B" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+        <!-- 4 复制 · 排队 -->
+        <div class="hl task queued">
+          <span class="cn" style="top:-10px;left:-10px">3</span>
+          <div class="ic" style="background:#F7F4FF"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9E8BE8" stroke-width="1.9"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></div>
+          <div>
+            <div class="t-nm">相册备份_2025</div>
+            <div class="t-path"><span class="badge b-cp">复制</span>本地存储 / 相册 → 阿里云盘 / 照片 · 等待并发槽位</div>
+          </div>
+          <div>
+            <div class="pg wait"><i style="width:0%"></i></div>
+            <div class="t-meta"><span>排队中 · 1 284 个文件 · 62.4 GB</span><span>—</span></div>
+          </div>
+          <div><span class="badge b-wait">排队中</span></div>
+          <div class="t-acts">
+            <span class="ia" title="置顶"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span>
+            <span class="ia"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D92D4B" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+        <div class="grp-t">已完成<span class="ln"></span></div>
+
+        <!-- 5 复制 · 已完成 -->
+        <div class="hl task done">
+          <span class="cn" style="top:-10px;left:-10px">5</span>
+          <div class="ic" style="background:#D3F2E6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <div>
+            <div class="t-nm">产品图_终版</div>
+            <div class="t-path"><span class="badge b-cp">复制</span>本地存储 / 交付 → 6667 / 交付 / 2026-10</div>
+          </div>
+          <div>
+            <div class="pg ok"><i style="width:100%"></i></div>
+            <div class="t-meta"><span>100% · 24 / 24 个文件 · 1.6 GB</span><span style="color:#0B6B4A;font-weight:700">已完成 · 12 秒</span></div>
+          </div>
+          <div><span class="badge b-ok">✓ 已完成</span></div>
+          <div class="t-acts">
+            <span class="ia" title="打开目标目录"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+            <span class="ia" title="移除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+        <!-- 6 移动 · 已完成 -->
+        <div class="task done">
+          <div class="ic" style="background:#D3F2E6"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E9F6E" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <div>
+            <div class="t-nm">旧版安装包</div>
+            <div class="t-path"><span class="badge b-mv">移动</span>阿里云盘 / 软件 → 阿里云盘 / 归档 / 2025</div>
+          </div>
+          <div>
+            <div class="pg ok"><i style="width:100%"></i></div>
+            <div class="t-meta"><span>100% · 8 个文件 · 512 MB</span><span style="color:#0B6B4A;font-weight:700">已完成 · 3 秒</span></div>
+          </div>
+          <div><span class="badge b-ok">✓ 已完成</span></div>
+          <div class="t-acts">
+            <span class="ia" title="打开目标目录"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+            <span class="ia" title="移除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 入口示意 -->
+<div class="entry">
+  <div class="card">
+    <div class="card-t"><span class="tag">入口 1</span>文件页 · 行尾「⋯」/ 右键菜单</div>
+    <div class="menu">
+      <div class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 12h16M14 6l6 6-6 6"/></svg>下载</div>
+      <div class="mi hi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg>复制到…<span class="k">复制</span></div>
+      <div class="mi hi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>移动到…<span class="k">移动</span></div>
+      <div class="mdiv"></div>
+      <div class="mi"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>重命名</div>
+      <div class="mi" style="color:#D92D4B"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D92D4B" stroke-width="1.9"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>删除</div>
+    </div>
+    <div class="note" style="margin-top:12px">选中目标存储与目录后即入队；<b>批量选中</b>时一次生成多条任务，全部落在同一条队列里。</div>
+  </div>
+
+  <div class="card">
+    <div class="card-t"><span class="tag">入口 2</span>传输页顶部 · 类型筛选</div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="fchip on">全部<span class="n">9</span></span>
+      <span class="fchip">下载<span class="n">1</span></span>
+      <span class="fchip">上传<span class="n">0</span></span>
+      <span class="fchip">复制<span class="n">4</span></span>
+      <span class="fchip">移动<span class="n">2</span></span>
+    </div>
+    <div class="note">
+      <b>操作类型标识</b>：每行「源 → 目标」路径前的胶囊写明是 下载 / 上传 / 复制 / 移动，图标块底色也跟随类型（<span class="badge b-cp">复制</span> 紫、<span class="badge b-mv">移动</span> 橙、<span class="badge b-dl">下载</span> 蓝、<span class="badge b-up">上传</span> 绿）。<br>
+      <b>状态</b>：<span class="badge b-wait">排队中</span> 虚线卡 + 静止灰条；进行中为渐变进度条；<span class="badge b-ok">✓ 已完成</span> 绿条 + 绿色徽标，操作换成「打开目标目录 / 移除」。
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg"><span class="lg-b">1</span><div class="lg-t"><b>入口</b>：文件页「⋯」菜单与右键菜单里的「复制到…」「移动到…」，选完目标即入队，与下载上传共用一条队列。</div></div>
+  <div class="lg"><span class="lg-b">2</span><div class="lg-t"><b>类型标识</b>：路径前胶囊 + 图标块配色一起区分四种操作，扫一眼就知道这行在干什么。</div></div>
+  <div class="lg"><span class="lg-b">3</span><div class="lg-t"><b>排队</b>：超出并发数的任务显示「排队中 / 等待并发槽位」，可置顶；进度条静止不发渐变。</div></div>
+  <div class="lg"><span class="lg-b">4</span><div class="lg-t"><b>全局控制不变</b>：全部暂停、并发数、限速、总体剩余时间——暂停会一并作用于复制/移动。</div></div>
+  <div class="lg"><span class="lg-b">5</span><div class="lg-t"><b>已完成</b>：进度条置绿 + 「✓ 已完成」徽标，右侧操作变为「打开目标目录 / 移除」。</div></div>
+  <div class="lg"><span class="lg-b">6</span><div class="lg-t"><b>类型筛选</b>：顶部胶囊只留复制或移动，数量徽标实时统计（与「进行中 / 已完成」分段控件叠加生效）。</div></div>
+</div>
+
+</body>
+</html>
