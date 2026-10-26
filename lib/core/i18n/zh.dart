@@ -16,7 +16,7 @@ const Map<String, String> _driverLabels = {
   'FTP': 'FTP 服务器',
   'Sftp': 'SFTP 服务器',
   'SMB': 'SMB 共享',
-  'OpenList': '远程 OpenList',
+  'OpenList': 'OpenList',
   'AList V3': '远程 AList',
   'Alias': '别名目录',
   'Virtual': '虚拟目录',
@@ -708,6 +708,16 @@ const Map<String, String> _helpLabels = {  '0 for auto': '填 0 表示自动',
 };
 
 String driverLabel(String key) => _driverLabels[key] ?? key;
+
+/// 「连接 + 驱动名」短语。
+///
+/// 驱动名以 ASCII 开头时补空格（连接 OpenList），否则紧排（连接本地存储）——
+/// 中文驱动名之间插空格会很别扭，但「连接OpenList」又太挤。
+String connectDriverLabel(String key) {
+  final label = driverLabel(key);
+  final ascii = label.isNotEmpty && label.codeUnitAt(0) < 128;
+  return ascii ? '连接 $label' : '连接$label';
+}
 
 /// 侧边栏等窄区域的短标签。
 String driverShortTag(String key) => _driverShortTags[key] ?? _fallbackTag(key);

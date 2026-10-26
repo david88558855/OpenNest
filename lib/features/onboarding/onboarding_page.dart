@@ -136,7 +136,7 @@ const List<_Proto> _desktopProtocols = [
   _Proto('Sftp', 'SFTP', 'Linux 服务器', 'server', _skyBg, _skyFg),
   _Proto('FTP', 'FTP · FTPS', '传统服务器', 'arrow-up', _skyBg, _skyFg),
   _Proto('SMB', 'SMB', 'Windows · 局域网共享', 'wifi', _skyBg, _skyFg),
-  _Proto('OpenList', '远程 OpenList', '级联已有 AList · OpenList', 'link', Color(0xFFE8FBF3), Color(0xFF0E9F6E)),
+  _Proto('OpenList', 'OpenList', '级联已有 AList · OpenList', 'link', Color(0xFFE8FBF3), Color(0xFF0E9F6E)),
   _Proto(null, '更多类型', '云盘 · 70+ 驱动', 'folder', Color(0xFFFFF6E8), Color(0xFFF97316)),
 ];
 

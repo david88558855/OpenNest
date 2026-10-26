@@ -382,7 +382,7 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
           ],
         ),
         const SizedBox(height: 8),
-        Text('连接${driverLabel(info.name)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: p.ink)),
+        Text(connectDriverLabel(info.name), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: p.ink)),
         const SizedBox(height: 6),
         Text(
           '字段由驱动自身定义生成，共 ${info.additional.length} 项',
