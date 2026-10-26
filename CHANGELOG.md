@@ -2,6 +2,15 @@
 
 ## 0.5.0 — 未发布
 
+### 品牌
+- **图标与 Logo 换新**：深蓝底三层菱形 → 紫蓝渐变圆角 + 白狐剪影
+  - `assets/windows/app_icon.ico`、`assets/tray/tray_*`（四态 png + ico）、Android `mipmap-*dpi`
+    统一由 `tool/gen_app_icons.py` 从母版 `tool/brand/icon-1024.png` 导出，改品牌只需换母版
+  - **桌面端与 Android 统一圆角**：移除 `mipmap-anydpi-v26` 自适应图标与矢量前景
+    `ic_launcher_foreground.xml`，改用 48/72/96/144/192 五档圆角 PNG，启动器不再二次裁形
+  - 托盘四态靠右下角状态点区分：idle 无点 / transferring 浅蓝 / error 红 / paused 灰
+  - `colors.xml` 的 `ic_launcher_background` 更名换值为品牌紫 `#3936C1`（备用）
+
 ### 界面（对齐设计稿 D1–D8）
 - **D2 添加存储源**：左栏 264 / padding 22·14；驱动项 42 高 + 26×26 圆角图标块（按分组四族配色）+
   hover `#EDF6FD`；选中白底 + `#BDE7FA` 描边 + 轻阴影 +「✓ 已选」；右栏 padding 30·38·26 + 面包屑 + 20/800 标题

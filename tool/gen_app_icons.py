@@ -1,115 +1,61 @@
 #!/usr/bin/env python3
-"""生成与 Android 启动图标一致的 Windows 图标资源。
+"""从品牌母版导出各平台图标资源。
 
-Android 的自适应图标（android/app/src/main/res/drawable/ic_launcher_foreground.xml +
-colors.xml）是：深蓝底 #0B2233 + 白/浅蓝/青三层「堆叠」图形（108 视口）。
-这里用同一套几何数据渲染：
+设计资产（提交在仓库里，改品牌时只需替换母版）：
 
-  assets/windows/app_icon.ico   → Runner.exe 图标（16/24/32/48/64/128/256）
-  assets/tray/tray_*.png        → 托盘四态图标（64px，右下角状态点）
+  tool/brand/icon-1024.png   圆角图标母版 1024×1024 RGBA
+  tool/brand/fox-mask.png    白狐剪影 alpha（留作自适应图标前景素材）
 
-不依赖第三方库：PNG 用 zlib 手写，ICO 用 32 位 BMP（DIB）条目，兼容 rc.exe 与资源管理器。
+输出：
+
+  assets/windows/app_icon.ico                     Runner.exe 图标 16/24/32/48/64/128/256
+  assets/tray/tray_<state>.png                    托盘四态 64px
+  assets/tray/tray_<state>.ico                    托盘四态 ICO 16/20/24/32/48
+  android/app/src/main/res/mipmap-<dpi>/ic_launcher{,_round}.png   启动图标
+
+Windows 通知区域只认 ICO/BMP（Shell_NotifyIcon + LoadImage 不支持 PNG），
+ICO 条目沿用 32 位 BMP(DIB) 而非 PNG 压缩，确保 rc.exe 与资源管理器都认。
+托盘四态靠右下角状态点区分：idle 无点 / transferring 浅蓝 / error 红 / paused 灰。
+
+依赖 Pillow：pip install pillow
 """
-import math
 import struct
-import zlib
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 ROOT = Path(__file__).resolve().parent.parent
-BG = (0x0B, 0x22, 0x33)
-WHITE = (255, 255, 255)
-SKY = (0x7D, 0xD3, 0xFC)
-TEAL = (0x5E, 0xEA, 0xD4)
+BRAND = ROOT / "tool" / "brand"
+MASTER = BRAND / "icon-1024.png"
 
-# 108 视口下的三层轮廓（与 ic_launcher_foreground.xml 完全一致）
-STROKE = 4.5
-PATHS = [
-    # 顶层菱形（白）
-    (WHITE, [((54, 30), (80, 44)), ((80, 44), (54, 58)), ((54, 58), (28, 44)), ((28, 44), (54, 30))]),
-    # 中层（浅蓝）
-    (SKY, [((28, 54), (54, 68)), ((54, 68), (80, 54))]),
-    # 底层（青）
-    (TEAL, [((28, 66), (54, 80)), ((54, 80), (80, 66))]),
-]
+# 托盘状态点用色（与品牌紫底保持足够对比）
+STATE_COLORS = {
+    "idle": None,
+    "transferring": (0x7D, 0xD3, 0xFC),
+    "error": (0xF4, 0x3F, 0x5E),
+    "paused": (0x94, 0xA3, 0xB8),
+}
 
-
-def seg_dist(px, py, x1, y1, x2, y2):
-    dx, dy = x2 - x1, y2 - y1
-    if dx == 0 and dy == 0:
-        return math.hypot(px - x1, py - y1)
-    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
-    return math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+# 状态点几何（相对图标边长的比例）。白狐右/下留白约 0.24，点必须落在留白里，
+# 否则会盖住尾巴；半径也不能大，16px 托盘上 0.115×16≈1.8px 已是可辨下限。
+BADGE_CX = 0.80
+BADGE_R = 0.12
+BADGE_RING = 0.032
+BADGE_SS = 4  # 超采样倍数，消除 PIL 画圆的硬边
 
 
-def rounded_alpha(x, y, size, radius_ratio=0.22):
-    r = size * radius_ratio
-    cx = min(max(x, r), size - r)
-    cy = min(max(y, r), size - r)
-    d = math.hypot(x - cx, y - cy)
-    return max(0.0, min(1.0, (r - d) + 0.5))
+def load_master():
+    if not MASTER.exists():
+        raise SystemExit(f"缺少母版：{MASTER}")
+    return Image.open(MASTER).convert("RGBA")
 
 
-def shade(size, scale=108.0):
-    """返回 size×size 的 RGBA 行列表（自上而下），内部 3×3 超采样抗锯齿。"""
-    rows = []
-    ss = 3
-    k = size / scale
-    for py in range(size):
-        row = bytearray()
-        for px in range(size):
-            r = g = b = 0.0
-            a = 0.0
-            for sy in range(ss):
-                for sx in range(ss):
-                    x = px + (sx + 0.5) / ss
-                    y = py + (sy + 0.5) / ss
-                    alpha = rounded_alpha(x, y, size)
-                    if alpha <= 0:
-                        continue
-                    cr, cg, cb = BG
-                    best = None
-                    for color, segs in PATHS:
-                        cov = 0.0
-                        for (x1, y1), (x2, y2) in segs:
-                            d = seg_dist(x / k, y / k, x1, y1, x2, y2)
-                            cov = max(cov, max(0.0, min(1.0, (STROKE / 2 - d) * k + 0.5)))
-                        if cov > 0:
-                            if best is None or cov > best[0]:
-                                best = (cov, color)
-                    if best:
-                        cov, color = best
-                        cr = BG[0] + (color[0] - BG[0]) * cov
-                        cg = BG[1] + (color[1] - BG[1]) * cov
-                        cb = BG[2] + (color[2] - BG[2]) * cov
-                    r += cr * alpha
-                    g += cg * alpha
-                    b += cb * alpha
-                    a += alpha
-            if a == 0:
-                row += bytes((0, 0, 0, 0))
-            else:
-                n = ss * ss
-                row += bytes((
-                    int(min(255, r / a)),
-                    int(min(255, g / a)),
-                    int(min(255, b / a)),
-                    int(min(255, a / n * 255)),
-                ))
-        rows.append(bytes(row))
-    return rows
-
-
-def png(rows, size):
-    raw = b"".join(b"\x00" + r for r in rows)
-
-    def chunk(tag, data):
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-
-    out = b"\x89PNG\r\n\x1a\n"
-    out += chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
-    out += chunk(b"IDAT", zlib.compress(raw, 9))
-    out += chunk(b"IEND", b"")
-    return out
+def rows_of(img, size):
+    """RGBA 行列表，供 ICO 打包使用。"""
+    im = img.resize((size, size), Image.LANCZOS)
+    data = im.tobytes()
+    step = size * 4
+    return [data[y * step:(y + 1) * step] for y in range(size)]
 
 
 def ico_entry(rows, size):
@@ -122,15 +68,11 @@ def ico_entry(rows, size):
             r, g, b, a = row[x * 4: x * 4 + 4]
             body += bytes((b, g, r, a))
     mask_row = ((size + 31) // 32) * 4
-    mask = b"\x00" * (mask_row * size)
-    return header + bytes(body) + mask
+    return header + bytes(body) + b"\x00" * (mask_row * size)
 
 
-def build_ico(sizes, painter=None):
-    painter = painter or shade
-    images = []
-    for size in sizes:
-        images.append((size, ico_entry(painter(size), size)))
+def build_ico(img, sizes):
+    images = [(size, ico_entry(rows_of(img, size), size)) for size in sizes]
     offset = 6 + 16 * len(images)
     head = struct.pack("<HHH", 0, 1, len(images))
     entries = b""
@@ -147,63 +89,58 @@ def build_ico(sizes, painter=None):
     return head + entries + blob
 
 
-def badge(rows, size, color):
-    """右下角状态点（托盘四态用）。"""
-    cx, cy, r = size * 0.76, size * 0.76, size * 0.17
-    out = []
-    for y in range(size):
-        row = bytearray(rows[y])
-        for x in range(size):
-            d = math.hypot(x - cx, y - cy)
-            cov = max(0.0, min(1.0, (r - d) + 0.5))
-            if cov <= 0:
-                continue
-            i = x * 4
-            a0 = row[i + 3] / 255.0
-            if a0 < 0.5:
-                # 图标圆角外的区域也补上状态点，形成描边效果
-                ring = max(0.0, min(1.0, (r + size * 0.045 - d) + 0.5))
-                if ring > 0:
-                    row[i:i + 4] = bytes((BG[2], BG[1], BG[0], 255))
-                continue
-            for c in range(3):
-                row[i + c] = int(row[i + c] * (1 - cov) + color[c] * cov)
-        out.append(bytes(row))
+def with_badge(img, color):
+    """右下角状态点 + 白色描边（图标圆角外也能看清边界）。"""
+    size = img.size[0]
+    big = size * BADGE_SS
+    layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    cx = cy = big * BADGE_CX
+    r = big * BADGE_R
+    ring = big * BADGE_RING
+    d.ellipse([cx - r - ring, cy - r - ring, cx + r + ring, cy + r + ring], fill=(255, 255, 255, 240))
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=tuple(color) + (255,))
+    layer = layer.resize((size, size), Image.LANCZOS)
+    out = img.copy()
+    out.alpha_composite(layer)
     return out
 
 
 def main():
-    win_dir = ROOT / "assets" / "windows"
-    tray_dir = ROOT / "assets" / "tray"
-    win_dir.mkdir(parents=True, exist_ok=True)
-    tray_dir.mkdir(parents=True, exist_ok=True)
+    master = load_master()
+    print(f"母版 {MASTER.relative_to(ROOT)}  {master.size[0]}×{master.size[1]}")
 
-    ico = build_ico([16, 24, 32, 48, 64, 128, 256])
+    # ---- Windows 程序图标 ----
+    win_dir = ROOT / "assets" / "windows"
+    win_dir.mkdir(parents=True, exist_ok=True)
+    ico = build_ico(master, [16, 24, 32, 48, 64, 128, 256])
     (win_dir / "app_icon.ico").write_bytes(ico)
     print(f"assets/windows/app_icon.ico  {len(ico)} bytes")
 
-    base = shade(64)
-    states = {
-        "idle": None,
-        "transferring": SKY,
-        "error": (0xF4, 0x3F, 0x5E),
-        "paused": (0x94, 0xA3, 0xB8),
-    }
-    # Windows 通知区域只认 .ico（Shell_NotifyIcon + LoadImage 不支持 PNG），
-    # 因此每种状态都产出多尺寸 ICO（16/20/24/32/48），覆盖 100%~200% DPI。
-    tray_sizes = [16, 20, 24, 32, 48]
-    for name, color in states.items():
-        rows = badge(base, 64, color) if color else base
-        data = png(rows, 64)
-        (tray_dir / f"tray_{name}.png").write_bytes(data)
+    # ---- 托盘四态 ----
+    tray_dir = ROOT / "assets" / "tray"
+    tray_dir.mkdir(parents=True, exist_ok=True)
+    for name, color in STATE_COLORS.items():
+        img = with_badge(master, color) if color else master
 
-        def painter(size, _color=color):
-            scaled = shade(size)
-            return badge(scaled, size, _color) if _color else scaled
+        png_path = tray_dir / f"tray_{name}.png"
+        img.resize((64, 64), Image.LANCZOS).save(png_path, "PNG", optimize=True)
 
-        ico = build_ico(tray_sizes, painter)
-        (tray_dir / f"tray_{name}.ico").write_bytes(ico)
-        print(f"assets/tray/tray_{name}.png  {len(data)} bytes / .ico {len(ico)} bytes")
+        tray_ico = build_ico(img, [16, 20, 24, 32, 48])
+        (tray_dir / f"tray_{name}.ico").write_bytes(tray_ico)
+        print(f"assets/tray/tray_{name}.png {png_path.stat().st_size} bytes / "
+              f".ico {len(tray_ico)} bytes")
+
+    # ---- Android 启动图标（圆角形态，各 dpi）----
+    res = ROOT / "android" / "app" / "src" / "main" / "res"
+    for dpi, px in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96),
+                    ("xxhdpi", 144), ("xxxhdpi", 192)):
+        out_dir = res / f"mipmap-{dpi}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        icon = master.resize((px, px), Image.LANCZOS)
+        for fname in ("ic_launcher.png", "ic_launcher_round.png"):
+            icon.save(out_dir / fname, "PNG", optimize=True)
+        print(f"mipmap-{dpi}/ic_launcher{{,_round}}.png  {px}×{px}")
 
 
 if __name__ == "__main__":
