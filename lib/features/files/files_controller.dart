@@ -7,6 +7,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/api/openlist_api.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../core/models/storage_source.dart';
 import '../../data/db/app_database.dart';
 import '../sources/sources_controller.dart';
 
@@ -159,11 +160,13 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
       if (seq != _seq || !mounted) return;
       final store = ref.read(serverStoreProvider);
-      // 0.5.0：根目录下的每一项就是一个存储源的挂载点。引擎返回的名字是
-      // 挂载路径段（`s_aaaaaaaa`），用户看到的应该是自己起的名字
-      // （如「本地存储6」）。这里只改展示名，路径拼接仍用原始 name。
+      // 0.5.0：根目录下的每一项就是一个存储源的挂载点。引擎返回的名字
+      // 就是挂载路径段 —— 新建的存储由用户命名（`本地存储6`），与 OpenList
+      // Web 一致；旧存储是自动生成的 `s_aaaaaaaa`，这里统一还原成用户
+      // 当初起的名字。只改展示名，路径拼接仍用原始 name。
+      final known = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
       final items = normalized == '/'
-          ? _withSourceNames(result.items)
+          ? _withSourceNames(result.items, known)
           : result.items;
       state = state.copyWith(
         items: items,
@@ -180,8 +183,7 @@ class FilesNotifier extends StateNotifier<FilesState> {
       // 0.5.0：记录本次访问的存储源，设置页「最近使用」列要用。
       // 路径形如 `/本地存储6/子目录`，取第一段作为源标识。
       // 挂载路径由用户命名，没有固定前缀，只能对照已知源列表判断。
-      final knownSources = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
-      final sourceId = _sourceIdOfPath(normalized, knownSources);
+      final sourceId = _sourceIdOfPath(normalized, known);
       if (sourceId.isNotEmpty) {
         await SourceUsageDao.instance.touch(sourceId);
         ref.invalidate(sourceUsageProvider);
@@ -202,7 +204,8 @@ class FilesNotifier extends StateNotifier<FilesState> {
       }
       // 离线回读同样要把根目录的挂载点换成存储源名称，否则一断网
       // 根目录就退回显示 s_xxxxxxxx，与在线时表现不一致。
-      final cachedItems2 = normalized == '/' ? _withSourceNames(cachedItems) : cachedItems;
+      final cachedKnown = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
+      final cachedItems2 = normalized == '/' ? _withSourceNames(cachedItems, cachedKnown) : cachedItems;
       state = state.copyWith(
         loading: false,
         showSkeleton: false,
@@ -326,10 +329,9 @@ String _sourceIdOfPath(String path, List<StorageSource> sources) {
 ///
 /// 只改 [FileItem.displayName]，[FileItem.name] 保持不变 —— 后者参与
 /// 路径拼接（`joinPath(path, item.name)`），改了会跳错目录。
-List<FileItem> _withSourceNames(List<FileItem> items) {
+List<FileItem> _withSourceNames(List<FileItem> items, List<StorageSource> sources) {
   if (items.isEmpty) return items;
-  final sources = ref.read(sourcesProvider).valueOrNull;
-  if (sources == null || sources.isEmpty) return items;
+  if (sources.isEmpty) return items;
   // 挂载路径段 → 存储源
   final byMount = <String, StorageSource>{};
   for (final source in sources) {
