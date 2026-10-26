@@ -14,17 +14,17 @@ class _SectionBody extends ConsumerWidget {
     switch (section) {
       case 'transfer':
         return const _TransferSection();
-      case 'download':
-        return const _DownloadSection();
       case 'playback':
         return const _PlaybackSection();
       case 'about':
         return const _AboutSection();
-      case 'appearance':
-        return const _AppearanceSection();
-      case 'servers':
+      case 'sources':
+        return const _SourcesSection();
+      case 'general':
+        // 0.5.0：按设计稿 D8，下载目录 / 外观 / 引擎状态合并进「通用」分区。
+        return const _GeneralSection();
       default:
-        return const _ServersSection();
+        return const _GeneralSection();
     }
   }
 }
@@ -167,4 +167,45 @@ class _GroupLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => OlSectionLabel(text);
+}
+
+/// 分组标题（带副标题与右侧操作）。
+///
+/// 与 `_SectionHead` 的区别：`_SectionHead` 是分区级大标题（19/800），
+/// `_GroupHead` 是分区内的区块标题（14/800），用于「通用」这类
+/// 由多个旧分区合并而成的场景。
+class _GroupHead extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Widget? action;
+
+  const _GroupHead({required this.title, required this.subtitle, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    return Padding(
+      // 上边距比纯分组标签大一点，给「区块」一点呼吸感。
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: p.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(fontSize: 10.5, color: p.ink4)),
+              ],
+            ),
+          ),
+          if (action != null) action!,
+        ],
+      ),
+    );
+  }
 }

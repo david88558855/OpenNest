@@ -14,7 +14,6 @@ import '../features/preview/preview_page.dart';
 import '../features/search/search_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/sources/add_source_page.dart';
-import '../features/sources/sources_page.dart';
 import '../features/transfers/transfers_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -70,7 +69,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _page(state, FilesPage(initialPath: state.uri.queryParameters['path'])),
       ),
       GoRoute(path: '/transfers', pageBuilder: (context, state) => _page(state, const TransfersPage())),
-      GoRoute(path: '/sources', pageBuilder: (context, state) => _page(state, const SourcesPage())),
+      // 0.5.0：存储源并入设置页，成为一个分区。旧地址保留为重定向，
+      // 外部深链与书签不会 404。
+      GoRoute(path: '/sources', redirect: (context, state) => '/settings/sources'),
       GoRoute(
         path: '/sources/add',
         pageBuilder: (context, state) {
@@ -99,9 +100,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _page(state, SettingsPage(tab: state.uri.queryParameters['tab'] ?? 'root')),
       ),
       // 设置分区用独立路径：只改 query 时同一条路由不会重建页面。
+      //
+      // 0.5.0：分区按设计稿 D8 重划为 通用 / 存储源 / 传输 / 播放 / 关于。
+      // 旧分区名（servers / download / appearance）保留重定向，避免深链 404。
       GoRoute(
         path: '/settings/:tab',
-        pageBuilder: (context, state) => _page(state, SettingsPage(tab: state.pathParameters['tab'] ?? 'appearance')),
+        redirect: (context, state) {
+          final tab = state.pathParameters['tab'] ?? 'general';
+          return '/settings/${SettingsPage.normalizeTab(tab)}';
+        },
+        pageBuilder: (context, state) => _page(state, SettingsPage(tab: state.pathParameters['tab'] ?? 'general')),
       ),
       GoRoute(
         path: '/preview',

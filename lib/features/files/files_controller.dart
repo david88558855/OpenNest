@@ -7,6 +7,8 @@ import '../../core/api/api_exception.dart';
 import '../../core/api/openlist_api.dart';
 import '../../core/format.dart';
 import '../../core/models/api_types.dart';
+import '../../data/db/app_database.dart';
+import '../sources/sources_controller.dart';
 
 class FilesState {
   final String path;
@@ -169,6 +171,13 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
       await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
       await store.cacheListing(profile.id, normalized, result.items.map((e) => e.toJson()).toList());
+      // 0.5.0：记录本次访问的存储源，设置页「最近使用」列要用。
+      // 路径形如 `/s_xxxxxxxx/子目录`，取第一段作为源标识。
+      final sourceId = _sourceIdOfPath(normalized);
+      if (sourceId.isNotEmpty) {
+        await SourceUsageDao.instance.touch(sourceId);
+        ref.invalidate(sourceUsageProvider);
+      }
     } on ApiException catch (e) {
       if (seq != _seq || !mounted) return;
       if (e.needsReauth) {
@@ -269,4 +278,19 @@ class FilesNotifier extends StateNotifier<FilesState> {
     }
   }
 
+}
+
+/// 从路径里取出存储源标识（挂载路径首段）。
+///
+/// 路径形如 `/s_xxxxxxxx/子目录/文件`，源标识就是 `/s_xxxxxxxx`。
+/// 根路径（`/`）与不存在的标识返回空串。
+String _sourceIdOfPath(String path) {
+  final normalized = path.isEmpty ? '/' : path;
+  if (normalized == '/') return '';
+  final segments = normalized.split('/').where((e) => e.isNotEmpty).toList();
+  if (segments.isEmpty) return '';
+  final first = segments.first;
+  // 只认客户端生成的挂载路径（`/s_` 前缀），避免把普通目录名误当源。
+  if (!first.startsWith('s_')) return '';
+  return '/$first';
 }

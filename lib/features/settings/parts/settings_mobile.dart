@@ -11,13 +11,13 @@ class _MobileSectionPage extends ConsumerWidget {
   final String tab;
   const _MobileSectionPage({required this.tab});
 
+  // 0.5.0：分区按设计稿 D8 重划为 通用 / 存储源 / 传输 / 播放 / 关于。
   static const _titles = {
-    'servers': '引擎状态',
+    'general': '通用',
+    'sources': '存储源',
     'transfer': '传输',
-    'download': '下载目录',
-    'playback': '播放与预览',
-    'appearance': '外观',
-    'about': '关于与更新',
+    'playback': '播放',
+    'about': '关于',
   };
 
   @override
@@ -139,51 +139,25 @@ class _MobileSettings extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // 0.5.0：分区按设计稿 D8 重划为 通用 / 存储源 / 传输 / 播放 / 关于。
                 _MobileGroup(
-                  title: '引擎',
+                  title: '设置',
                   children: [
+                    _MobileTile(
+                      icon: 'settings',
+                      label: '通用',
+                      value: '下载目录 / 引擎状态',
+                      onTap: () => context.go('/settings/general'),
+                    ),
                     _MobileTile(
                       icon: 'server',
-                      label: '引擎状态',
-                      value: '端口 / 版本 / 日志',
-                      onTap: () => context.go('/settings/servers'),
-                    ),
-                    _MobileTile(
-                      icon: 'folder',
                       label: '存储源',
-                      value: '添加 / 停用 / 删除',
-                      onTap: () => context.push('/sources'),
+                      value: '添加 / 测试 / 删除',
+                      onTap: () => context.go('/settings/sources'),
                     ),
-                  ],
-                ),
-                _MobileGroup(
-                  title: '传输与播放',
-                  children: [
-                    // v2.3：下载目录提到传输设置之上（真机上更常改目录）。
-                    _MobileTile(icon: 'download', label: '下载目录', value: '查看 / 更改', onTap: () => context.go('/settings/download')),
-                    _MobileTile(icon: 'arrow-down', label: '传输设置', value: '并发 / 限速', onTap: () => context.go('/settings/transfer')),
-                    _MobileTile(icon: 'play', label: '播放与预览', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
-                  ],
-                ),
-                _MobileGroup(
-                  title: '应用',
-                  children: [
-                    _MobileTile(icon: 'sun', label: '外观', value: '统一浅色', onTap: () => context.go('/settings/appearance')),
-                    _MobileTile(icon: 'info', label: '关于 OpenNest', value: AppInfo.version, onTap: () => context.go('/settings/about')),
-                    _MobileTile(
-                      icon: 'refresh',
-                      label: '重启引擎',
-                      value: '',
-                      onTap: () async {
-                        await ref.read(sidecarProvider.notifier).restart();
-                        if (!context.mounted) return;
-                        await ref.read(sessionProvider.notifier).retry();
-                        if (!context.mounted) return;
-                        try {
-                          await ref.read(filesProvider.notifier).attach();
-                        } catch (_) {}
-                      },
-                    ),
+                    _MobileTile(icon: 'arrow-down', label: '传输', value: '并发 / 限速', onTap: () => context.go('/settings/transfer')),
+                    _MobileTile(icon: 'play', label: '播放', value: '续播 / 自动播放 / 倍速', onTap: () => context.go('/settings/playback')),
+                    _MobileTile(icon: 'info', label: '关于', value: AppInfo.version, onTap: () => context.go('/settings/about')),
                   ],
                 ),
                 const SizedBox(height: 8),

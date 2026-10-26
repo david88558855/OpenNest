@@ -203,7 +203,8 @@ class OlTitleBar extends ConsumerWidget {
             // _NoTransitionBuilder），当初「push 会缩放转场」的顾虑不成立；
             // 而 go 会重建成整条路由栈，从设置/文件页进去后返回要重建目标页，
             // 表现为明显卡顿。
-            onTap: () => context.push('/settings/servers'),
+            // 0.5.0：引擎状态已并入设置页的「通用」分区。
+            onTap: () => context.push('/settings/general'),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
               child: Row(

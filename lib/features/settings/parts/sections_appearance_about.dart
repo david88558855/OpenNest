@@ -14,7 +14,8 @@ class _AppearanceSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 0.4.0：主题切换已彻底移除，全局只有一套浅色主题，这里不再提供任何入口。
-        const _SectionHead(title: '外观', subtitle: '统一浅色主题 · 不支持切换'),
+        // 0.5.0：并入「通用」分区后不再自带标题，改为分组标签。
+        _GroupLabel('外观 · 统一浅色主题，不支持切换'),
         _GroupLabel('列表'),
         _Card(
           child: Column(

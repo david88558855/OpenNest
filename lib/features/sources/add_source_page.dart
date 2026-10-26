@@ -62,11 +62,8 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     super.dispose();
   }
 
-  String _newMountPath() {
-    final random = Random.secure();
-    final suffix = List.generate(8, (_) => random.nextInt(16).toRadixString(16)).join();
-    return '/s_$suffix';
-  }
+  /// 挂载路径生成规则与配置导入共用（见 sources_controller.generateMountPath）。
+  String _newMountPath() => generateMountPath();
 
   DriverInfo? _info(Map<String, DriverInfo> catalog) {
     final name = _driver;

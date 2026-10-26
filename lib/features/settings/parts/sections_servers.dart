@@ -24,7 +24,9 @@ class _ServersSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionHead(
+        // 0.5.0：并入「通用」分区。标题与「启动/重启引擎」操作保留在
+        // 分组标题行右侧，语义比「一个普通分组标签」更清楚。
+        _GroupHead(
           title: '引擎状态',
           subtitle: '内嵌引擎只监听本机回环地址，不对外开放',
           action: OlGhostButton(
