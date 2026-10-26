@@ -99,12 +99,6 @@ class _MobileSettings extends ConsumerWidget {
                     _MobileTile(icon: 'info', label: '关于', value: AppInfo.version, onTap: () => context.go('/settings/about')),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '${AppInfo.shortLabel} · 安卓 · 接口版本 v4',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 8.5, color: p.ink4),
-                ),
               ],
             ),
           ),

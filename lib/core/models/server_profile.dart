@@ -12,8 +12,6 @@ class ServerProfile {
   final String baseUrl;
   final String username;
   final AuthMode mode;
-  final bool isolatedDownload;
-  final bool isolatedCache;
   final bool rememberBrowse;
   final DateTime? lastUsed;
   final String? siteTitle;
@@ -27,8 +25,6 @@ class ServerProfile {
     required this.baseUrl,
     required this.username,
     this.mode = AuthMode.password,
-    this.isolatedDownload = true,
-    this.isolatedCache = true,
     this.rememberBrowse = true,
     this.lastUsed,
     this.siteTitle,
@@ -60,8 +56,6 @@ class ServerProfile {
     String? baseUrl,
     String? username,
     AuthMode? mode,
-    bool? isolatedDownload,
-    bool? isolatedCache,
     bool? rememberBrowse,
     DateTime? lastUsed,
     String? siteTitle,
@@ -75,8 +69,6 @@ class ServerProfile {
       baseUrl: baseUrl ?? this.baseUrl,
       username: username ?? this.username,
       mode: mode ?? this.mode,
-      isolatedDownload: isolatedDownload ?? this.isolatedDownload,
-      isolatedCache: isolatedCache ?? this.isolatedCache,
       rememberBrowse: rememberBrowse ?? this.rememberBrowse,
       lastUsed: lastUsed ?? this.lastUsed,
       siteTitle: siteTitle ?? this.siteTitle,
@@ -92,8 +84,6 @@ class ServerProfile {
         'baseUrl': baseUrl,
         'username': username,
         'mode': mode.name,
-        'isolatedDownload': isolatedDownload,
-        'isolatedCache': isolatedCache,
         'rememberBrowse': rememberBrowse,
         'lastUsed': lastUsed?.toIso8601String(),
         'siteTitle': siteTitle,
@@ -108,8 +98,6 @@ class ServerProfile {
         baseUrl: (j['baseUrl'] ?? '').toString(),
         username: (j['username'] ?? '').toString(),
         mode: (j['mode'] ?? 'password') == 'token' ? AuthMode.token : AuthMode.password,
-        isolatedDownload: j['isolatedDownload'] as bool? ?? true,
-        isolatedCache: j['isolatedCache'] as bool? ?? true,
         rememberBrowse: j['rememberBrowse'] as bool? ?? true,
         lastUsed: DateTime.tryParse((j['lastUsed'] ?? '').toString()),
         siteTitle: j['siteTitle']?.toString(),

@@ -48,7 +48,7 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
         // 0.5.0：并入「通用」分区后不再自带分区标题，改为区块标题 + 子分组。
         const _GroupHead(
           title: '下载目录',
-          subtitle: '下载与断点续传的落盘位置，按实例隔离',
+          subtitle: '下载与断点续传的落盘位置',
         ),
         _GroupLabel('当前目录'),
         _Card(
@@ -69,7 +69,7 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
                     child: Text(
                       profile == null
                           ? '未连接服务器'
-                          : (_loading ? '读取中…' : (_dir ?? '默认目录（按实例隔离）')),
+                          : (_loading ? '读取中…' : (_dir ?? '默认目录')),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 10.5, height: 1.5, fontWeight: FontWeight.w600, color: p.ink2),
@@ -129,12 +129,6 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
                         await _load();
                         if (context.mounted) olToast(context, '已恢复默认目录');
                       },
-              ),
-              _Row(
-                icon: 'hard-drive',
-                title: '按实例隔离',
-                subtitle: '多服务器各自独立目录，避免同名覆盖',
-                trailing: Text(profile?.isolatedDownload == true ? '已开启' : '已关闭', style: TextStyle(fontSize: 9.5, color: p.ink4)),
               ),
             ],
           ),
