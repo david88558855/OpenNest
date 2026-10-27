@@ -35,6 +35,17 @@ class OpenListApi {
   /// 见 [kProgressStepBytes]。
   static const int kProgressIntervalMs = 200;
 
+  /// 多流分段的最小文件体积：小于 32MB 一律单流。
+  ///
+  /// 分段的意义是把「引擎 64KB 一次远端 RPC」的单流上限摊到 N 条流上，
+  /// 收益正比于文件体积；小文件开 4 路反而多付 3 次握手 + 3 次远端 Open
+  /// 的开销，实测是负优化。
+  static const int kSegmentMinBytes = 32 << 20;
+
+  /// 每个分段的最小长度（4MB）。文件不够大时自动减少段数，
+  /// 避免切出「1 段只有几百 KB」这种纯负担的分片。
+  static const int kSegmentMinPartBytes = 4 << 20;
+
   OpenListApi({required this.baseUrl, this.token})
       : _dio = Dio(
           BaseOptions(
@@ -54,11 +65,15 @@ class OpenListApi {
   ///
   /// 引擎固定跑在本机回环，所有传输共享同一个 host —— dart:io 默认
   /// `maxConnectionsPerHost = 6`，并发数调到 6 以上时多出来的任务只能在
-  /// 连接池外排队，表现为「并发数加了、速度不涨」。这里放宽到 32，并把
-  /// 空闲连接保留 30 秒，让连续任务复用同一条 TCP（省掉反复握手）。
+  /// 连接池外排队，表现为「并发数加了、速度不涨」。
+  ///
+  /// 0.5.8：上限放宽到 128，等于「分段数上限 8 × 并发任务上限 16」。
+  /// 单文件分段下载会在同一 host 上开 N 条并发连接，池子若不跟着放大，
+  /// 多出来的段会被静默排队 —— 表现为「分段数调上去了但速度不变」。
+  /// 回环连接的成本只是几条内核 socket，128 这个量级没有副作用。
   static HttpClient _newClient() {
     final client = HttpClient();
-    client.maxConnectionsPerHost = 32;
+    client.maxConnectionsPerHost = 128;
     client.idleTimeout = const Duration(seconds: 30);
     client.connectionTimeout = const Duration(seconds: 10);
     client.userAgent = 'OpenNest';
@@ -452,8 +467,45 @@ class OpenListApi {
     required void Function(int received, int total) onProgress,
     int throttleBytesPerSecond = 0,
     int Function()? throttleRate,
+    int segments = 1,
+    int knownTotal = 0,
   }) async {
     final existing = await target.exists() ? await target.length() : 0;
+
+    // 0.5.8：多流分段下载。
+    //
+    // 只在「全新下载 + 已知总大小 + 文件够大 + 分段数 > 1」时启用，其余
+    // 情况一律走下面的单流实现 —— 包括 segments == 1（与旧版逐字节等价，
+    // 不预取大小、不发 Range、不用定位写）。
+    //
+    // 为什么 existing > 0 不走多流：分段落盘是「定位写」，中断后文件长度
+    // 会等于总大小但中间有洞；而续传逻辑把「本地长度」当作可信进度，
+    // 两者语义冲突。续传是低频路径，正确性优先。
+    if (segments > 1 && existing == 0) {
+      // 已知大小且明显太小就不探了 —— 批量下小文件时每个多一次 RTT 很伤。
+      if (knownTotal <= 0 || knownTotal >= kSegmentMinBytes) {
+        // 用 1 字节 Range 探真实大小：列表里的 size 可能已过期（远端文件被
+        // 替换过），拿它切段会算出错误的段边界（越界 416 / 尾部漏字节）。
+        final remoteTotal = await _probeTotal(path: path, sign: sign, cancelToken: cancelToken);
+        if (remoteTotal != null) {
+          final ranges = planSegments(remoteTotal, segments);
+          if (ranges.isNotEmpty) {
+            return _downloadSegments(
+              path: path,
+              sign: sign,
+              target: target,
+              ranges: ranges,
+              total: remoteTotal,
+              cancelToken: cancelToken,
+              onProgress: onProgress,
+              throttleBytesPerSecond: throttleBytesPerSecond,
+              throttleRate: throttleRate,
+            );
+          }
+        }
+      }
+    }
+
     final headers = <String, String>{
       // 显式要求不压缩：媒体/归档文件再压一遍只白烧 CPU，而且会让
       // content-length 变成压缩前长度、Range 语义也变得含混。
@@ -585,6 +637,309 @@ class OpenListApi {
     return received;
   }
 
+  /// 用 `Range: bytes=0-0` 探远端文件的真实大小。
+  ///
+  /// 返回 null 表示「拿不到」（非 206、缺 Content-Range、网络错误），
+  /// 调用方据此退回单流。只取 1 字节，成本约一次 RTT。
+  Future<int?> _probeTotal({
+    required String path,
+    required String sign,
+    required CancelToken cancelToken,
+  }) async {
+    try {
+      final res = await _dio.get<ResponseBody>(
+        downloadUrl(path, sign: sign),
+        options: Options(
+          headers: {
+            'Range': 'bytes=0-0',
+            'Accept-Encoding': 'identity',
+          },
+          responseType: ResponseType.stream,
+          followRedirects: true,
+          connectTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 30),
+          validateStatus: (s) => s != null && s < 400,
+        ),
+        cancelToken: cancelToken,
+      );
+      // 1 字节的 body 必须消费掉，否则这条连接回不到池子里。
+      final body = res.data;
+      if (body != null) {
+        try {
+          await body.stream.drain<void>();
+        } catch (_) {}
+      }
+      if (res.statusCode != 206) return null;
+      final match = RegExp(r'bytes\s+(\d+)-(\d+)/(\d+)')
+          .firstMatch(res.headers.value('content-range') ?? '');
+      final total = match == null ? null : int.tryParse(match.group(3)!);
+      return total != null && total > 0 ? total : null;
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) throw const ApiException(-1, '传输已取消');
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 把 [total] 字节切成 [segments] 段（左闭右闭）。
+  ///
+  /// 不满足最小体积时返回空列表，调用方据此退回单流。段数会按
+  /// [kSegmentMinPartBytes] 自动缩减，保证每段都不是零头。
+  static List<_ByteRange> planSegments(int total, int segments) {
+    if (total < kSegmentMinBytes || segments < 2) return const [];
+    var count = segments;
+    while (count > 1 && total ~/ count < kSegmentMinPartBytes) {
+      count--;
+    }
+    if (count < 2) return const [];
+    final part = total ~/ count;
+    final ranges = <_ByteRange>[];
+    var start = 0;
+    for (var i = 0; i < count; i++) {
+      final end = i == count - 1 ? total - 1 : start + part - 1;
+      ranges.add(_ByteRange(start, end));
+      start = end + 1;
+    }
+    return ranges;
+  }
+
+  /// 多流分段下载：N 条 Range 请求并行拉取，各自写到文件的对应偏移。
+  ///
+  /// 引擎对每个请求都会独立 `fs.Link → Open → SectionReader`，所以 SMB /
+  /// WebDAV / 远端 OpenList 这类「必须经引擎转发」的驱动能真正并行读；
+  /// 直连的对象存储则是 N 条并发 GET。总吞吐 ≈ 单流 × 段数，直到网络、
+  /// 远端或磁盘先饱和。
+  ///
+  /// 写盘用**单个** [RandomAccessFile] + Future 串行链：句柄游标是对象状态，
+  /// 两个 worker 的 `setPosition` / `writeFrom` 一旦交错就会把数据写到错误
+  /// 偏移。写盘本来就是磁盘串行，加锁不会拖慢真正并行的网络读。
+  Future<int> _downloadSegments({
+    required String path,
+    required String sign,
+    required File target,
+    required List<_ByteRange> ranges,
+    required int total,
+    required CancelToken cancelToken,
+    required void Function(int received, int total) onProgress,
+    int throttleBytesPerSecond = 0,
+    int Function()? throttleRate,
+  }) async {
+    // 子令牌：任一段失败或父级取消时，用它立刻掐掉其余在途请求，
+    // 否则一段报错后剩下的段还会把整份文件拉完。
+    final child = CancelToken();
+    var aborted = false;
+    void abort() {
+      if (aborted) return;
+      aborted = true;
+      if (!child.isCancelled) child.cancel('分段下载中止');
+    }
+
+    cancelToken.whenCancel.then((_) => abort()).catchError((Object _) {});
+
+    RandomAccessFile? raf;
+    var chain = Future<void>.value();
+    Future<void> writeAt(int offset, List<int> data) {
+      final file = raf;
+      if (file == null) return Future<void>.error(const ApiException(-1, '文件句柄已关闭'));
+      final next = chain.then((_) async {
+        await file.setPosition(offset);
+        await file.writeFrom(data);
+      });
+      // 链本身吞掉错误继续走，错误只交给本次调用方。
+      chain = next.catchError((Object _) {});
+      return next;
+    }
+
+    var done = 0;
+    Object? failure;
+    final clock = Stopwatch()..start();
+    var lastReportBytes = 0;
+    var lastReportMs = 0;
+
+    // 总配额按段均分：N 路各按「总速率」放行就是超速 N 倍。
+    int perPartRate() {
+      final rate = throttleRate?.call() ?? throttleBytesPerSecond;
+      if (rate <= 0) return 0;
+      final share = rate ~/ ranges.length;
+      return share < 1 ? 1 : share;
+    }
+
+    try {
+      // FileMode.write = 截断并创建：分段全部用定位写，不能留下旧字节。
+      raf = await target.open(mode: FileMode.write);
+      final jobs = <Future<void>>[];
+      for (final part in ranges) {
+        jobs.add(_fetchSegment(
+          path: path,
+          sign: sign,
+          part: part,
+          total: total,
+          token: child,
+          writeAt: writeAt,
+          perPartRate: perPartRate,
+          onBytes: (count) {
+            done += count;
+            final nowMs = clock.elapsedMilliseconds;
+            if (done - lastReportBytes >= kProgressStepBytes ||
+                nowMs - lastReportMs >= kProgressIntervalMs) {
+              lastReportBytes = done;
+              lastReportMs = nowMs;
+              onProgress(done, total);
+            }
+          },
+          onFailure: (error) {
+            // 父级取消时把它归一成既有文案，避免 UI 显示「请求已取消」。
+            failure ??= cancelToken.isCancelled
+                ? const ApiException(-1, '传输已取消')
+                : error;
+            abort();
+          },
+        ));
+      }
+      await Future.wait(jobs);
+      if (failure != null) throw failure!;
+      if (done != total) {
+        throw ApiException(-1, '下载不完整（$done/$total 字节），可重试续传');
+      }
+      onProgress(done, total);
+    } catch (_) {
+      // 定位写失败会在磁盘上留下「长度等于总大小、中间是洞」的文件。
+      // 这种文件下次启动会被当成已完成（本地长度 = 远端大小），彻底
+      // 没法续传，所以失败就删掉，让重试从头开始。
+      try {
+        await raf?.close();
+      } catch (_) {}
+      raf = null;
+      try {
+        if (await target.exists()) await target.delete();
+      } catch (_) {}
+      rethrow;
+    } finally {
+      try {
+        await raf?.close();
+      } catch (_) {}
+    }
+    return done;
+  }
+
+  /// 拉取单个区间并写到 [part] 对应的偏移。
+  ///
+  /// 所有异常都交给 [onFailure]，不向外抛：这样 [Future.wait] 不会被第一个
+  /// 错误提前打断，其余段能收到取消信号后干净收尾。
+  Future<void> _fetchSegment({
+    required String path,
+    required String sign,
+    required _ByteRange part,
+    required int total,
+    required CancelToken token,
+    required Future<void> Function(int offset, List<int> data) writeAt,
+    required int Function() perPartRate,
+    required void Function(int bytes) onBytes,
+    required void Function(Object error) onFailure,
+  }) async {
+    try {
+      Response<ResponseBody> res;
+      try {
+        res = await _dio.get<ResponseBody>(
+          downloadUrl(path, sign: sign),
+          options: Options(
+            headers: {
+              'Range': 'bytes=${part.start}-${part.end}',
+              // 与单流一致：媒体/归档再压一遍只白烧 CPU，还会让长度语义变含混。
+              'Accept-Encoding': 'identity',
+            },
+            responseType: ResponseType.stream,
+            followRedirects: true,
+            connectTimeout: const Duration(seconds: 20),
+            receiveTimeout: const Duration(days: 1),
+            sendTimeout: const Duration(days: 1),
+            validateStatus: (s) => s != null && s < 400,
+          ),
+          cancelToken: token,
+        );
+      } on DioException catch (e) {
+        throw ApiException.fromDio(e);
+      }
+
+      // 必须是 206。回 200 说明 Range 被忽略（返回的是整份文件），
+      // 照着写会把别人已写的区间覆盖成同一段内容，产出静默损坏的文件。
+      if (res.statusCode != 206) {
+        throw ApiException(-1, '服务端未按分段返回（HTTP ${res.statusCode}），请把「单文件分段数」改为 1');
+      }
+      final match = RegExp(r'bytes\s+(\d+)-(\d+)/(\d+|\*)')
+          .firstMatch(res.headers.value('content-range') ?? '');
+      if (match == null ||
+          int.tryParse(match.group(1)!) != part.start ||
+          int.tryParse(match.group(2)!) != part.end) {
+        // 起止都要校：只校起点的话，服务端「多给一段」会把下一段的区间写坏。
+        throw const ApiException(-1, '分段响应位置不匹配，请把「单文件分段数」改为 1');
+      }
+      final remoteTotal = match.group(3);
+      if (remoteTotal != null && remoteTotal != '*' && int.tryParse(remoteTotal) != total) {
+        throw const ApiException(-1, '文件大小已变化，请删除后重新下载');
+      }
+
+      final body = res.data;
+      if (body == null) throw const ApiException(-13, '服务器未返回数据流');
+
+      var offset = part.start;
+      var received = 0;
+      final buffer = BytesBuilder(copy: true);
+      var rate = perPartRate();
+      final clock = Stopwatch()..start();
+      var windowBytes = 0;
+      var windowStartMs = 0;
+
+      Future<void> flush() async {
+        if (buffer.isEmpty) return;
+        final chunk = buffer.takeBytes();
+        await writeAt(offset, chunk);
+        offset += chunk.length;
+      }
+
+      await for (final chunk in body.stream) {
+        final remain = part.length - received;
+        if (remain <= 0) break;
+        // 防御：服务端/代理若无视 Range 末尾多给字节，只取本段应得的部分，
+        // 否则越界写会覆盖下一段已经写好的数据。
+        final piece = chunk.length > remain ? chunk.sublist(0, remain) : chunk;
+        buffer.add(piece);
+        received += piece.length;
+        if (buffer.length >= kTransferBlockSize) {
+          await flush();
+          rate = perPartRate();
+        }
+        windowBytes += piece.length;
+        if (rate > 0) {
+          final elapsed = clock.elapsedMilliseconds - windowStartMs;
+          final expectedMs = windowBytes * 1000 / rate;
+          if (elapsed < expectedMs) {
+            await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsed).round()));
+          }
+          if (windowBytes > rate * 2) {
+            windowBytes = 0;
+            windowStartMs = clock.elapsedMilliseconds;
+          }
+        }
+        onBytes(piece.length);
+        if (token.isCancelled) {
+          throw const ApiException(-1, '传输已取消');
+        }
+        if (received >= part.length) break;
+      }
+      await flush();
+      if (received != part.length) {
+        throw ApiException(
+          -1,
+          '分段不完整（${part.start}-${part.end}：$received/${part.length} 字节）',
+        );
+      }
+    } catch (error) {
+      onFailure(error);
+    }
+  }
+
   /// 上传单个文件。
   ///
   /// [throttleBytesPerSecond] 传 0 表示不限速。限速实现为「按累计字节数配额
@@ -672,4 +1027,14 @@ class OpenListApi {
       yield chunk;
     }
   }
+}
+
+/// 下载分段：`start` 与 `end` 都是闭区间端点（与 HTTP `Range` 一致）。
+class _ByteRange {
+  final int start;
+  final int end;
+
+  const _ByteRange(this.start, this.end);
+
+  int get length => end - start + 1;
 }

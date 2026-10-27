@@ -84,12 +84,14 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     final settings = ref.read(appSettingsProvider);
     _downRateBytes = settings.downLimitKbps * 1024;
     _upRateBytes = settings.upLimitKbps * 1024;
+    _downSegments = settings.downloadSegments;
     state = state.copyWith(concurrency: settings.concurrency);
     // v2.6：设置页改并发数后立即生效。之前只在构造时读一次，必须重启应用才生效。
     // 0.5.3：顺带把限速值同步进缓存（传输循环每批只读缓存，不再读 provider）。
     _settingsSub = ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
       _downRateBytes = next.downLimitKbps * 1024;
       _upRateBytes = next.upLimitKbps * 1024;
+      _downSegments = next.downloadSegments;
       if (previous?.concurrency == next.concurrency) return;
       if (state.concurrency != next.concurrency) {
         state = state.copyWith(concurrency: next.concurrency);
@@ -109,6 +111,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   /// 传输循环里只读一个 int 字段；语义仍是「改完设置立即生效」。
   int _downRateBytes = 0;
   int _upRateBytes = 0;
+
+  /// 单文件下载分段数（1 = 单流，与旧版等价）。
+  ///
+  /// 分段在下载启动时一次性规划，运行中改设置只影响后续任务 —— 中途
+  /// 改变段边界没有意义（已发出的 Range 无法撤回）。
+  int _downSegments = 4;
 
   /// 下载限速（字节/秒）。读缓存，不读 provider。
   int _downRate() => _downRateBytes;
@@ -543,6 +551,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
           target: target,
           cancelToken: token,
           throttleRate: _downRate,
+          // 1 = 单流（与旧版逐字节等价）；>1 且文件够大才真正分段。
+          segments: _downSegments,
+          knownTotal: task.total,
           onProgress: (done, total) {
             task.done = done;
             if (total > 0) task.total = total;

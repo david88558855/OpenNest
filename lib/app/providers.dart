@@ -46,6 +46,9 @@ final storagesProvider = FutureProvider<List<StorageMount>>((ref) async {
 
 class AppSettings {
   final int concurrency;
+
+  /// 单文件下载分段数（1 = 单流，与旧版行为完全一致）。
+  final int downloadSegments;
   final int downLimitKbps;
   final int upLimitKbps;
   final bool closeToTray;
@@ -57,6 +60,7 @@ class AppSettings {
 
   const AppSettings({
     this.concurrency = 3,
+    this.downloadSegments = 4,
     this.downLimitKbps = 0,
     this.upLimitKbps = 0,
     this.closeToTray = true,
@@ -69,6 +73,7 @@ class AppSettings {
 
   AppSettings copyWith({
     int? concurrency,
+    int? downloadSegments,
     int? downLimitKbps,
     int? upLimitKbps,
     bool? closeToTray,
@@ -80,6 +85,7 @@ class AppSettings {
   }) =>
       AppSettings(
         concurrency: concurrency ?? this.concurrency,
+        downloadSegments: downloadSegments ?? this.downloadSegments,
         downLimitKbps: downLimitKbps ?? this.downLimitKbps,
         upLimitKbps: upLimitKbps ?? this.upLimitKbps,
         closeToTray: closeToTray ?? this.closeToTray,
@@ -92,6 +98,7 @@ class AppSettings {
 
   Map<String, dynamic> toJson() => {
         'concurrency': concurrency,
+        'download_segments': downloadSegments,
         'down_limit_kbps': downLimitKbps,
         'up_limit_kbps': upLimitKbps,
         'close_to_tray': closeToTray,
@@ -112,6 +119,8 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
     if (raw.isNotEmpty) {
       state = AppSettings(
         concurrency: (raw['concurrency'] as num?)?.toInt() ?? 3,
+        // 0.5.8：老配置里没有这个键，默认 4 段；非法值统一夹到 1–8。
+        downloadSegments: ((raw['download_segments'] as num?)?.toInt() ?? 4).clamp(1, kMaxDownloadSegments).toInt(),
         downLimitKbps: (raw['down_limit_kbps'] as num?)?.toInt() ?? 0,
         upLimitKbps: (raw['up_limit_kbps'] as num?)?.toInt() ?? 0,
         closeToTray: raw['close_to_tray'] as bool? ?? true,
@@ -133,8 +142,22 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
   /// 常常跑不满，放宽到 16（HttpClient 的 maxConnectionsPerHost 也已同步放宽）。
   static const int kMaxConcurrency = 16;
 
+  /// 单文件下载分段数的上限。
+  ///
+  /// 上限 8 是「回环连接数 × 并发任务数」与远端并发配额之间的折中：
+  /// 8 段 × 16 任务 = 128 条同时活跃的连接，正好是传输层连接池的大小。
+  static const int kMaxDownloadSegments = 8;
+
   void setConcurrency(int value) {
     state = state.copyWith(concurrency: value.clamp(1, kMaxConcurrency).toInt());
+    _persist();
+  }
+
+  /// 设置单文件下载分段数（1 = 单流，与旧版行为一致）。
+  void setDownloadSegments(int value) {
+    state = state.copyWith(
+      downloadSegments: value.clamp(1, kMaxDownloadSegments).toInt(),
+    );
     _persist();
   }
 

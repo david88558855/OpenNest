@@ -56,6 +56,20 @@ class _TransferSection extends ConsumerWidget {
                   max: AppSettingsNotifier.kMaxConcurrency,
                 ),
               ),
+              _Row(
+                icon: 'download',
+                title: '单文件分段数',
+                subtitle: '一个文件拆成几路并行下载（1 = 不分段，默认 4）',
+                trailing: _ValuePill('${settings.downloadSegments}'),
+                onTap: () => _editNumber(
+                  context,
+                  title: '单文件分段数',
+                  current: settings.downloadSegments,
+                  onDone: notifier.setDownloadSegments,
+                  min: 1,
+                  max: AppSettingsNotifier.kMaxDownloadSegments,
+                ),
+              ),
             ],
           ),
         ),
@@ -121,6 +135,7 @@ class _TransferSection extends ConsumerWidget {
     required String title,
     required int current,
     required ValueChanged<int> onDone,
+    int min = 1,
     int max = 1024 * 1024,
   }) async {
     final controller = TextEditingController(text: '$current');
@@ -132,12 +147,12 @@ class _TransferSection extends ConsumerWidget {
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(hintText: '1 – $max'),
+          decoration: InputDecoration(hintText: '$min – $max'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop((int.tryParse(controller.text.trim()) ?? 1).clamp(1, max).toInt()),
+            onPressed: () => Navigator.of(dialogContext).pop((int.tryParse(controller.text.trim()) ?? min).clamp(min, max).toInt()),
             child: const Text('保存'),
           ),
         ],
