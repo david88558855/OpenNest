@@ -350,7 +350,12 @@ class Prefs {
             }
           }
         }
-        if (_deletedCache.remove('*')) {
+        // 0.5.9：这里只「看」标记，不在事务里删它。原来是
+        // `_deletedCache.remove('*')` —— 事务一旦回滚，这个「全清」标记
+        // 就已经被摘掉了，用户点过的「清空缓存」永远不会真正执行。
+        // 标记统一在事务成功后随 `_deletedCache.clear()` 一起清掉；
+        // 失败时 catch 分支保留脏标记，下次写入或退出时会重试。
+        if (_deletedCache.contains('*')) {
           await txn.delete('listing_cache');
         }
         for (final key in _deletedCache) {

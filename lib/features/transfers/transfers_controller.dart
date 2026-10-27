@@ -42,6 +42,16 @@ class TransfersState {
   List<TransferTask> get failed => tasks.where((e) => e.status == TransferStatus.failed).toList();
   int get pendingCount => tasks.where((e) => e.status == TransferStatus.running || e.status == TransferStatus.queued).length;
 
+  /// 各状态的任务数。
+  ///
+  /// 0.5.9：UI 原来用 `state.done.length` 取计数，而 `done` 每次访问都会
+  /// 新建一个 List —— 一帧里要访问十几次，批量上千条任务时就是几万次
+  /// 元素分配。这些计数走 `where().length`：照样遍历，但不物化 List。
+  int get doneCount => tasks.where((e) => e.status == TransferStatus.done).length;
+  int get failedCount => tasks.where((e) => e.status == TransferStatus.failed).length;
+  int get runningCount => tasks.where((e) => e.status == TransferStatus.running).length;
+  int get pausedCount => tasks.where((e) => e.status == TransferStatus.paused).length;
+
   TransfersState copyWith({
     List<TransferTask>? tasks,
     List<ServerTask>? serverTasks,
@@ -67,6 +77,22 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   final Ref ref;
   final Map<String, CancelToken> _tokens = {};
   final Map<String, int> _previousDone = {};
+
+  /// 每个任务当前正在运行的协程。
+  ///
+  /// 0.5.9 修复：以前「暂停后立刻继续」会起第二个 `_run` 操作同一个任务
+  /// —— 两个协程同时写同一个文件；更糟的是旧协程的 `finally` 会把**新**
+  /// 协程的取消令牌从表里删掉，导致该任务此后再也停不下来。
+  ///
+  /// 现在 `_pump` 看到「这个任务还有协程在跑」就跳过，等旧协程自己收尾
+  /// 后由它的 `finally` 再拉起一轮，天然保证同一任务同时只有一个协程。
+  final Map<String, Future<void>> _running = {};
+
+  /// 每个任务的运行代次。
+  ///
+  /// 协程的 `catch` / `finally` 必须先确认自己仍是「当前这一代」，
+  /// 否则它会把新协程的状态改回 failed、并删掉新协程的令牌。
+  final Map<String, int> _runSeq = {};
 
   /// 因「全部暂停」而暂停的任务 id；「全部继续」只恢复这些（v1.0.23）。
   final Set<String> _pausedByGlobal = {};
@@ -181,7 +207,19 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     unawaited(TransferDao.instance.replaceAll(list).catchError((_) {}));
   }
 
-  void _emit() => state = state.copyWith(tasks: List<TransferTask>.of(state.tasks));
+  void _emit() {
+    // 0.5.9：dispose 之后不能再改 state。应用退出时正在下载的任务，
+    // 它的进度回调会一路走到这里 —— StateNotifier 在 dispose 后
+    // setState 会抛 StateError，而这条回调是 unawaited 的，异常没人接。
+    if (!mounted) return;
+    // 兜底清理：任务被移除后它的速度基准还留在表里，长期批量下载会让
+    // 这张表无限增长。长度一致时不做任何遍历。
+    if (_previousDone.length > state.tasks.length) {
+      final ids = state.tasks.map((e) => e.id).toSet();
+      _previousDone.removeWhere((id, _) => !ids.contains(id));
+    }
+    state = state.copyWith(tasks: List<TransferTask>.of(state.tasks));
+  }
 
   void _emitThrottled() {
     final now = DateTime.now();
@@ -198,11 +236,13 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     if (state.tasks.isEmpty) return;
     var down = 0.0;
     var up = 0.0;
+    var anyRunning = false;
     for (final task in state.tasks) {
       final previous = _previousDone[task.id] ?? task.done;
       final delta = task.done - previous;
       _previousDone[task.id] = task.done;
       if (task.status == TransferStatus.running) {
+        anyRunning = true;
         task.speed = delta < 0 ? 0 : delta.toDouble();
         if (task.kind == TransferKind.download) {
           down += task.speed;
@@ -212,6 +252,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       } else {
         task.speed = 0;
       }
+    }
+    // 0.5.9：没有任务在跑、速度也已经归零时不必再重建状态。
+    // 之前每秒都会 `List.of(全表)` + 触发一次全局 rebuild，
+    // 批量上千条任务时这是纯粹的主线程浪费。
+    if (!anyRunning && down == 0 && up == 0 && state.downSpeed == 0 && state.upSpeed == 0) {
+      return;
     }
     state = state.copyWith(tasks: List<TransferTask>.of(state.tasks), downSpeed: down, upSpeed: up);
   }
@@ -254,7 +300,14 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     final profile = session.profile;
     if (profile == null || session.api == null) return '尚未连接服务器';
     if (item.isDir) return '暂不支持整目录下载';
-    final root = await _downloadDir(profile);
+    final String root;
+    try {
+      root = await _downloadDir(profile);
+    } catch (error) {
+      // 三级兜底目录都建不出来时（磁盘只读 / 权限异常），这里会抛。
+      // 必须在 try 里接住，否则点「下载」会变成未捕获异常、按钮毫无反馈。
+      return '无法准备下载目录：$error';
+    }
     final dir = localSubdir.isEmpty ? root : '$root${Platform.pathSeparator}$localSubdir';
     try {
       await Directory(dir).create(recursive: true);
@@ -399,8 +452,11 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       try {
         final file = File(task.localPath);
         // 只清理未完成的半成品：完整文件（同名已下载完）不能因为移除任务被删掉。
-        final complete = task.total > 0 && file.existsSync() && file.lengthSync() >= task.total;
-        if (task.kind == TransferKind.download && file.existsSync() && !complete) {
+        // total 未知时（恢复的旧任务、服务端没给 size）无从判断完整性 ——
+        // 这时宁可留下半成品，也不要把已经下完的文件误删。
+        final sizeKnown = task.total > 0;
+        final complete = sizeKnown && file.existsSync() && file.lengthSync() >= task.total;
+        if (task.kind == TransferKind.download && file.existsSync() && sizeKnown && !complete) {
           file.deleteSync();
         }
       } catch (_) {
@@ -416,7 +472,11 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     if (ids.isEmpty) return;
     final set = ids.toSet();
     for (final id in set) {
+      // 0.5.9：必须先 cancel —— 以前只从表里摘掉令牌，正在跑的任务会
+      // 继续下载并写盘，而界面上它已经消失了，用户再也停不掉它。
+      _tokens[id]?.cancel();
       _tokens.remove(id);
+      _previousDone.remove(id);
       _pausedByGlobal.remove(id);
     }
     state = state.copyWith(tasks: state.tasks.where((e) => !set.contains(e.id)).toList());
@@ -496,8 +556,12 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
         for (final task in state.tasks.toList()) {
           if (running >= limit) break;
           if (task.status == TransferStatus.queued) {
+            // 0.5.9：这个任务还有上一轮的协程在收尾（暂停后立刻继续的
+            // 典型场景）。此时**不能**再起一个 —— 两个协程会同时写同一个
+            // 文件。等旧协程的 finally 调 _pump() 时自然会拉起新一轮。
+            if (_running.containsKey(task.id)) continue;
             running++;
-            unawaited(_run(task));
+            _launch(task);
           }
         }
       }
@@ -505,6 +569,23 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       _pumping = false;
     }
   }
+
+  /// 启动一个任务的执行协程，并登记到 [_running]。
+  ///
+  /// 登记的意义：`_pump` 靠它判断「这个任务是不是已经在跑了」，
+  /// 从而保证同一任务同时只有一个协程。
+  void _launch(TransferTask task) {
+    final future = _run(task);
+    _running[task.id] = future;
+    // catchError 兜底：whenComplete 会把原 future 的错误转发到返回的
+    // future 上，这里没人 await，不接住就会变成未处理的异步异常。
+    unawaited(future.whenComplete(() {
+      if (identical(_running[task.id], future)) _running.remove(task.id);
+    }).catchError((Object _) {}));
+  }
+
+  /// 某个任务当前是否仍由「这一代」协程持有。
+  bool _isCurrent(String id, int gen) => _runSeq[id] == gen;
 
   Future<void> _run(TransferTask task) async {
     final api = _apiFor(task.serverId);
@@ -515,6 +596,10 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       return;
     }
     final token = CancelToken();
+    // 运行代次：本次运行的身份。后续任何状态变更前都要确认代次没被
+    // 后一轮覆盖（暂停后立刻继续会起新一轮）。
+    final gen = (_runSeq[task.id] ?? 0) + 1;
+    _runSeq[task.id] = gen;
     _tokens[task.id] = token;
     task.status = TransferStatus.running;
     task.error = null;
@@ -582,7 +667,10 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
         }
       }
     } on ApiException catch (e) {
-      if (task.status != TransferStatus.paused) {
+      // 只有「仍由本代协程持有」且「不是被取消的」才算失败。
+      // 被取消（用户暂停 / 移除任务）时任务状态由调用方决定，这里不能改；
+      // 代次过期时说明已经有新一轮在跑，更不能把它的状态改回 failed。
+      if (_isCurrent(task.id, gen) && !token.isCancelled && task.status != TransferStatus.paused) {
         task.status = TransferStatus.failed;
         // v1.0.33：下载走的是 /d/<path>?sign=，401 多半是签名过期而不是会话失效。
         // 批量下载文件夹时会入队大量任务，之前任何一个 401 都会调 expire()
@@ -590,20 +678,28 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
         task.error = e.needsReauth ? '下载链接已失效，请重试' : e.friendly;
       }
     } catch (e) {
-      if (task.status != TransferStatus.paused) {
+      if (_isCurrent(task.id, gen) && !token.isCancelled && task.status != TransferStatus.paused) {
         task.status = TransferStatus.failed;
         task.error = '传输中断，可重试';
       }
     } finally {
-      _tokens.remove(task.id);
-      _persist();
-      _emit();
-      // 传输结束（成功或失败）都会回写存储源状态：一是列表里的引擎状态
-      // 需要跟着刷新，二是一批任务失败往往就意味着那个源此刻已经失联 ——
-      // 不该等用户去设置页手动点「测试连接」。内部有 3 秒合并窗口，
-      // 批量传输不会每个任务都触发一轮探测。
-      ref.read(storageHealthProvider.notifier).scheduleRefresh();
-      await _pump();
+      if (_isCurrent(task.id, gen)) {
+        // 只摘属于本代的令牌与协程登记：新一轮可能已经把同名条目换掉了。
+        _tokens.remove(task.id);
+        _running.remove(task.id);
+      }
+      // notifier 已 dispose 时不能再碰 ref（Riverpod 会抛「used after
+      // dispose」），也不能再改状态。
+      if (mounted) {
+        _persist();
+        _emit();
+        // 传输结束（成功或失败）都会回写存储源状态：一是列表里的引擎状态
+        // 需要跟着刷新，二是一批任务失败往往就意味着那个源此刻已经失联 ——
+        // 不该等用户去设置页手动点「测试连接」。内部有 3 秒合并窗口，
+        // 批量传输不会每个任务都触发一轮探测。
+        ref.read(storageHealthProvider.notifier).scheduleRefresh();
+        await _pump();
+      }
     }
   }
 

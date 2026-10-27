@@ -98,7 +98,10 @@ class SourceActions {
     if (id <= 0) return '引擎未返回存储编号';
 
     try {
-      await api.list(path: source.mountPath);
+      // refresh: true：与健康探测同口径，绕开引擎的目录缓存。
+      // 用缓存命中的结果判「连通」会误判 —— 复用了同名挂载路径的旧
+      // 缓存时，新建即通过，之后打开才发现不可达。
+      await api.list(path: source.mountPath, refresh: true);
     } on ApiException catch (error) {
       // 连不通就别留下半成品，否则侧边栏会出现一个永远打不开的源。
       try {

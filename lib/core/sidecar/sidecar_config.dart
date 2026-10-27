@@ -61,6 +61,10 @@ class PortAllocator {
   const PortAllocator._();
 
   static Future<int> pick({Set<int> exclude = const {kSidecarReservedPort}}) async {
+    // 这里天然是 TOCTOU（bind 之后到引擎真正 bind 之间存在窗口，端口可能
+    // 被别的进程抢走）。不用修：引擎启动失败时会换端口重试 3 次，
+    // 一次端口冲突完全在兜底范围内。真正的风险是「抢走端口的进程恰好
+    // 不是引擎」，所以启动后还要用健康检查确认应答的是自己的引擎。
     for (var attempt = 0; attempt < 24; attempt++) {
       final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       final port = socket.port;

@@ -82,8 +82,16 @@ Future<void> renameItem(BuildContext context, WidgetRef ref, FileItem item) asyn
     confirm: '重命名',
   );
   if (name == null || name.trim().isEmpty || name.trim() == item.name) return;
+  final trimmed = name.trim();
+  // 0.5.9：重命名不接受路径分隔符。引擎的 rename 拿到带 `/` 的名字时
+  // 可能把它当成子路径 —— 结果是条目被挪到别的目录，或者产生一个打不开
+  // 的条目。名字里也不允许 `.` / `..`。
+  if (trimmed.contains('/') || trimmed.contains('\\') || trimmed == '.' || trimmed == '..') {
+    if (context.mounted) olToast(context, '名称不能包含路径分隔符', error: true);
+    return;
+  }
   final source = joinPath(dir, item.name);
-  final error = await ref.read(filesProvider.notifier).mutate((api) => api.rename(source, name.trim()));
+  final error = await ref.read(filesProvider.notifier).mutate((api) => api.rename(source, trimmed));
   if (error != null && context.mounted) {
     olToast(context, error, error: true);
   } else if (context.mounted) {
@@ -211,6 +219,12 @@ Future<void> downloadItems(BuildContext context, WidgetRef ref, List<FileItem> i
 const _maxFolderFiles = 2000;
 const _maxFolderDepth = 24;
 
+/// 目录队列上限。
+///
+/// 0.5.9：文件数有上限，**目录数**却没有 —— 十万级空目录会把 BFS 队列
+/// 和内存一起撑起来，而且用户拿到的是一个永远转不完的扫描弹窗。
+const _maxFolderDirs = 5000;
+
 /// 递归扫描的节流间隔：翻页 80ms、目录切换 40ms。
 const _scanPageGap = Duration(milliseconds: 80);
 const _scanDirGap = Duration(milliseconds: 40);
@@ -292,6 +306,10 @@ Future<_ScanOutcome> _scanFolders(
       }
       for (final item in pageItems) {
         if (item.isDir) {
+          if (queue.length >= _maxFolderDirs) {
+            outcome.truncated = true;
+            break;
+          }
           final childRemote = joinPath(entry.key, item.name);
           queue.add(MapEntry(childRemote, '${entry.value}/${safePathSegment(item.name)}'));
         } else {
@@ -403,7 +421,7 @@ Future<void> _downloadFolders(
   if (outcome.skippedDirs > 0) parts.add('跳过 ${outcome.skippedDirs} 个目录（层级过深）');
   if (outcome.failedDirs > 0) parts.add('${outcome.failedDirs} 个目录读取失败');
   if (failed > 0) parts.add('$failed 个文件入队失败');
-  if (outcome.truncated) parts.add('已达 $_maxFolderFiles 个上限，请分批下载');
+  if (outcome.truncated) parts.add('已达扫描上限（文件 $_maxFolderFiles 个 / 目录 $_maxFolderDirs 个），请分批下载');
   if (outcome.cancelled) parts.add('已取消（剩余未处理）');
   olToast(context, parts.join('，'), error: failed > 0 || outcome.failedDirs > 0);
 }

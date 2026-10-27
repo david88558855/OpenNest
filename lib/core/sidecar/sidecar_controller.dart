@@ -189,6 +189,15 @@ class SidecarNotifier extends StateNotifier<SidecarState> {
   /// `disabled = 0`，不纠正的话下次启动会再次被打崩。
   Future<bool> quarantine(int id) async {
     try {
+      // 0.5.9：改库前先确认引擎进程已经退出。刚崩的进程可能还在收尾，
+      // 这时写它的 data.db 会与引擎争写同一份 SQLite。
+      final pidFile = await SidecarPaths.pid();
+      if (await pidFile.exists()) {
+        final pid = int.tryParse((await pidFile.readAsString()).trim());
+        if (pid != null) {
+          await SidecarManager.waitProcessGone(pid);
+        }
+      }
       final store = await EngineStore.open();
       return await store.setDisabled(id, true);
     } catch (_) {

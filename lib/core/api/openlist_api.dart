@@ -964,7 +964,14 @@ class OpenListApi {
     // 按 1MB 读盘：`openRead()` 默认 64KB 一块，一次 1GB 上传要产生
     // 1.6 万次异步事件；改成 1MB 后只剩 1 千次，同样的带宽下 CPU 占用与
     // 事件调度开销明显下降。
-    final stream = _throttle(_readBlocks(source, kTransferBlockSize), rateOf, cancelToken);
+    // 0.5.9：外面再套一层字节计数 —— Content-Length 取自上传前，
+    // 文件在传输途中被改（截断/追加）时，实际发送量与它不一致，
+    // 服务端会一直等剩下的字节，任务在「上传中」卡到超时。
+    var sent = 0;
+    final stream = _counted(
+      _throttle(_readBlocks(source, kTransferBlockSize), rateOf, cancelToken),
+      (n) => sent += n,
+    );
     try {
       final res = await _dio.put<dynamic>(
         '/api/fs/put',
@@ -980,8 +987,22 @@ class OpenListApi {
         onSendProgress: onProgress,
       );
       _handle(res);
+      if (sent != length) {
+        throw ApiException(
+          -1,
+          '上传数据不完整（$sent/$length 字节），文件可能已被修改，请重试',
+        );
+      }
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    }
+  }
+
+  /// 给流套一层字节计数（用于校验实际发出的长度）。
+  Stream<List<int>> _counted(Stream<List<int>> input, void Function(int bytes) onBytes) async* {
+    await for (final chunk in input) {
+      onBytes(chunk.length);
+      yield chunk;
     }
   }
 

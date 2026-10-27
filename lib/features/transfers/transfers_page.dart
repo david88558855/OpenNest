@@ -134,8 +134,8 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                           tasks: tasks,
                           filter: _filter,
                           onFilter: (f) => setState(() => _filter = f),
-                          doneCount: state.done.length,
-                          failedCount: state.failed.length,
+                          doneCount: state.doneCount,
+                          failedCount: state.failedCount,
                         ),
                       ],
                     ),
@@ -245,17 +245,17 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                   },
                   // 复制 / 移动在服务端是秒级完成的，切过来时任务已经落到「已完成」，
                   // 「进行中」看着是空的。给一个直达按钮，避免被当成没入队。
-                  action: _filter == _Filter.active && (state.done.isNotEmpty || state.failed.isNotEmpty)
+                  action: _filter == _Filter.active && (state.doneCount > 0 || state.failedCount > 0)
                       ? OlGhostButton(
-                          label: state.done.isNotEmpty
-                              ? '查看已完成（${state.done.length}）'
-                              : '查看失败任务（${state.failed.length}）',
-                          icon: state.done.isNotEmpty ? 'check' : 'alert',
+                          label: state.doneCount > 0
+                              ? '查看已完成（${state.doneCount}）'
+                              : '查看失败任务（${state.failedCount}）',
+                          icon: state.doneCount > 0 ? 'check' : 'alert',
                           height: 28,
                           fontSize: 11,
                           horizontalPadding: 12,
                           onTap: () => setState(() =>
-                              _filter = state.done.isNotEmpty ? _Filter.done : _Filter.failed),
+                              _filter = state.doneCount > 0 ? _Filter.done : _Filter.failed),
                         )
                       : null,
                 ),
@@ -293,8 +293,8 @@ class _QueueHead extends ConsumerWidget {
     final state = ref.watch(transfersProvider);
     final settings = ref.watch(appSettingsProvider);
     final active = state.tasks.where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed).length;
-    final done = state.done.length;
-    final failed = state.failed.length;
+    final done = state.doneCount;
+    final failed = state.failedCount;
 
     return Container(
       // 设计稿 D5 `.head`：padding 20/24/0。

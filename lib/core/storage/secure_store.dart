@@ -24,18 +24,26 @@ class SecureStore {
     }
   }
 
-  Future<void> write(String key, String value) async {
+  /// 写入敏感值，返回是否真的落盘。
+  ///
+  /// 0.5.9：以前返回 void，调用方无法区分「写成功」和「两次都失败」。
+  /// 引擎口令的写入失败会一路影响到「重新登录」（读不到凭据就登不进去），
+  /// 至少要能记录下来。
+  Future<bool> write(String key, String value) async {
     try {
       await _storage.write(key: key, value: value);
+      return true;
     } catch (error) {
       debugPrint('secure: write failed for $key ($error), retrying after purge');
       // 写入失败通常也是同一个坏条目挡路：清掉再写一次
       await _purge(key);
       try {
         await _storage.write(key: key, value: value);
+        return true;
       } catch (retryError) {
         // 仍失败就让会话不跨重启，不影响当前浏览
         debugPrint('secure: write retry failed for $key ($retryError)');
+        return false;
       }
     }
   }

@@ -55,6 +55,46 @@ abstract class SidecarManager {
   Future<void> stop();
   Future<SidecarLaunch> relogin();
   bool get isRunning;
+
+  /// 等 pid 对应的进程真正消失（最多 [timeout]）。
+  ///
+  /// 改引擎的 data.db 之前必须确认进程已退出：进程还在收尾时会与
+  /// 引擎争写同一份 SQLite，最坏情况是库损坏。
+  static Future<void> waitProcessGone(int pid, {Duration timeout = const Duration(seconds: 3)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final name = await processNameOf(pid);
+      if (name == null) return;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+  }
+
+  /// 查询 pid 对应的进程名；进程不存在时返回 null。
+  ///
+  /// 只用于「按 pid 杀进程」之前的身份确认 —— PID 会被系统回收复用，
+  /// 仅凭 pid 文件就发信号可能终止用户的无关程序。
+  static Future<String?> processNameOf(int pid) async {
+    try {
+      if (Platform.isWindows) {
+        final result = await Process.run(
+          'tasklist',
+          ['/FI', 'PID eq $pid', '/NH', '/FO', 'CSV'],
+          runInShell: false,
+        );
+        final output = '${result.stdout}';
+        // CSV 形如："openlist.exe","1234","Console","1","12,000 K"
+        if (!output.contains('"$pid"')) return null;
+        final match = RegExp(r'"([^"]+)"').firstMatch(output);
+        return match?.group(1);
+      }
+      final result = await Process.run('ps', ['-p', '$pid', '-o', 'comm=']);
+      final name = '${result.stdout}'.trim();
+      return name.isEmpty ? null : name;
+    } catch (_) {
+      // 查不到就当「无法确认」，调用方据此放弃动作。
+      return null;
+    }
+  }
 }
 
 /// 桌面实现：守护 `openlist server` 子进程。
@@ -69,6 +109,14 @@ class DesktopSidecarManager implements SidecarManager {
   String _binary = '';
   String _logPath = '';
   IOSink? _logSink;
+
+  /// 引擎 stdout / stderr 的订阅。
+  ///
+  /// 0.5.9：以前这两个订阅没有保存，关闭日志 sink 之后若进程还有残留
+  /// 输出，`sink.write` 会抛 `StreamSink is closed`，而这个订阅没人接 ——
+  /// 表现为偶发的未捕获异步异常。现在随 sink 一起取消。
+  StreamSubscription<String>? _stdoutSub;
+  StreamSubscription<String>? _stderrSub;
 
   /// 启动尝试上限 3 次。
   ///
@@ -202,14 +250,26 @@ class DesktopSidecarManager implements SidecarManager {
     _process = null;
     if (process != null) {
       await _kill(process);
+      // 0.5.9：等进程真的消失再返回。安全模式紧接着就要改引擎的
+      // data.db，进程还在退出的话会与它争写同一份 SQLite。
+      await waitProcessGone(process.pid);
     } else {
       final pidFile = await SidecarPaths.pid();
       if (await pidFile.exists()) {
         final pid = int.tryParse((await pidFile.readAsString()).trim());
         if (pid != null) {
-          try {
-            Process.killPid(pid);
-          } catch (_) {}
+          // 0.5.9：不能凭 pid 文件就盲杀。pid 文件可能是上次崩溃留下的
+          // 残留，而 PID 会被系统回收给别的进程 —— Windows 上尤其常见。
+          // 盲杀会终止用户毫不相关的程序。这里先确认这个 pid 确实是
+          // 引擎进程再动手；确认不了就不杀（下次启动会接管这个实例，
+          // 比误杀别的进程安全得多）。
+          final name = await SidecarManager.processNameOf(pid);
+          if (name != null && name.toLowerCase().contains('openlist')) {
+            try {
+              Process.killPid(pid);
+            } catch (_) {}
+            await waitProcessGone(pid);
+          }
         }
       }
     }
@@ -251,7 +311,13 @@ class DesktopSidecarManager implements SidecarManager {
   /// 该口令登录引擎，全程没有口令输入或校验环节。这里顺手把钥匙串写成
   /// 同一个值，保证「设置 → 通用 → 内核密码」显示的就是真实生效的口令。
   Future<String> _ensurePassword() async {
-    await _secure.write(kSidecarAdminKey, kDefaultAdminPassword);
+    // 0.5.9：写不进去时记一条日志。引擎本身是用环境变量拿口令启动的，
+    // 所以本次启动不受影响；受影响的是「下次重新登录」—— 钥匙串里
+    // 没有凭据就登不进去。
+    final ok = await _secure.write(kSidecarAdminKey, kDefaultAdminPassword);
+    if (!ok) {
+      stderr.writeln('sidecar: 引擎口令未能写入系统钥匙串，下次重新登录会失败');
+    }
     return kDefaultAdminPassword;
   }
 
@@ -341,8 +407,9 @@ class DesktopSidecarManager implements SidecarManager {
     final sink = logFile.openWrite(mode: FileMode.append);
     _logSink = sink;
     sink.writeln('\n=== ${DateTime.now().toIso8601String()} 启动引擎 pid=${process.pid} ===');
-    process.stdout.transform(utf8.decoder).listen(sink.write);
-    process.stderr.transform(utf8.decoder).listen(sink.write);
+    // 订阅必须保存：否则关闭 sink 之后进程的残留输出会写进已关闭的 sink。
+    _stdoutSub = process.stdout.transform(utf8.decoder).listen(sink.write);
+    _stderrSub = process.stderr.transform(utf8.decoder).listen(sink.write);
     return process;
   }
 
@@ -390,6 +457,17 @@ class DesktopSidecarManager implements SidecarManager {
   }
 
   Future<void> _closeLog() async {
+    // 先断开订阅，再关 sink —— 顺序反了会出现「写向已关闭 sink」的异常。
+    final outs = _stdoutSub;
+    final errs = _stderrSub;
+    _stdoutSub = null;
+    _stderrSub = null;
+    for (final sub in [outs, errs]) {
+      if (sub == null) continue;
+      try {
+        await sub.cancel();
+      } catch (_) {}
+    }
     final sink = _logSink;
     _logSink = null;
     if (sink == null) return;

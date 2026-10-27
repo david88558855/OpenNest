@@ -113,6 +113,13 @@ class StorageHealthNotifier extends StateNotifier<Map<int, StorageHealth>> {
   Timer? _probeTimer;
   Timer? _debounce;
   bool _probing = false;
+
+  /// 探测进行中时又来了一次请求 —— 当前轮结束后补跑。
+  ///
+  /// 0.5.9：以前探测期间触发的刷新被直接丢弃。多源 × 12 秒超时意味着
+  /// 一轮探测可能持续几十秒，这段时间里「传输失败后立刻标红」的请求
+  /// 正好会丢，界面要干等下一个 90 秒周期。
+  bool _probePending = false;
   final Set<int> _inflight = {};
   DateTime? _lastProbe;
 
@@ -168,7 +175,11 @@ class StorageHealthNotifier extends StateNotifier<Map<int, StorageHealth>> {
 
   /// 逐个源探测（每批 [probeConcurrency] 个并发，批次之间串行）。
   Future<void> probeAll() async {
-    if (_probing) return;
+    if (_probing) {
+      // 记一笔，等当前轮跑完再补一轮，别把这次刷新吞掉。
+      _probePending = true;
+      return;
+    }
     final api = _api();
     if (api == null) return;
     _probing = true;
@@ -196,6 +207,10 @@ class StorageHealthNotifier extends StateNotifier<Map<int, StorageHealth>> {
       _lastProbe = DateTime.now();
     } finally {
       _probing = false;
+      if (_probePending) {
+        _probePending = false;
+        unawaited(probeAll());
+      }
     }
   }
 

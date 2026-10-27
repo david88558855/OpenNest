@@ -49,6 +49,7 @@ class SessionState {
     bool? signedIn,
     bool? offline,
     String? error,
+    bool clearError = false,
     int? latencyMs,
     int? port,
   }) {
@@ -60,7 +61,10 @@ class SessionState {
       connecting: connecting ?? this.connecting,
       signedIn: signedIn ?? this.signedIn,
       offline: offline ?? this.offline,
-      error: error,
+      // 0.5.9：以前这里写的是 `error: error`，任何一次 copyWith 都会把
+      // 上一次的错误提示清成 null（语义陷阱）。现在与项目里其它状态类
+      // 统一：默认保留旧错误，要清必须显式 clearError。
+      error: clearError ? null : (error ?? this.error),
       latencyMs: latencyMs ?? this.latencyMs,
       port: port ?? this.port,
     );
@@ -187,7 +191,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
     if (api == null) return;
     try {
       final user = await api.me();
-      state = state.copyWith(user: user, signedIn: true, offline: false);
+      state = state.copyWith(user: user, signedIn: true, offline: false, clearError: true);
     } on ApiException catch (_) {
       // 保留当前会话，健康探测失败不改变登录语义。
     }

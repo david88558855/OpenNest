@@ -122,13 +122,21 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     }
     for (final item in info.formFields) {
       if (!item.required) continue;
-      final value = item.isBool
-          ? '${_bools[item.name] ?? false}'
-          : item.isSelect
-              ? (_selects[item.name] ?? '')
-              : (_ctrls[item.name]?.text ?? '');
+      final label = fieldLabelFor(info.name, item.name);
+      if (item.isBool) {
+        // 布尔必填项必须勾选。原来把布尔值拼成字符串再判空，
+        // 结果永远不为空 —— 「必须同意」这类开关根本拦不住用户。
+        if (!(_bools[item.name] ?? false)) {
+          setState(() => _error = '「$label」为必填项');
+          return;
+        }
+        continue;
+      }
+      final value = item.isSelect
+          ? (_selects[item.name] ?? '')
+          : (_ctrls[item.name]?.text ?? '');
       if (value.trim().isEmpty) {
-        setState(() => _error = '「${fieldLabelFor(info.name, item.name)}」为必填项');
+        setState(() => _error = '「$label」为必填项');
         return;
       }
     }

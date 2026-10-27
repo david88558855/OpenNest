@@ -102,6 +102,16 @@ class FilesNotifier extends StateNotifier<FilesState> {
 
   static const perPage = 100;
 
+  /// 0.5.9：骨架屏定时器必须在这里取消。
+  /// 以前没有 dispose，ProviderScope 重建或退出应用后定时器仍会挂一次
+  /// （回调有 mounted 守卫，不会崩，但属于资源泄漏）。
+  @override
+  void dispose() {
+    _skeletonTimer?.cancel();
+    _skeletonTimer = null;
+    super.dispose();
+  }
+
   OpenListApi? get _api => ref.read(sessionProvider).api;
 
   /// Binds the controller to the active instance. Restores the per-server
@@ -197,7 +207,11 @@ class FilesNotifier extends StateNotifier<FilesState> {
         offline: false,
         clearError: true,
       );
-      await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
+      // 写浏览位置前再确认一次代次：用户快速连续导航时，早先那次请求的
+      // await 可能晚一步回来，把「上次位置」写成中间那个目录。
+      if (seq == _seq) {
+        await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
+      }
       await store.cacheListing(profile.id, normalized, items.map((e) => e.toJson()).toList());
       // 目录真的列出来了 → 这个源此刻可达，立刻把状态刷成正常，
       // 不必等 90 秒的深度探测周期。

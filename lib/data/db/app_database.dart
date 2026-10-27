@@ -24,13 +24,34 @@ class AppDatabase {
 
   static Database? _db;
 
-  static Future<Database> instance() async {
-    final cached = _db;
-    if (cached != null) return cached;
+  /// 正在进行的打开过程。
+  ///
+  /// 0.5.9：以前只缓存了最终的 [Database]，而打开过程本身有 `await` ——
+  /// 启动阶段 `Prefs.load()` 与 `TransferDao.loadAll()` 并发调用时，两者
+  /// 都会看到 `_db == null` 并各自去 open 一次。改为缓存 Future，
+  /// 并发调用共享同一次打开。
+  static Future<Database>? _opening;
 
+  static Future<Database> instance() {
+    final cached = _db;
+    if (cached != null) return Future.value(cached);
+    return _opening ??= _open().then(
+      (db) {
+        _db = db;
+        return db;
+      },
+      onError: (Object error, StackTrace stack) {
+        // 打开失败要允许下次重试，不能把失败的 Future 永久缓存住。
+        _opening = null;
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+  }
+
+  static Future<Database> _open() async {
     final path = (await SidecarPaths.appDb()).path;
     final factory = Platform.isAndroid ? sqflite.databaseFactory : _desktopFactory();
-    final database = await factory.openDatabase(
+    return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 4,
@@ -45,8 +66,6 @@ class AppDatabase {
         },
       ),
     );
-    _db = database;
-    return database;
   }
 
   static DatabaseFactory _desktopFactory() {
