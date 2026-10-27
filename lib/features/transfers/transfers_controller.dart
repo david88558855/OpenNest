@@ -14,6 +14,7 @@ import '../../core/storage/download_paths.dart';
 import '../../core/storage/prefs.dart';
 import '../../data/db/app_database.dart';
 import '../files/files_controller.dart';
+import '../sources/storage_health.dart';
 
 class TransfersState {
   final List<TransferTask> tasks;
@@ -570,6 +571,11 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       _tokens.remove(task.id);
       _persist();
       _emit();
+      // 传输结束（成功或失败）都会回写存储源状态：一是列表里的引擎状态
+      // 需要跟着刷新，二是一批任务失败往往就意味着那个源此刻已经失联 ——
+      // 不该等用户去设置页手动点「测试连接」。内部有 3 秒合并窗口，
+      // 批量传输不会每个任务都触发一轮探测。
+      ref.read(storageHealthProvider.notifier).scheduleRefresh();
       await _pump();
     }
   }

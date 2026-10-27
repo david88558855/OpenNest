@@ -11,11 +11,26 @@ part of '../settings_page.dart';
 /// - 工具栏补齐「导入配置 / 导出配置」
 /// - 表格第 4 列是「最近使用」（按源记录的最后打开时间）
 /// - 操作列是「测试 / 编辑 / 删除」三键
-class _SourcesSection extends ConsumerWidget {
+class _SourcesSection extends ConsumerStatefulWidget {
   const _SourcesSection();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SourcesSection> createState() => _SourcesSectionState();
+}
+
+class _SourcesSectionState extends ConsumerState<_SourcesSection> {
+  @override
+  void initState() {
+    super.initState();
+    // 进设置页先补一轮探测（结论够新则跳过），避免看到几分钟前的旧状态。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(storageHealthProvider.notifier).probeIfStale();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final p = context.ol;
     final sources = ref.watch(sourcesProvider);
 
@@ -330,7 +345,9 @@ class _SourceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     final tag = driverShortTag(source.driver);
-    final status = _SourceTableRowState._statusOf(source);
+    // 只订阅「本源」的健康结论：A 源变化不会重建 B 源的卡片。
+    final health = ref.watch(storageHealthProvider.select((all) => all[source.id]));
+    final status = _SourceTableRowState._statusOf(source, health);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(13, 12, 11, 12),
@@ -393,10 +410,7 @@ class _SourceCard extends ConsumerWidget {
             children: [
               OlDot(color: status.color, size: 7),
               const SizedBox(width: 6),
-              Text(
-                status.label,
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2),
-              ),
+              Flexible(child: _SourceTableRowState.statusText(context, status)),
               const SizedBox(width: 9),
               Text('·', style: TextStyle(fontSize: 11, color: p.ink4)),
               const SizedBox(width: 9),
@@ -435,7 +449,8 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
     final p = context.ol;
     final source = widget.source;
     final tag = driverShortTag(source.driver);
-    final status = _statusOf(source);
+    final health = ref.watch(storageHealthProvider.select((all) => all[source.id]));
+    final status = _statusOf(source, health);
 
     return MouseRegion(
       // 设计稿 D8 `.trow:hover`：底色变 #FBFDFF。
@@ -499,12 +514,7 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
                 OlDot(color: status.color, size: 7),
                 const SizedBox(width: 6),
                 Flexible(
-                  child: Text(
-                    status.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: p.ink2),
-                  ),
+                  child: statusText(context, status),
                 ),
               ],
             ),
@@ -540,13 +550,37 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
     );
   }
 
-  /// 状态映射：绿=已连接、黄=令牌将过期 / 待加载、红=离线或已停用。
-  static _SourceStatus _statusOf(StorageSource source) {
+  /// 状态映射：绿=已连接、黄=检测中 / 令牌将过期、红=失联或已停用。
+  ///
+  /// **优先用主动探测的结论**（[health]）。引擎自己的 `status` 字段只在它
+  /// 真的访问过该驱动时才更新，初始化成功后一直是 `work` —— 远端换网络、
+  /// 关机、令牌过期时它仍然显示正常，这正是「已失联却显示正常」的根因。
+  static _SourceStatus _statusOf(StorageSource source, StorageHealth? health) {
     if (source.disabled) {
       return const _SourceStatus('已停用', Color(0xFFD92D4B));
     }
+    if (health != null) {
+      if (health.online) {
+        return _SourceStatus(
+          '已连接',
+          const Color(0xFF0E9F6E),
+          detail: '最近检测：${_ago(health.checkedAt)}'
+              '${health.latencyMs > 0 ? ' · 响应 ${health.latencyMs}ms' : ''}',
+        );
+      }
+      if (health.probing) {
+        return const _SourceStatus('检测中', Color(0xFFF9C25B), detail: '正在访问该存储源…');
+      }
+      final message = health.message;
+      return _SourceStatus(
+        '失联',
+        const Color(0xFFD92D4B),
+        detail: '${_ago(health.checkedAt)}检测失败${message == null || message.isEmpty ? '' : '：$message'}',
+      );
+    }
+    // 还没有任何探测结论（引擎刚起来、列表刚拉到）：退回引擎状态兜底。
     if (source.isHealthy) {
-      return const _SourceStatus('已连接', Color(0xFF0E9F6E));
+      return const _SourceStatus('已连接', Color(0xFF0E9F6E), detail: '等待首次自动检测');
     }
     final raw = source.status.toLowerCase();
     // 引擎报的令牌类错误映射成「令牌将过期」（设计稿的黄色预警态）。
@@ -556,7 +590,30 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
     if (raw.isEmpty) {
       return const _SourceStatus('待加载', Color(0xFFF9C25B));
     }
-    return const _SourceStatus('离线（只读缓存）', Color(0xFFD92D4B));
+    return _SourceStatus('失联', const Color(0xFFD92D4B), detail: source.status);
+  }
+
+  /// 相对时间（用于「最近检测」）。
+  static String _ago(DateTime at) {
+    final diff = DateTime.now().difference(at);
+    if (diff.inSeconds < 15) return '刚刚';
+    if (diff.inMinutes < 1) return '${diff.inSeconds} 秒前';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
+    if (diff.inHours < 24) return '${diff.inHours} 小时前';
+    return '${diff.inDays} 天前';
+  }
+
+  /// 状态文案。有细节时挂 Tooltip —— 失联必须能看到「为什么」。
+  static Widget statusText(BuildContext context, _SourceStatus status, {double fontSize = 11}) {
+    final text = Text(
+      status.label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: context.ol.ink2),
+    );
+    final detail = status.detail;
+    if (detail == null || detail.isEmpty) return text;
+    return Tooltip(message: detail, child: text);
   }
 
   /// 「最近使用」的相对时间文案。
@@ -700,7 +757,11 @@ List<Widget> _sourceActionButtons(BuildContext context, WidgetRef ref, StorageSo
 class _SourceStatus {
   final String label;
   final Color color;
-  const _SourceStatus(this.label, this.color);
+
+  /// 详细原因 / 检测信息（悬停或长按可见）。
+  final String? detail;
+
+  const _SourceStatus(this.label, this.color, {this.detail});
 }
 
 /// 编辑对话框的返回值。

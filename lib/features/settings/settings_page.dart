@@ -22,6 +22,7 @@ import '../../core/widgets/ol_controls.dart';
 import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../sources/sources_controller.dart';
+import '../sources/storage_health.dart';
 import 'download_dir.dart';
 import 'settings_sidebar.dart';
 

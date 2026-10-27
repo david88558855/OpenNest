@@ -1,7 +1,7 @@
 name: opennest
 description: OpenNest —— 免账户直连存储客户端（内嵌 OpenList 引擎）。
 publish_to: none
-version: 0.5.1+7
+version: 0.5.2+8
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

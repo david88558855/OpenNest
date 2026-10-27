@@ -137,10 +137,10 @@ class OpenListApi {
     }
   }
 
-  Future<dynamic> _post(String path, [Map<String, dynamic>? body]) async {
+  Future<dynamic> _post(String path, [Map<String, dynamic>? body, CancelToken? cancelToken]) async {
     for (var attempt = 0; ; attempt++) {
       try {
-        final res = await _dio.post(path, data: body ?? const {}, options: _opts());
+        final res = await _dio.post(path, data: body ?? const {}, options: _opts(), cancelToken: cancelToken);
         return _handle(res);
       } on DioException catch (e) {
         throw ApiException.fromDio(e);
@@ -221,16 +221,21 @@ class OpenListApi {
     bool refresh = false,
     String orderBy = 'name',
     String orderDirection = 'asc',
+    CancelToken? cancelToken,
   }) async {
-    final data = await _post('/api/fs/list', {
-      'path': path,
-      'password': password,
-      'page': page,
-      'per_page': perPage,
-      'refresh': refresh,
-      'order_by': orderBy,
-      'order_direction': orderDirection,
-    });
+    final data = await _post(
+      '/api/fs/list',
+      {
+        'path': path,
+        'password': password,
+        'page': page,
+        'per_page': perPage,
+        'refresh': refresh,
+        'order_by': orderBy,
+        'order_direction': orderDirection,
+      },
+      cancelToken,
+    );
     if (data is! Map) return const FsListPage(items: [], total: 0);
     final rawContent = data['content'];
     final items = <FileItem>[];

@@ -10,6 +10,7 @@ import '../../core/models/api_types.dart';
 import '../../core/models/storage_source.dart';
 import '../../data/db/app_database.dart';
 import '../sources/sources_controller.dart';
+import '../sources/storage_health.dart';
 
 class FilesState {
   final String path;
@@ -198,6 +199,9 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
       await store.saveBrowse(profile.id, normalized, state.orderBy, state.desc);
       await store.cacheListing(profile.id, normalized, items.map((e) => e.toJson()).toList());
+      // 目录真的列出来了 → 这个源此刻可达，立刻把状态刷成正常，
+      // 不必等 90 秒的深度探测周期。
+      ref.read(storageHealthProvider.notifier).observeReachable(normalized);
       // 0.5.0：记录本次访问的存储源，设置页「最近使用」列要用。
       // 路径形如 `/本地存储6/子目录`，取第一段作为源标识。
       // 挂载路径由用户命名，没有固定前缀，只能对照已知源列表判断。
@@ -211,6 +215,9 @@ class FilesNotifier extends StateNotifier<FilesState> {
       if (e.needsReauth) {
         await ref.read(sessionProvider.notifier).expire();
       }
+      // 这个目录打不开 → 若是网络/授权/服务端类错误，该源此刻不可达，
+      // 立刻反映到存储列表里（404 之类属于路径问题，不标源失联）。
+      ref.read(storageHealthProvider.notifier).observeUnreachable(normalized, e);
       final store = ref.read(serverStoreProvider);
       final cached = store.readCachedListing(profile.id, normalized);
       final rawItems = cached['items'];
