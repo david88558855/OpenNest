@@ -294,6 +294,7 @@ class _QueueHead extends ConsumerWidget {
     final settings = ref.watch(appSettingsProvider);
     final active = state.tasks.where((e) => e.status != TransferStatus.done && e.status != TransferStatus.failed).length;
     final done = state.done.length;
+    final failed = state.failed.length;
 
     return Container(
       // 设计稿 D5 `.head`：padding 20/24/0。
@@ -374,6 +375,16 @@ class _QueueHead extends ConsumerWidget {
                   selected: filter == _Filter.done,
                   onTap: () => onFilter(_Filter.done),
                 ),
+                // 0.5.2：桌面端此前漏了「失败」入口，失败任务只能靠空态里的
+                // 引导按钮跳过去，等于查不到。按顺序放在「已完成」右边。
+                const SizedBox(width: 6),
+                _TabButton(
+                  label: '失败',
+                  count: failed,
+                  danger: failed > 0,
+                  selected: filter == _Filter.failed,
+                  onTap: () => onFilter(_Filter.failed),
+                ),
               ],
             ),
           ),
@@ -400,11 +411,15 @@ class _TabButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// 红色计数徽标：失败数用它，扫一眼就知道有东西要处理。
+  final bool danger;
+
   const _TabButton({
     required this.label,
     required this.count,
     required this.selected,
     required this.onTap,
+    this.danger = false,
   });
 
   @override
@@ -440,15 +455,15 @@ class _TabButton extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF8FE),
+                    color: danger ? const Color(0xFFFDE8EC) : const Color(0xFFEAF8FE),
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
                     '$count',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF08799F),
+                      color: danger ? const Color(0xFFD92D4B) : const Color(0xFF08799F),
                     ),
                   ),
                 ),

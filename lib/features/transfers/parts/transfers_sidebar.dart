@@ -1,6 +1,6 @@
 part of '../transfers_page.dart';
 
-// 左侧栏：返回入口 + 下载目录 / 设置
+// 左侧栏：返回入口 + 下载目录
 // ---------------------------------------------------------------------------
 // 左侧栏
 // ---------------------------------------------------------------------------
@@ -28,18 +28,14 @@ class _QueueSidebar extends ConsumerWidget {
           // （padding 9/10、圆角 9、chev-l 15px + 文字 12.5/600）。
           _SideBackRow(onTap: () => goBackOrFiles(context)),
           // 0.5.0：移除侧栏的存储源列表 —— 存储源切换属于文件页的职责，
-          // 传输页只关心队列本身。两个 mini 按钮随之从底部上移到返回行下方。
+          // 传输页只关心队列本身。
+          // 0.5.2：同时去掉「设置」入口 —— 传输页不需要它（左侧导航栏/设置页
+          // 本身都能进设置，这里再放一个是重复入口，还占掉了队列的纵向空间）。
           const SizedBox(height: 10),
           _MiniButton(
             icon: 'download',
             label: '下载目录',
             onTap: () => showDownloadDirDialog(context, ref),
-          ),
-          const SizedBox(height: 8),
-          _MiniButton(
-            icon: 'settings',
-            label: '设置',
-            onTap: () => context.go('/settings'),
           ),
           // 剩余空间留白，按钮不再贴着窗口底边。
           const Spacer(),
