@@ -102,14 +102,12 @@ class SidecarNotifier extends StateNotifier<SidecarState> {
 
   /// 读取当前内核实例配置的管理员口令（明文）。
   ///
-  /// 0.5.4：口令已固定为 [kDefaultAdminPassword]（`admin`），首次启动就写入
-  /// 系统钥匙串；老安装的随机口令会在启动流程里自动迁移成默认值。
-  /// 因此这里读到的就是「当前实例实际使用的口令」—— 用户偶尔需要它去手工
-  /// 调用引擎管理接口。
+  /// 0.5.4：口令已固定为 [kDefaultAdminPassword]（`admin`），启动时直接用它
+  /// 登录引擎，**没有任何口令输入、校验或迁移环节**。这里读到的就是
+  /// 「当前实例实际使用的口令」—— 用户偶尔需要它去手工调用引擎管理接口。
   ///
-  /// 返回 null 表示钥匙串里没有这一条目（例如换了机器或清过钥匙串）。
-  /// 注意：**不要**为了「显示」而调用 `_ensurePassword()`——那会在口令
-  /// 丢失时补写默认值，与引擎实际使用的那个可能对不上。
+  /// 返回 null 表示钥匙串里没有这一条目（例如换了机器或清过钥匙串；
+  /// 下次启动会补写为默认口令）。
   Future<String?> readAdminPassword() async {
     final value = await _secure.read(kSidecarAdminKey);
     if (value == null || value.isEmpty) return null;
