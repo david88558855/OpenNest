@@ -124,15 +124,17 @@ class _SideLabel extends StatelessWidget {
   }
 }
 
-class _SourceRow extends StatelessWidget {
+class _SourceRow extends ConsumerWidget {
   final StorageSource source;
   final bool active;
 
   const _SourceRow({required this.source, required this.active});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
+    // 只订阅「本源」的状态：别的源变化不会重建这一行。
+    final health = ref.watch(storageHealthProvider.select((all) => all[source.id]));
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Material(
@@ -179,27 +181,87 @@ class _SourceRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: source.disabled ? p.chipBg : const Color(0xFFEAF8FE),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    driverShortTag(source.driver),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: source.disabled ? p.ink4 : const Color(0xFF08799F),
-                    ),
-                  ),
-                ),
+                // 连接状态（正常 / 断开 / 停用），替换原来的驱动短标签。
+                _SourceStatusTag(source: source, health: health),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+/// 存储源的实时连接状态：正常（绿）/ 断开（红）/ 停用（灰）。
+///
+/// 数据来自 [storageHealthProvider]：25 秒轮询 + 90 秒逐源真探测 + 列目录
+/// 成功/失败的即时回写，所以这里反映的是「此刻连不连得上」，不是驱动名。
+///
+/// 布局稳定：固定 [width] 宽、右对齐，三种文案都在同一格里换字，
+/// 不会让行内其它元素跳动；也没加任何动画，切换是瞬时换字换色。
+class _SourceStatusTag extends StatelessWidget {
+  final StorageSource source;
+  final StorageHealth? health;
+
+  const _SourceStatusTag({required this.source, required this.health});
+
+  static const double width = 26;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.ol;
+    final String label;
+    final Color color;
+    final String detail;
+    if (source.disabled) {
+      label = '停用';
+      color = p.ink4;
+      detail = '该存储源已在设置里停用';
+    } else if (health == null) {
+      // 还没探测到结论（引擎刚起来的一两秒）：占位符，宽度不变，不会闪。
+      label = '—';
+      color = p.ink4;
+      detail = '正在检测连接状态…';
+    } else if (health!.online) {
+      label = '正常';
+      color = OlTokens.ok;
+      detail = '已连接'
+          '${health!.latencyMs > 0 ? ' · 响应 ${health!.latencyMs}ms' : ''}'
+          ' · ${_ago(health!.checkedAt)}检测';
+    } else {
+      label = '断开';
+      color = OlTokens.dangerDeep;
+      final reason = health!.message;
+      detail = '无法连接该存储源'
+          '${reason == null || reason.isEmpty ? '' : '：$reason'}';
+    }
+    return Tooltip(
+      message: detail,
+      waitDuration: const Duration(milliseconds: 500),
+      child: SizedBox(
+        width: width,
+        child: Text(
+          label,
+          textAlign: TextAlign.right,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: TextStyle(
+            fontSize: 9.5,
+            height: 1.1,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _ago(DateTime at) {
+    final diff = DateTime.now().difference(at);
+    if (diff.inSeconds < 15) return '刚刚';
+    if (diff.inMinutes < 1) return '${diff.inSeconds} 秒前';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
+    return '${diff.inHours} 小时前';
   }
 }
 

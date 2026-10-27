@@ -21,6 +21,7 @@ import '../../core/widgets/ol_icon.dart';
 import 'file_actions.dart';
 import 'files_controller.dart';
 import '../sources/sources_controller.dart';
+import '../sources/storage_health.dart';
 
 part 'parts/files_sidebar.dart';
 part 'parts/files_desktop_chrome.dart';
