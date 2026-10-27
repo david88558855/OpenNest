@@ -11,12 +11,14 @@
   assets/windows/app_icon.ico                     Runner.exe 图标 16/24/32/48/64/128/256
   assets/tray/tray_<state>.png                    托盘四态 64px
   assets/tray/tray_<state>.ico                    托盘四态 ICO 16/20/24/32/48
+  assets/brand/icon.png                           界面品牌标记母版 1024（兜底）
+  assets/brand/icon-<px>.png                      界面品牌标记预渲染档位 48/72/96/144/192
   android/app/src/main/res/mipmap-<dpi>/ic_launcher{,_round}.png   启动图标
 
-注意：**界面内的品牌标记**不走本脚本，而是直接渲染
-`assets/brand/icon.png`（母版的一份拷贝，由 pubspec 的 assets 声明打包）。
-换品牌时除了跑本脚本，还要把新的母版覆盖到 `assets/brand/icon.png` ——
-否则顶栏 / 启动页 / 欢迎页会继续显示旧 Logo（0.5.1 修的就是这个）。
+注意：**界面内的品牌标记**（顶栏 / 启动页 / 欢迎页）由 `OlMark` 渲染
+`assets/brand/icon-<px>.png`，按「逻辑尺寸 × DPR」挑最接近的一档 ——
+用 1024 母版直接解码到 40~50px 会一步缩二十多倍，白狐边缘会出锯齿
+（0.5.5 修的就是这个）。换品牌跑一遍本脚本即可，母版与档位一起刷新。
 
 Windows 通知区域只认 ICO/BMP（Shell_NotifyIcon + LoadImage 不支持 PNG），
 ICO 条目沿用 32 位 BMP(DIB) 而非 PNG 压缩，确保 rc.exe 与资源管理器都认。
@@ -152,6 +154,18 @@ def main():
         for fname in ("ic_launcher.png", "ic_launcher_round.png"):
             icon.save(out_dir / fname, "PNG", optimize=True)
         print(f"mipmap-{dpi}/ic_launcher{{,_round}}.png  {px}×{px}")
+
+    # 界面内的品牌标记（顶栏 / 启动页 / 欢迎页）也按档位预渲染。
+    # 直接用 1024 母版解码到 46px 会一步缩 22 倍，白狐边缘出锯齿；
+    # 预渲染后 OlMark 按「逻辑尺寸 × DPR」挑最接近的一档。
+    brand_dir = ROOT / "assets" / "brand"
+    brand_dir.mkdir(parents=True, exist_ok=True)
+    master.save(brand_dir / "icon.png", "PNG", optimize=True)
+    print("assets/brand/icon.png  1024×1024（母版）")
+    for px in (48, 72, 96, 144, 192):
+        master.resize((px, px), Image.LANCZOS).save(
+            brand_dir / f"icon-{px}.png", "PNG", optimize=True)
+        print(f"assets/brand/icon-{px}.png  {px}×{px}")
 
     # 前景：白狐剪影铺在 108dp 画布上（母版留白 25%，正好落在 66dp 安全区内）
     mask = Image.open(BRAND / "fox-mask.png").convert("L")

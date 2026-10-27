@@ -136,23 +136,43 @@ class OlIcon extends StatelessWidget {
 /// 0.5.1：此前这里是「渐变方块 + layers 线条图标」的临时标记。0.5.0 换
 /// 品牌图标时只换了 `assets/windows/app_icon.ico`、托盘四态与安卓 mipmap，
 /// 界面里的标记仍画旧图形 —— 顶栏、启动页、欢迎页因此都还留着旧 Logo。
-/// 现在统一渲染品牌母版（`assets/brand/icon.png`，与
-/// `tool/gen_app_icons.py` 使用的 `tool/brand/icon-1024.png` 同源），
-/// 以后改品牌只需替换这一个文件。
+/// 现在统一渲染品牌图标的预渲染档位。
+///
+/// 0.5.5：此前把 1024² 母版**直接解码到目标尺寸**（`cacheWidth: 46` 之类），
+/// 一步双线性缩 22 倍，白狐的曲线边就出现了锯齿（桌面图标不糊是因为 ICO
+/// 里每个尺寸都是单独预渲染的）。现在按「逻辑尺寸 × DPR」挑最接近的
+/// 预渲染档位（48/72/96/144/192，均由 `tool/gen_app_icons.py` 从同一母版
+/// 生成），绘制时只做轻微缩放，边缘自然就干净了。
 class OlMark extends StatelessWidget {
   final double size;
   final double radius;
 
   const OlMark({super.key, this.size = 30, this.radius = 9});
 
-  static const String asset = 'assets/brand/icon.png';
+  /// 母版（超大物理尺寸时兜底）。
+  static const String masterAsset = 'assets/brand/icon.png';
+
+  /// 预渲染档位：像素边长 → 资源路径，按从小到大排列。
+  static const List<(int, String)> _presets = [
+    (48, 'assets/brand/icon-48.png'),
+    (72, 'assets/brand/icon-72.png'),
+    (96, 'assets/brand/icon-96.png'),
+    (144, 'assets/brand/icon-144.png'),
+    (192, 'assets/brand/icon-192.png'),
+  ];
+
+  /// 选档：取「不小于目标物理像素」的最小档，避免放大导致发虚。
+  static String assetFor(double physicalSize) {
+    for (final (px, path) in _presets) {
+      if (px >= physicalSize) return path;
+    }
+    return masterAsset;
+  }
 
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.of(context).devicePixelRatio;
-    // 按物理像素解码：母版是 1024²，直接原尺寸解码会在每处标记上吃
-    // 4MB 内存；cacheWidth 让 Flutter 在解码阶段就缩到目标尺寸。
-    final decodeWidth = (size * dpr).round().clamp(32, 512).toInt();
+    final asset = assetFor(size * dpr);
     return Container(
       width: size,
       height: size,
@@ -170,8 +190,9 @@ class OlMark extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          cacheWidth: decodeWidth,
-          filterQuality: FilterQuality.medium,
+          // 档位已经贴住目标尺寸，剩下的零头用 bicubic 收尾（比默认的
+          // 双线性锐利，也不会像 nearest 那样出现台阶）。
+          filterQuality: FilterQuality.high,
           isAntiAlias: true,
         ),
       ),
