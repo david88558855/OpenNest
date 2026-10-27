@@ -63,7 +63,7 @@ abstract class SidecarManager {
   static Future<void> waitProcessGone(int pid, {Duration timeout = const Duration(seconds: 3)}) async {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
-      final name = await processNameOf(pid);
+      final name = await SidecarManager.processNameOf(pid);
       if (name == null) return;
       await Future<void>.delayed(const Duration(milliseconds: 150));
     }
@@ -252,7 +252,7 @@ class DesktopSidecarManager implements SidecarManager {
       await _kill(process);
       // 0.5.9：等进程真的消失再返回。安全模式紧接着就要改引擎的
       // data.db，进程还在退出的话会与它争写同一份 SQLite。
-      await waitProcessGone(process.pid);
+      await SidecarManager.waitProcessGone(process.pid);
     } else {
       final pidFile = await SidecarPaths.pid();
       if (await pidFile.exists()) {
@@ -268,7 +268,7 @@ class DesktopSidecarManager implements SidecarManager {
             try {
               Process.killPid(pid);
             } catch (_) {}
-            await waitProcessGone(pid);
+            await SidecarManager.waitProcessGone(pid);
           }
         }
       }
