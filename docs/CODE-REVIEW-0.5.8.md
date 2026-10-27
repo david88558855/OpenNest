@@ -251,3 +251,22 @@ P0-4 是产品决策，不建议改代码，但建议在 README 的安全边界�
 2. **进程名校验依赖平台工具**（Windows `tasklist`、类 Unix `ps`）。工具缺失或被安全软件拦截时会判定为「无法确认」→ 不杀进程 → 引擎可能残留（下次启动会接管）。
 3. **多流分段不支持断点续传**（0.5.8 的既定取舍），本次未改。
 4. **P0-1 这类竞态没有自动化测试**覆盖，只能靠手工用例（暂停后立刻继续）复现验证。
+
+---
+
+## 附：静态检查清理（同一批提交）
+
+`flutter analyze` 之前还有 12 条 warning（不影响构建，但都是**失效代码**），本次一并清掉，现在 analyze 输出 **0 warning / 0 error**：
+
+| 位置 | 问题 | 处理 |
+|---|---|---|
+| `lib/features/files/parts/files_mobile.dart` | `_AppBarBtn.badge` 参数从未被赋值 → 整段 Stack 徽标绘制是死代码 | 删除参数与约 30 行死代码 |
+| `lib/features/settings/parts/settings_mobile.dart` | `_MobileTile.danger` 从未被赋值 → 危险色分支恒不生效 | 删除参数，固定配色 |
+| `lib/features/transfers/transfers_controller.dart` | `_prefs` 字段、`_persistKey` 常量只写不读 | 删除 |
+| `lib/features/transfers/transfers_controller.dart` | 未使用 import `../files/files_controller.dart`、`../../core/storage/prefs.dart` | 删除（`filesProvider` 实际来自 `app/providers.dart`） |
+| `lib/features/transfers/transfers_page.dart` | 未使用 import `package:go_router/go_router.dart` | 删除 |
+| `lib/features/files/files_page.dart` | 未使用 import `../../core/i18n/zh.dart` | 删除 |
+| `lib/features/settings/settings_sidebar.dart` | 未使用 import `../../app/providers.dart` | 删除 |
+| `lib/features/settings/parts/sections_sources.dart` | 两处 `switch` 的 `default` 分支被前面的 case 覆盖（不可达） | 删除 default，保留 `case DriverGroup.other` |
+| `lib/core/widgets/ol_controls.dart` | 未使用的局部变量 `p` | 删除 |
+| `lib/features/files/file_actions.dart` | 未使用的局部变量 `files` | 删除 |
