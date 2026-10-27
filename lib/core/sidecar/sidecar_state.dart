@@ -7,6 +7,19 @@ const String kSidecarAdminKey = 'on:sidecar:admin';
 /// 引擎访问令牌（登录成功后写入，冷启动优先复用）。
 const String kSidecarTokenKey = 'on:sidecar:token';
 
+/// 引擎管理员的固定口令。
+///
+/// 0.5.4：不再随机生成 32 位口令，统一固定成 `admin`（用户要求）。
+///
+/// 为什么可以接受：引擎只监听 `127.0.0.1`（见 `SidecarConfig.build` 的
+/// `scheme.address`），本机之外连不上。代价是**同机其它进程**可以拿到
+/// 管理员权限，这是固定口令的固有取舍。
+///
+/// 迁移策略（老安装库里存的是随机口令）：
+/// - 桌面：引擎未运行时用官方 CLI `openlist admin set admin` 离线改库；
+/// - 两端：引擎起来后还会用 `/api/me/update` 兜一次，改成功才落钥匙串。
+const String kDefaultAdminPassword = 'admin';
+
 /// 引擎单实例使用的固定端口（单实例唤醒通道，端口探测时必须避开）。
 const int kSidecarReservedPort = 47661;
 

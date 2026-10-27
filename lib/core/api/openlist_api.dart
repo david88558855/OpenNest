@@ -221,6 +221,14 @@ class OpenListApi {
     throw const ApiException(-11, '无法读取当前用户');
   }
 
+  /// 修改当前用户（本应用只用来把管理员口令统一成默认值）。
+  ///
+  /// 引擎的 `UpdateCurrent` 会用请求体里的 `username` 覆盖用户名，所以必须
+  /// 一起传 `admin` —— 只传 password 会把用户名清空。
+  Future<void> updateCurrentUser({required String username, required String password}) async {
+    await _post('/api/me/update', {'username': username, 'password': password});
+  }
+
   // -------------------------------------------------------------------- fs
 
   Future<FsListPage> list({

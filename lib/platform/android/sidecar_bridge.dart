@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/api/openlist_api.dart';
+import '../../core/sidecar/admin_password.dart';
 import '../../core/sidecar/sidecar_config.dart';
 import '../../core/sidecar/sidecar_manager.dart';
 import '../../core/sidecar/sidecar_paths.dart';
@@ -101,7 +102,15 @@ class AndroidSidecarManager implements SidecarManager {
         continue;
       }
       if (token != null) {
-        await _secure.write(kSidecarTokenKey, token);
+        // 把老安装的随机口令统一成默认值（安卓没法跑离线 CLI，只能走接口）。
+        final normalized = await ensureAdminPassword(
+          baseUrl: 'http://127.0.0.1:$port',
+          token: token,
+          password: password,
+          secure: _secure,
+        );
+        token = normalized.token;
+        await _secure.write(kSidecarTokenKey, normalized.token);
       }
       await (await SidecarPaths.port()).writeAsString('$port');
       _port = port;
@@ -156,12 +165,17 @@ class AndroidSidecarManager implements SidecarManager {
     );
   }
 
+  /// 读取 / 初始化管理员口令。
+  ///
+  /// 0.5.4：默认固定为 [kDefaultAdminPassword]（`admin`），不再随机生成。
+  /// 安卓端无法执行引擎二进制（只能作为 .so 由系统加载），用不了
+  /// `openlist admin set` 这条离线迁移通道，老口令统一走 HTTP 接口兜底，
+  /// 见 [ensureAdminPassword]。
   Future<String> _ensurePassword() async {
     final existing = await _secure.read(kSidecarAdminKey);
-    if (existing != null && existing.length >= 16) return existing;
-    final password = SidecarConfig.randomSecret(32);
-    await _secure.write(kSidecarAdminKey, password);
-    return password;
+    if (existing != null && existing.isNotEmpty) return existing;
+    await _secure.write(kSidecarAdminKey, kDefaultAdminPassword);
+    return kDefaultAdminPassword;
   }
 
   Future<SidecarLaunch?> _adopt(String password, String logPath) async {
@@ -202,6 +216,16 @@ class AndroidSidecarManager implements SidecarManager {
     } catch (_) {
       // 不是我们的引擎（或已不可用）：放弃接管，重新启一个。
       return null;
+    }
+    if (token != null && token.isNotEmpty) {
+      // 已有实例在跑：老安装的随机口令只能通过 HTTP 接口统一成默认值。
+      final normalized = await ensureAdminPassword(
+        baseUrl: 'http://127.0.0.1:$port',
+        token: token,
+        password: password,
+        secure: _secure,
+      );
+      token = normalized.token;
     }
     _port = port;
     return SidecarLaunch(

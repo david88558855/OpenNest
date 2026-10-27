@@ -6,6 +6,7 @@ import '../api/api_exception.dart';
 import '../api/openlist_api.dart';
 import '../models/api_types.dart';
 import '../storage/secure_store.dart';
+import 'admin_password.dart';
 import 'sidecar_config.dart';
 import 'sidecar_paths.dart';
 import 'sidecar_state.dart';
@@ -103,7 +104,7 @@ class DesktopSidecarManager implements SidecarManager {
     _logPath = logFile.path;
 
     onStep?.call('读取引擎凭据');
-    final password = await _ensurePassword();
+    var password = await _ensurePassword();
 
     // 已在运行的实例直接复用，避免双进程写坏同一个数据库。
     onStep?.call('检查运行实例');
@@ -113,6 +114,10 @@ class DesktopSidecarManager implements SidecarManager {
     onStep?.call('生成引擎配置');
     final configFile = await SidecarPaths.config();
     final jwt = await _ensureJwt(configFile);
+    // 0.5.4：老安装钥匙串里是 32 位随机口令。引擎此刻没在跑，正是用官方
+    // CLI 离线改库的时机（`openlist admin set` 只改 x_users 的口令哈希，
+    // 不需要登录）。失败就保留原口令，绝不写坏钥匙串。
+    password = await _normalizePasswordOffline(binary, root, configFile, password);
 
     int? previous;
     for (var attempt = 1; attempt <= _kMaxAttempts; attempt++) {
@@ -171,7 +176,16 @@ class DesktopSidecarManager implements SidecarManager {
       }
 
       if (token != null) {
-        await _secure.write(kSidecarTokenKey, token);
+        // 口令统一成默认值（桌面端通常已在上面的离线 CLI 里改完，这里兜底：
+        // 例如 CLI 不可用、或钥匙串被清过）。
+        final normalized = await ensureAdminPassword(
+          baseUrl: 'http://127.0.0.1:$port',
+          token: token,
+          password: password,
+          secure: _secure,
+        );
+        token = normalized.token;
+        await _secure.write(kSidecarTokenKey, normalized.token);
       }
       await (await SidecarPaths.port()).writeAsString('$port');
       await (await SidecarPaths.pid()).writeAsString('${process.pid}');
@@ -245,12 +259,47 @@ class DesktopSidecarManager implements SidecarManager {
 
   // ---------------------------------------------------------------- 内部实现
 
+  /// 读取 / 初始化管理员口令。
+  ///
+  /// 0.5.4：默认固定为 [kDefaultAdminPassword]（`admin`），不再随机生成。
+  /// 老安装钥匙串里还是随机口令时原样返回，由 `_normalizePasswordOffline`
+  /// （离线 CLI）或 `ensureAdminPassword`（HTTP 兜底）做一次性迁移。
   Future<String> _ensurePassword() async {
     final existing = await _secure.read(kSidecarAdminKey);
-    if (existing != null && existing.length >= 16) return existing;
-    final password = SidecarConfig.randomSecret(32);
-    await _secure.write(kSidecarAdminKey, password);
-    return password;
+    if (existing != null && existing.isNotEmpty) return existing;
+    await _secure.write(kSidecarAdminKey, kDefaultAdminPassword);
+    return kDefaultAdminPassword;
+  }
+
+  /// 引擎未运行时，用官方 CLI 把管理员口令离线改成默认值。
+  ///
+  /// `openlist admin set <pwd>` 直接改引擎库里的口令哈希，不需要登录、也不
+  /// 依赖 HTTP 接口 —— 这是「引擎还没启动」阶段唯一能改口令的通道。
+  ///
+  /// 判定成功不能只看退出码：该子命令内部失败时只写日志、退出码仍为 0，
+  /// 所以以 stdout 里是否出现 `username: admin` 为准。
+  Future<String> _normalizePasswordOffline(
+    String binary,
+    Directory root,
+    File config,
+    String current,
+  ) async {
+    if (current == kDefaultAdminPassword) return current;
+    try {
+      final result = await Process.run(
+        binary,
+        ['--data', root.path, '--config', config.path, 'admin', 'set', kDefaultAdminPassword],
+        workingDirectory: root.path,
+      ).timeout(const Duration(seconds: 20));
+      final output = '${result.stdout}\n${result.stderr}';
+      if (output.contains('username: admin')) {
+        await _secure.write(kSidecarAdminKey, kDefaultAdminPassword);
+        return kDefaultAdminPassword;
+      }
+    } catch (_) {
+      // CLI 不可用（旧版本 / 被杀软拦）就走后面的 HTTP 兜底。
+    }
+    return current;
   }
 
   Future<String> _ensureJwt(File configFile) async {
@@ -310,6 +359,17 @@ class DesktopSidecarManager implements SidecarManager {
     try {
       site = await api.publicSettings().timeout(const Duration(seconds: 3));
     } on ApiException catch (_) {} on TimeoutException catch (_) {}
+
+    if (token != null && token.isNotEmpty) {
+      // 引擎已经在跑，没法用离线 CLI 改库：走 HTTP 接口把老随机口令统一成默认值。
+      final normalized = await ensureAdminPassword(
+        baseUrl: 'http://127.0.0.1:$port',
+        token: token,
+        password: password,
+        secure: _secure,
+      );
+      token = normalized.token;
+    }
 
     _port = port;
     return SidecarLaunch(
