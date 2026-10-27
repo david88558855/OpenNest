@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../theme/tokens.dart';
-
 /// All icons are stroke-only vector glyphs drawn on a 24×24 grid to match the
 /// app's line style. No raster assets, no icon fonts.
 class _Glyph {
@@ -133,28 +131,49 @@ class OlIcon extends StatelessWidget {
   }
 }
 
-/// The gradient app mark — gradient square with the layers glyph.
+/// 品牌标记：直接渲染 app 图标本体（紫蓝渐变圆角 + 白狐剪影）。
+///
+/// 0.5.1：此前这里是「渐变方块 + layers 线条图标」的临时标记。0.5.0 换
+/// 品牌图标时只换了 `assets/windows/app_icon.ico`、托盘四态与安卓 mipmap，
+/// 界面里的标记仍画旧图形 —— 顶栏、启动页、欢迎页因此都还留着旧 Logo。
+/// 现在统一渲染品牌母版（`assets/brand/icon.png`，与
+/// `tool/gen_app_icons.py` 使用的 `tool/brand/icon-1024.png` 同源），
+/// 以后改品牌只需替换这一个文件。
 class OlMark extends StatelessWidget {
   final double size;
   final double radius;
-  final double iconSize;
 
-  const OlMark({super.key, this.size = 30, this.radius = 9, this.iconSize = 15});
+  const OlMark({super.key, this.size = 30, this.radius = 9});
+
+  static const String asset = 'assets/brand/icon.png';
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    // 按物理像素解码：母版是 1024²，直接原尺寸解码会在每处标记上吃
+    // 4MB 内存；cacheWidth 让 Flutter 在解码阶段就缩到目标尺寸。
+    final decodeWidth = (size * dpr).round().clamp(32, 512).toInt();
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: OlTokens.gradientBrand,
         borderRadius: BorderRadius.circular(radius),
+        // 母版自带圆角，阴影仍放在外层容器上，保持与旧标记一致的光感。
         boxShadow: const [
-          BoxShadow(color: Color(0x6638BDF8), blurRadius: 18, offset: Offset(0, 8)),
+          BoxShadow(color: Color(0x333936C1), blurRadius: 18, offset: Offset(0, 8)),
         ],
       ),
-      child: Center(
-        child: OlIcon('layers', size: iconSize, color: const Color(0xFFFFFFFF), strokeWidth: 2.1),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.asset(
+          asset,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          cacheWidth: decodeWidth,
+          filterQuality: FilterQuality.medium,
+          isAntiAlias: true,
+        ),
       ),
     );
   }

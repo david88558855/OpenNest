@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
 import '../format.dart';
 import '../models/api_types.dart';
@@ -17,6 +19,12 @@ class OpenListApi {
   final Dio _dio;
   String? token;
 
+  /// 传输块大小（1MB）：下载攒批落盘与上传分块读取共用同一档。
+  ///
+  /// 太小 → 系统调用与事件循环切换过多；太大 → 限速的调节粒度变粗、
+  /// 取消响应变慢。1MB 在两者之间取的折中。
+  static const int kTransferBlockSize = 1 << 20;
+
   OpenListApi({required this.baseUrl, this.token})
       : _dio = Dio(
           BaseOptions(
@@ -28,7 +36,24 @@ class OpenListApi {
             headers: const {'Accept': 'application/json'},
             responseType: ResponseType.json,
           ),
-        );
+        ) {
+    _dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: _newClient);
+  }
+
+  /// 传输用的底层 HttpClient。
+  ///
+  /// 引擎固定跑在本机回环，所有传输共享同一个 host —— dart:io 默认
+  /// `maxConnectionsPerHost = 6`，并发数调到 6 以上时多出来的任务只能在
+  /// 连接池外排队，表现为「并发数加了、速度不涨」。这里放宽到 32，并把
+  /// 空闲连接保留 30 秒，让连续任务复用同一条 TCP（省掉反复握手）。
+  static HttpClient _newClient() {
+    final client = HttpClient();
+    client.maxConnectionsPerHost = 32;
+    client.idleTimeout = const Duration(seconds: 30);
+    client.connectionTimeout = const Duration(seconds: 10);
+    client.userAgent = 'OpenNest';
+    return client;
+  }
 
   Dio get dio => _dio;
 
@@ -414,7 +439,11 @@ class OpenListApi {
     int Function()? throttleRate,
   }) async {
     final existing = await target.exists() ? await target.length() : 0;
-    final headers = <String, String>{};
+    final headers = <String, String>{
+      // 显式要求不压缩：媒体/归档文件再压一遍只白烧 CPU，而且会让
+      // content-length 变成压缩前长度、Range 语义也变得含混。
+      'Accept-Encoding': 'identity',
+    };
     if (existing > 0) headers['Range'] = 'bytes=$existing-';
     Response<ResponseBody> res;
     try {
@@ -472,11 +501,18 @@ class OpenListApi {
       throw const ApiException(-13, '服务器未返回数据流');
     }
     final sink = target.openWrite(mode: partial ? FileMode.append : FileMode.write);
+    // 攒批落盘：socket 交给 Dart 的分块通常只有 8–64KB，逐块 `sink.add` 会
+    // 让一次 1GB 的下载产生上万次写系统调用。这里先攒到 1MB 再一次性交给
+    // sink，写入顺序与崩溃语义不变，系统调用数量降一个量级。
+    final buffer = BytesBuilder(copy: true);
     var windowBytes = 0;
     var windowStart = DateTime.now();
     try {
       await for (final chunk in body.stream) {
-        sink.add(chunk);
+        buffer.add(chunk);
+        if (buffer.length >= kTransferBlockSize) {
+          sink.add(buffer.takeBytes());
+        }
         received += chunk.length;
         windowBytes += chunk.length;
         // 每块都重新取限速值：设置页改完立刻作用于正在跑的下载。
@@ -500,6 +536,8 @@ class OpenListApi {
         }
       }
     } finally {
+      // 收尾必须把不满一批的尾巴写出去，否则会丢最后 <1MB 数据。
+      if (buffer.isNotEmpty) sink.add(buffer.takeBytes());
       await sink.flush();
       await sink.close();
     }
@@ -536,7 +574,10 @@ class OpenListApi {
     };
     if (token != null && token!.isNotEmpty) headers['Authorization'] = token!;
     final rateOf = throttleRate ?? () => throttleBytesPerSecond;
-    final stream = _throttle(source.openRead(), rateOf, cancelToken);
+    // 按 1MB 读盘：`openRead()` 默认 64KB 一块，一次 1GB 上传要产生
+    // 1.6 万次异步事件；改成 1MB 后只剩 1 千次，同样的带宽下 CPU 占用与
+    // 事件调度开销明显下降。
+    final stream = _throttle(_readBlocks(source, kTransferBlockSize), rateOf, cancelToken);
     try {
       final res = await _dio.put<dynamic>(
         '/api/fs/put',
@@ -554,6 +595,23 @@ class OpenListApi {
       _handle(res);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    }
+  }
+
+  /// 按固定块大小顺序读取文件，供上传使用。
+  ///
+  /// 用 [RandomAccessFile] 而不是 `File.openRead()`：后者不接受块大小参数
+  /// （固定 64KB），且无法保证不越过文件末尾。
+  Stream<List<int>> _readBlocks(File file, int blockSize) async* {
+    final raf = await file.open();
+    try {
+      while (true) {
+        final chunk = await raf.read(blockSize);
+        if (chunk.isEmpty) return;
+        yield chunk;
+      }
+    } finally {
+      await raf.close();
     }
   }
 

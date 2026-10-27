@@ -99,18 +99,9 @@ class _BrandPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          gradient: OlTokens.gradientBrand,
-                          borderRadius: BorderRadius.circular(13),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x592DD4BF), blurRadius: 22, offset: Offset(0, 8)),
-                          ],
-                        ),
-                        child: const Center(child: OlIcon('layers', size: 22, color: Colors.white)),
-                      ),
+                      // 0.5.1：统一用品牌母版（白狐 + 紫蓝渐变），替换旧的
+                      // 「渐变方块 + layers 线条图标」。
+                      const OlMark(size: 46, radius: 13),
                       const SizedBox(width: 12),
                       const Text(
                         'OpenNest',

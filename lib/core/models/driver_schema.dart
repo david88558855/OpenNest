@@ -108,6 +108,22 @@ class DriverInfo {
   bool get localSort => config['local_sort'] == true;
 }
 
+/// 客户端对个别引擎字段默认值的覆盖。
+///
+/// 只在「引擎给的默认值不符合本应用预期」时登记，其余字段一律沿用引擎默认。
+/// 目前只有一条：
+/// - `Local.show_hidden`：引擎默认 `true`（显示隐藏文件）。本地存储常被挂在
+///   磁盘根目录（`C:\`、`/`），隐藏项（`$RECYCLE.BIN`、`System Volume
+///   Information`、`.git`、`.DS_Store`）会把列表塞满；客户端默认关，
+///   需要时用户在表单里自行打开即可。
+const Map<String, Map<String, String>> kDriverDefaultOverrides = {
+  'Local': {'show_hidden': 'false'},
+};
+
+/// 取某驱动字段在「新建存储」表单里的默认值：先看客户端覆盖表，再退回引擎值。
+String? formDefaultOf(String driver, DriverItem item) =>
+    kDriverDefaultOverrides[driver]?[item.name] ?? item.defaultValue;
+
 enum DriverGroup { local, object, cloud, server, other }
 
 String driverGroupLabel(DriverGroup group) => switch (group) {

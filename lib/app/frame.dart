@@ -188,7 +188,7 @@ class OlTitleBar extends ConsumerWidget {
       child: Row(
         children: [
           const SizedBox(width: 13),
-          const OlMark(size: 19, radius: 6, iconSize: 11),
+          const OlMark(size: 19, radius: 6),
           const SizedBox(width: 8),
           Text(
             'OpenNest',

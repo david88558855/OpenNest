@@ -115,15 +115,8 @@ class _MobileBrand extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: OlTokens.gradientBrand,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(child: OlIcon('layers', size: 19, color: Colors.white)),
-                    ),
+                    // 0.5.1：统一用品牌母版（白狐 + 紫蓝渐变）。
+                    const OlMark(size: 40, radius: 12),
                     const SizedBox(width: 10),
                     const Text(
                       'OpenNest',

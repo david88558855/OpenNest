@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
@@ -73,6 +75,13 @@ class SessionNotifier extends StateNotifier<SessionState> {
   final Ref ref;
   final SecureStore _secure;
 
+  /// 会话探测上限。
+  ///
+  /// 引擎的 `StoragesLoaded` 中间件在存储源加载完之前会挂住 `/api/me`
+  /// 等全部接口（只放行 `/`）。换过网络、原地址已不可达的存储源能把
+  /// 这一步卡几分钟，所以这里必须自己限时，否则启动页与界面都会一起干等。
+  static const Duration _probeTimeout = Duration(seconds: 12);
+
   /// 连接本机引擎并建立会话。引擎未就绪时只记录错误，不抛异常。
   Future<void> boot() async {
     final sidecar = ref.read(sidecarProvider);
@@ -89,13 +98,13 @@ class SessionNotifier extends StateNotifier<SessionState> {
 
     final watch = Stopwatch()..start();
     try {
-      final user = await api.me();
+      final user = await api.me().timeout(_probeTimeout);
       SiteInfo? site;
       try {
-        site = await api.publicSettings();
+        site = await api.publicSettings().timeout(const Duration(seconds: 5));
       } on ApiException catch (_) {
         // 站点信息只是装饰，失败不影响会话。
-      }
+      } on TimeoutException catch (_) {}
       watch.stop();
       state = SessionState(
         profile: _profileFor(base, port, user, site, watch.elapsedMilliseconds),
@@ -107,6 +116,18 @@ class SessionNotifier extends StateNotifier<SessionState> {
         port: port,
       );
       ref.read(appSettingsProvider.notifier).rememberLatency(watch.elapsedMilliseconds);
+    } on TimeoutException {
+      // 进程与 HTTP 都活着，但接口被「存储源尚未加载完」挡住 —
+      // 这不是引擎故障，界面上给一条可操作的原因即可。
+      watch.stop();
+      state = SessionState(
+        api: api,
+        connecting: false,
+        offline: true,
+        error: '引擎仍在加载存储源（换过网络、原地址已不可达的存储源会卡很久）。'
+            '加载完成后点重试即可；也可在「设置 → 存储源」停用该源。',
+        port: port,
+      );
     } on ApiException catch (error) {
       watch.stop();
       if (error.needsReauth) {
@@ -115,7 +136,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
         if (refreshed != null && refreshed.isNotEmpty) {
           api.token = refreshed;
           try {
-            final user = await api.me();
+            final user = await api.me().timeout(_probeTimeout);
             state = SessionState(
               profile: _profileFor(base, port, user, null, null),
               user: user,

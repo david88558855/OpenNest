@@ -39,7 +39,9 @@ class AndroidSidecarManager implements SidecarManager {
     final jwt = SidecarConfig.randomSecret(32);
 
     int? previous;
-    for (var attempt = 1; attempt <= 8; attempt++) {
+    // 与桌面端一致：3 次尝试。原生侧对「启动后立即退出」已经会立刻抛错，
+    // 再多试只会把启动页卡得更久（每次都要等满健康检查窗口）。
+    for (var attempt = 1; attempt <= 3; attempt++) {
       final port = await PortAllocator.pick(exclude: {
         kSidecarReservedPort,
         if (previous != null) previous,
@@ -69,7 +71,7 @@ class AndroidSidecarManager implements SidecarManager {
         }
       } catch (error) {
         previous = port;
-        if (attempt == 8) {
+        if (attempt == 3) {
           throw SidecarException('引擎启动失败：$error', logPath: logFile.path);
         }
         continue;
@@ -83,22 +85,33 @@ class AndroidSidecarManager implements SidecarManager {
 
       onStep?.call('登录引擎');
       final api = OpenListApi(baseUrl: 'http://127.0.0.1:$port');
-      String token;
+      String? token;
       try {
-        token = await api.login(username: 'admin', password: password);
+        // 引擎的 StoragesLoaded 中间件在存储源加载完之前会挂住登录接口
+        // （换过网络、原地址不可达的源会卡很久）。只等 12 秒，等不到就
+        // 以「未登录」返回 —— 进程是健康的，stop 掉才是错的。
+        token = await api.login(username: 'admin', password: password)
+            .timeout(const Duration(seconds: 12));
+      } on TimeoutException {
+        onStep?.call('引擎已启动，正在等待存储源加载');
+        token = null;
       } catch (_) {
         await _channel.invokeMethod<bool>('stop');
         previous = port;
         continue;
       }
-      await _secure.write(kSidecarTokenKey, token);
+      if (token != null) {
+        await _secure.write(kSidecarTokenKey, token);
+      }
       await (await SidecarPaths.port()).writeAsString('$port');
       _port = port;
 
       String? version;
-      try {
-        version = (await api.publicSettings()).version;
-      } on ApiException catch (_) {}
+      if (token != null) {
+        try {
+          version = (await api.publicSettings().timeout(const Duration(seconds: 3))).version;
+        } on ApiException catch (_) {} on TimeoutException catch (_) {}
+      }
 
       return SidecarLaunch(
         port: port,
@@ -160,24 +173,35 @@ class AndroidSidecarManager implements SidecarManager {
 
     final stored = await _secure.read(kSidecarTokenKey);
     final api = OpenListApi(baseUrl: 'http://127.0.0.1:$port', token: stored);
-    String token;
-    if (stored == null || stored.isEmpty) {
-      token = await api.login(username: 'admin', password: password);
-      await _secure.write(kSidecarTokenKey, token);
-    } else {
-      api.token = stored;
-      var valid = true;
-      try {
-        await api.me();
-      } catch (_) {
-        valid = false;
-      }
-      if (valid) {
-        token = stored;
-      } else {
-        token = await api.login(username: 'admin', password: password);
+    String? token = stored;
+    try {
+      if (token == null || token.isEmpty) {
+        token = await api.login(username: 'admin', password: password)
+            .timeout(const Duration(seconds: 12));
         await _secure.write(kSidecarTokenKey, token);
+      } else {
+        api.token = token;
+        var valid = true;
+        try {
+          await api.me().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          valid = false;
+        }
+        if (valid) {
+          token = stored;
+        } else {
+          token = await api.login(username: 'admin', password: password)
+              .timeout(const Duration(seconds: 12));
+          await _secure.write(kSidecarTokenKey, token);
+        }
       }
+    } on TimeoutException {
+      // 已有实例正在加载存储源（接口被中间件挂住）：照旧接管，
+      // 只是先不带令牌，交给会话层重试。
+      token = null;
+    } catch (_) {
+      // 不是我们的引擎（或已不可用）：放弃接管，重新启一个。
+      return null;
     }
     _port = port;
     return SidecarLaunch(
@@ -197,14 +221,26 @@ class AndroidSidecarManager implements SidecarManager {
     return false;
   }
 
+  /// 引擎是否已经「活着」。
+  ///
+  /// `/ping` 也会被引擎的 `StoragesLoaded` 中间件挂住（存储源没加载完时
+  /// 除 `/` 以外全部阻塞），所以 `/ping` 不通时再探根路径：能应答就说明
+  /// HTTP 已起来、进程健康，只是存储源还在加载。
   static Future<bool> _ping(int port) async {
+    if (await _probe(port, '/ping', expectPong: true)) return true;
+    return _probe(port, '/', expectPong: false);
+  }
+
+  static Future<bool> _probe(int port, String path, {required bool expectPong}) async {
     final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 800);
     try {
-      final request = await client.getUrl(Uri.parse('http://127.0.0.1:$port/ping'));
+      final request = await client.getUrl(Uri.parse('http://127.0.0.1:$port$path'));
       final response = await request.close().timeout(const Duration(milliseconds: 1200));
+      if (response.statusCode >= 500) return false;
       final body = await response.transform(utf8.decoder).join().timeout(
             const Duration(milliseconds: 1200),
           );
+      if (!expectPong) return true;
       return response.statusCode == 200 && body.toLowerCase().contains('pong');
     } catch (_) {
       return false;

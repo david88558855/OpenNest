@@ -436,8 +436,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   /// 并发数统一由设置持有；这里只做转发，避免出现「两个真相」。
   Future<void> setConcurrency(int value) async {
     ref.read(appSettingsProvider.notifier).setConcurrency(value);
-    if (state.concurrency != value.clamp(1, 8).toInt()) {
-      state = state.copyWith(concurrency: value.clamp(1, 8).toInt());
+    final clamped = value.clamp(1, AppSettingsNotifier.kMaxConcurrency).toInt();
+    if (state.concurrency != clamped) {
+      state = state.copyWith(concurrency: clamped);
     }
     await _pump();
   }

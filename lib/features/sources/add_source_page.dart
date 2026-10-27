@@ -78,12 +78,15 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
     // common + additional 都要建控制器 —— 与 OpenList Web 端一致，
     // 那边的表单同样包含排序、缓存策略、WebDAV 策略等通用字段。
     for (final item in info.formFields) {
+      // 默认值统一走 formDefaultOf：它对个别字段做了客户端覆盖
+      // （`Local.show_hidden` 默认关，见 driver_schema.dart）。
+      final fallback = formDefaultOf(info.name, item);
       if (item.isBool) {
-        _bools[item.name] = item.defaultValue == 'true';
+        _bools[item.name] = fallback == 'true';
       } else if (item.isSelect && item.options.isNotEmpty) {
-        _selects[item.name] = item.defaultValue?.isNotEmpty == true ? item.defaultValue! : item.options.first;
+        _selects[item.name] = fallback?.isNotEmpty == true ? fallback! : item.options.first;
       } else {
-        _ctrls[item.name] = TextEditingController(text: item.defaultValue ?? '');
+        _ctrls[item.name] = TextEditingController(text: fallback ?? '');
       }
     }
     // 预填必须放在字段控制器重建之后（上面刚 dispose 过 _ctrls）。

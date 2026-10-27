@@ -6,6 +6,8 @@ import '../../app/providers.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/models/driver_schema.dart';
 import '../../core/models/storage_source.dart';
+import '../../core/sidecar/sidecar_controller.dart';
+import '../../core/sidecar/sidecar_state.dart';
 import '../../data/db/app_database.dart';
 
 /// 由用户填的名称生成挂载路径。
@@ -155,13 +157,44 @@ class SourceActions {
   Future<String?> toggle(StorageSource source) async {
     final api = _ref.read(sessionProvider).api;
     if (api == null) return '引擎未就绪';
+    final sidecar = _ref.read(sidecarProvider.notifier);
+    // 当前是「停用」→ 本次动作是启用（会让引擎当场加载该源）。
+    final enabling = source.disabled;
+    // 标记「存储源操作进行中」：引擎若在此刻被打崩，先不要自动重启，
+    // 等这里把肇事那条改回停用（见下）再说。
+    sidecar.beginStorageOp();
     try {
       await api.setStorageEnabled(source.id, source.disabled);
       _ref.invalidate(sourcesProvider);
       return null;
     } on ApiException catch (error) {
+      // 启用某个源时引擎会立刻 LoadStorage。该源驱动若直接 panic，
+      // Go 进程会被整个带走、连接当场断开。此时库里那条记录已经是
+      // disabled=0，不纠回来的话下次启动会在同一处再崩 —— 用「启动即崩」
+      // 把用户锁死。趁引擎已退出，把它改回停用。
+      if (enabling && await _engineDown()) {
+        final ok = await sidecar.quarantine(source.id);
+        if (ok) {
+          _ref.invalidate(sourcesProvider);
+          return '该存储源导致引擎崩溃，已重新停用（${error.friendly}）。可在「设置 → 通用」重启引擎。';
+        }
+      }
       return error.friendly;
+    } finally {
+      sidecar.endStorageOp();
     }
+  }
+
+  /// 引擎是否已不在就绪态。
+  ///
+  /// 短暂轮询而不是只看一眼：进程退出到 `_onEngineExit` 派发之间有窗口，
+  /// 只看一眼容易误判成「引擎还活着」，从而错过纠错时机。
+  Future<bool> _engineDown() async {
+    for (var i = 0; i < 6; i++) {
+      if (_ref.read(sidecarProvider).status != SidecarStatus.ready) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    return false;
   }
 }
 

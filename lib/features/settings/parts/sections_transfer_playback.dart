@@ -46,14 +46,14 @@ class _TransferSection extends ConsumerWidget {
               _Row(
                 icon: 'zap',
                 title: '并发任务数',
-                subtitle: '同时进行的传输数量',
+                subtitle: '同时进行的传输数量（1–${AppSettingsNotifier.kMaxConcurrency}）',
                 trailing: _ValuePill('${settings.concurrency}'),
                 onTap: () => _editNumber(
                   context,
                   title: '并发任务数',
                   current: settings.concurrency,
                   onDone: notifier.setConcurrency,
-                  max: 8,
+                  max: AppSettingsNotifier.kMaxConcurrency,
                 ),
               ),
             ],
@@ -132,12 +132,12 @@ class _TransferSection extends ConsumerWidget {
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: '0 表示不限'),
+          decoration: InputDecoration(hintText: '1 – $max'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('取消')),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop((int.tryParse(controller.text.trim()) ?? 0).clamp(0, max).toInt()),
+            onPressed: () => Navigator.of(dialogContext).pop((int.tryParse(controller.text.trim()) ?? 1).clamp(1, max).toInt()),
             child: const Text('保存'),
           ),
         ],

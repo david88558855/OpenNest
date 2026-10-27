@@ -13,6 +13,7 @@ import '../../core/sidecar/sidecar_paths.dart';
 import '../../core/sidecar/sidecar_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/widgets/ol_controls.dart';
+import '../../core/widgets/ol_dialogs.dart';
 import '../../core/widgets/ol_icon.dart';
 import '../sources/sources_controller.dart';
 import 'boot_entry.dart';
@@ -32,6 +33,19 @@ class _BootPageState extends ConsumerState<BootPage> {
   Timer? _ticker;
   final Stopwatch _elapsed = Stopwatch();
 
+  /// 安全模式失败时的额外提示（引擎日志之外的、我们能说清楚的那一句）。
+  String? _safeModeError;
+
+  /// 引擎就绪之后每一步的兜底上限。
+  ///
+  /// 之所以每一步都要单独限时：会话登录、拉存储源列表、打开根目录都会
+  /// 走引擎接口，而引擎的 fs 接口在「某个存储源还在加载 / 加载卡住」时
+  /// 可能迟迟不返回。任何一步卡住都只是「降级」，绝不允许把用户永远
+  /// 留在启动页 —— 个别存储源连不通时界面必须照常可用。
+  static const Duration _sessionTimeout = Duration(seconds: 12);
+  static const Duration _sourcesTimeout = Duration(seconds: 8);
+  static const Duration _attachTimeout = Duration(seconds: 15);
+
   @override
   void initState() {
     super.initState();
@@ -49,16 +63,12 @@ class _BootPageState extends ConsumerState<BootPage> {
     setState(() {
       _busy = true;
       _progress = 0.08;
+      _safeModeError = null;
     });
     _elapsed
       ..reset()
       ..start();
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
-      if (!mounted) return;
-      // 缓慢逼近 0.9，真正的完成由状态切换接管。
-      setState(() => _progress = (_progress + (0.9 - _progress) * 0.08).clamp(0.08, 0.9).toDouble());
-    });
+    _startTicker();
 
     try {
       _dataDir = (await SidecarPaths.root()).path;
@@ -67,39 +77,127 @@ class _BootPageState extends ConsumerState<BootPage> {
     await ref.read(sidecarProvider.notifier).start();
     if (!mounted) return;
 
-    final sidecar = ref.read(sidecarProvider);
-    if (sidecar.status == SidecarStatus.ready) {
-      await ref.read(sessionProvider.notifier).boot();
+    if (ref.read(sidecarProvider).status != SidecarStatus.ready) {
+      _stopTicker();
       if (!mounted) return;
-      var hasSources = false;
+      setState(() {
+        _busy = false;
+        _progress = 0;
+      });
+      return;
+    }
+    await _enterApp(engineReady: true);
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted) return;
+      // 缓慢逼近 0.9，真正的完成由状态切换接管。
+      setState(() => _progress = (_progress + (0.9 - _progress) * 0.08).clamp(0.08, 0.9).toDouble());
+    });
+  }
+
+  void _stopTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+  }
+
+  /// 引擎就绪（或用户选择降级）后走到落地页。
+  Future<void> _enterApp({required bool engineReady}) async {
+    if (engineReady) {
       try {
-        final sources = await ref.read(sourcesProvider.future);
-        hasSources = sources.isNotEmpty;
+        await ref.read(sessionProvider.notifier).boot().timeout(_sessionTimeout);
       } catch (_) {}
-      if (!mounted) return;
-      if (hasSources) {
-        try {
-          await ref.read(filesProvider.notifier).attach();
-        } catch (_) {}
-      }
-      if (!mounted) return;
-      // 落点：有源直接进文件页；无源且没点过「稍后再说」→ 欢迎页。
-      // 判定结果写进 bootEntryProvider，路由 redirect 只读它（同步）。
-      final skipped = ref.read(prefsProvider).getBool(kOnboardDoneKey);
-      final entry = (hasSources || skipped) ? BootEntry.files : BootEntry.welcome;
-      ref.read(bootEntryProvider.notifier).state = entry;
-      _ticker?.cancel();
-      setState(() => _progress = 1);
-      if (mounted) context.go(entry == BootEntry.files ? '/files' : '/welcome');
+    }
+    var hasSources = false;
+    try {
+      final sources = await ref.read(sourcesProvider.future).timeout(_sourcesTimeout);
+      hasSources = sources.isNotEmpty;
+    } catch (_) {}
+    if (!mounted) return;
+    if (engineReady && hasSources) {
+      // 根目录打不开（例如唯一那个源连不通）也不影响落地：
+      // 文件页自己会显示错误条，并支持就地重试。
+      try {
+        await ref.read(filesProvider.notifier).attach().timeout(_attachTimeout);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    // 落点：有源直接进文件页；无源且没点过「稍后再说」→ 欢迎页。
+    // 降级模式一律进文件页（欢迎页在引擎不可用时没有意义）。
+    final skipped = ref.read(prefsProvider).getBool(kOnboardDoneKey);
+    final entry = (hasSources || skipped || !engineReady) ? BootEntry.files : BootEntry.welcome;
+    ref.read(bootEntryProvider.notifier).state = entry;
+    _stopTicker();
+    if (!mounted) return;
+    setState(() => _progress = 1);
+    context.go(entry == BootEntry.files ? '/files' : '/welcome');
+  }
+
+  /// 引擎失败时仍然进入主界面（降级模式）。
+  ///
+  /// 路由在 `failed` 状态会把页面弹回启动页，所以先打开降级开关再跳：
+  /// 用户至少能进设置看日志、重启引擎、去「存储源」停用肇事的那个源。
+  void _enterDegraded() {
+    ref.read(degradedModeProvider.notifier).state = true;
+    ref.read(bootEntryProvider.notifier).state = BootEntry.files;
+    _stopTicker();
+    context.go('/files');
+  }
+
+  /// 安全模式：停用全部存储源后再启动引擎，成功后直接落到「存储源」分区。
+  Future<void> _startSafeMode() async {
+    if (_busy) return;
+    final confirmed = await showOlDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('安全模式启动', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+        content: const Text(
+          '先把引擎库里全部存储源标记为「停用」，再启动引擎。\n\n'
+          '启动后可在「设置 → 存储源」逐个启用；若是某个源把引擎打崩，'
+          '启用它时会被自动改回停用，这样就能定位到具体是哪一个。\n\n'
+          '改动前会把 data.db 备份成 data.db.bak-<时间戳>。',
+          style: TextStyle(fontSize: 12, height: 1.65),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('停用并启动'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _progress = 0.15;
+      _safeModeError = null;
+    });
+    _startTicker();
+
+    final result = await ref.read(sidecarProvider.notifier).startInSafeMode();
+    if (!mounted) return;
+    if (!result.ok) {
+      _stopTicker();
+      setState(() {
+        _busy = false;
+        _progress = 0;
+        _safeModeError = result.error;
+      });
       return;
     }
 
-    _ticker?.cancel();
+    try {
+      await ref.read(sessionProvider.notifier).boot().timeout(_sessionTimeout);
+    } catch (_) {}
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _progress = 0;
-    });
+    ref.read(bootEntryProvider.notifier).state = BootEntry.files;
+    _stopTicker();
+    setState(() => _progress = 1);
+    // 直接落到「存储源」分区：用户马上看到被停用的那几条，逐个启用即可。
+    context.go('/settings/sources');
   }
 
   @override
@@ -243,11 +341,23 @@ class _BootPageState extends ConsumerState<BootPage> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          '常见原因：内嵌引擎（openlist.exe）未与主程序放在同一目录；或本机安全软件拦截了子进程。',
+                          '常见原因：内嵌引擎（openlist.exe）未与主程序放在同一目录；本机安全软件拦截了子进程；'
+                          '或某个存储源的驱动在加载时崩溃（此时每次启动都会在同一处失败）。',
                           style: TextStyle(fontSize: 10.5, height: 1.6, color: p.ink3),
                         ),
+                        if (_safeModeError != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _safeModeError!,
+                            style: const TextStyle(fontSize: 10.5, height: 1.6, color: OlTokens.dangerDeep),
+                          ),
+                        ],
                         const SizedBox(height: 16),
-                        Row(
+                        // 用 Wrap 而不是 Row：三个操作 + 退出在窄窗口下会溢出。
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             OlPrimaryButton(
                               label: '重试',
@@ -255,7 +365,23 @@ class _BootPageState extends ConsumerState<BootPage> {
                               height: 34,
                               onTap: _bootstrap,
                             ),
-                            const SizedBox(width: 10),
+                            // 引擎「启动即崩」多半是某个存储源的驱动把进程带走了。
+                            // 引擎没有「跳过某个源启动」的开关，只能先全部停用
+                            // （改前备份 data.db），起来后再逐个启用排查。
+                            OlGhostButton(
+                              label: '安全模式启动',
+                              icon: 'shield',
+                              height: 34,
+                              onTap: _startSafeMode,
+                            ),
+                            // 引擎起不来也不该挡着界面：进主界面后仍可看日志、
+                            // 重启引擎、停用肇事的存储源（那些正是修复入口）。
+                            OlGhostButton(
+                              label: '先进入界面',
+                              icon: 'external',
+                              height: 34,
+                              onTap: _enterDegraded,
+                            ),
                             if (sidecar.logPath != null)
                               OlGhostButton(
                                 label: '打开日志目录',
@@ -263,7 +389,6 @@ class _BootPageState extends ConsumerState<BootPage> {
                                 height: 34,
                                 onTap: () => _revealLog(sidecar),
                               ),
-                            const Spacer(),
                             if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
                               OlGhostButton(
                                 label: '退出',
@@ -313,16 +438,9 @@ class _Mark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        gradient: OlTokens.gradientBrand,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Color(0x552DD4BF), blurRadius: 18, offset: Offset(0, 6))],
-      ),
-      child: const Center(child: OlIcon('layers', size: 20, color: Colors.white)),
-    );
+    // 0.5.1：与顶栏共用同一个品牌标记（品牌母版图片），
+    // 不再手绘「渐变方块 + layers 线条图标」那套旧 Logo。
+    return const OlMark(size: 42, radius: 12);
   }
 }
 

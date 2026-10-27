@@ -26,6 +26,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // 否则重启后 redirect 会按上一次的判定抢跳 /files，而此时会话还没 boot。
       if (next.status != SidecarStatus.ready) {
         ref.read(bootEntryProvider.notifier).state = BootEntry.unknown;
+      } else {
+        // 引擎恢复就绪就退出降级模式：拦截规则回到常态。
+        ref.read(degradedModeProvider.notifier).state = false;
       }
       refresh.value++;
     }
@@ -40,9 +43,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onBoot = path == '/boot';
       // 只有「明确不可用」才拦到启动页；「启动中」允许停留在当前页面
       // （从设置里重启引擎时不会被弹走）。
-      final blocked = status == SidecarStatus.failed ||
-          status == SidecarStatus.idle ||
-          status == SidecarStatus.stopped;
+      // 降级模式例外：引擎起不来时用户仍要能进设置看日志、重启引擎、
+      // 停用肇事的存储源 —— 那些正是修复它的入口，不能一起锁死。
+      final degraded = ref.read(degradedModeProvider);
+      final blocked = !degraded &&
+          (status == SidecarStatus.failed ||
+              status == SidecarStatus.idle ||
+              status == SidecarStatus.stopped);
       if (blocked && !onBoot) return '/boot';
       if (status == SidecarStatus.ready && onBoot) {
         // 落点由启动页判定一次后写入；判定前（unknown）留在启动页，不要抢跳。

@@ -22,7 +22,15 @@ class SidecarException implements Exception {
 
 class SidecarLaunch {
   final int port;
-  final String token;
+
+  /// 访问令牌。为 null 表示「引擎起来了、但登录还没成功」。
+  ///
+  /// 这种情况不是故障：引擎的 `StoragesLoaded` 中间件会挂住除 `/` 以外的
+  /// 全部接口（含 `/api/auth/login`），而该信号只在**所有存储源加载完**
+  /// 之后才发出。换过网络、原地址已不可达的存储源会让这一步卡很久，
+  /// 此时进程完全健康，不应该被判成「引擎启动失败」。
+  final String? token;
+
   final String? version;
   final int? pid;
   final String logPath;
@@ -36,6 +44,9 @@ class SidecarLaunch {
     this.version,
     this.pid,
   });
+
+  /// 登录尚未完成（存储源仍在加载）。
+  bool get pendingAuth => token == null || token!.isEmpty;
 }
 
 /// 引擎进程的统一接口：桌面用子进程实现，移动端用原生桥实现。
@@ -58,6 +69,21 @@ class DesktopSidecarManager implements SidecarManager {
   String _binary = '';
   String _logPath = '';
   IOSink? _logSink;
+
+  /// 启动尝试上限 3 次。
+  ///
+  /// 每次尝试最坏要等满健康检查窗口（30 秒）。以前是 10 次 —— 一个持续
+  /// 崩溃的引擎能把启动页卡住五分钟，期间用户既进不了界面、也看不到可
+  /// 操作的提示。「端口被占用」这类瞬时冲突 3 次足够覆盖。
+  static const int _kMaxAttempts = 3;
+
+  /// 登录等待上限。
+  ///
+  /// 引擎启动后还有一道关卡：`StoragesLoaded` 中间件在**所有存储源加载完**
+  /// 之前会挂住除 `/` 以外的全部接口（含 `/api/auth/login`）。换过网络、
+  /// 原地址不可达的存储源会让这一步卡几分钟。这里只等 12 秒，等到就登录，
+  /// 等不到就以「未登录」状态返回 —— 引擎是健康的，杀进程才是错的。
+  static const Duration _kLoginTimeout = Duration(seconds: 12);
 
   @override
   bool get isRunning => _process != null;
@@ -89,7 +115,7 @@ class DesktopSidecarManager implements SidecarManager {
     final jwt = await _ensureJwt(configFile);
 
     int? previous;
-    for (var attempt = 1; attempt <= 10; attempt++) {
+    for (var attempt = 1; attempt <= _kMaxAttempts; attempt++) {
       final port = await PortAllocator.pick(exclude: {
         kSidecarReservedPort,
         if (previous != null) previous,
@@ -104,27 +130,49 @@ class DesktopSidecarManager implements SidecarManager {
       final process = await _spawn(binary, root, configFile, password, logFile);
       final healthy = await _waitHealthy(port, process);
       if (!healthy) {
+        // 先取退出码：null 表示进程还活着（只是没在窗口内就绪），
+        // 非 null 表示它自己退了 —— 那换个端口重试毫无意义，直接把
+        // 原因抛给界面，别让用户对着启动页干等三分钟。
+        final code = await _exitCode(process);
         await _kill(process);
         previous = port;
+        if (code != null) {
+          throw SidecarException(
+            '引擎启动后立即退出（退出码 $code）。'
+            '常见原因是某个存储源驱动在加载时崩溃 —— '
+            '可在启动页点「安全模式启动」停用全部存储源后再逐个启用。',
+            logPath: _logPath,
+          );
+        }
         continue;
       }
 
       onStep?.call('登录引擎');
       final api = OpenListApi(baseUrl: 'http://127.0.0.1:$port');
-      String token;
+      String? token;
       SiteInfo? site;
       try {
-        token = await api.login(username: 'admin', password: password);
-        try {
-          site = await api.publicSettings();
-        } on ApiException catch (_) {}
+        token = await api.login(username: 'admin', password: password).timeout(_kLoginTimeout);
+      } on TimeoutException {
+        // 引擎进程健康、HTTP 也就绪，但登录被 StoragesLoaded 中间件挂住了：
+        // 说明还有存储源在加载。不杀进程、不换端口重试，以「未登录」返回，
+        // 由会话层在界面里重试。
+        onStep?.call('引擎已启动，正在等待存储源加载');
+        token = null;
       } catch (_) {
         await _kill(process);
         previous = port;
         continue;
       }
+      if (token != null) {
+        try {
+          site = await api.publicSettings().timeout(const Duration(seconds: 3));
+        } on ApiException catch (_) {} on TimeoutException catch (_) {}
+      }
 
-      await _secure.write(kSidecarTokenKey, token);
+      if (token != null) {
+        await _secure.write(kSidecarTokenKey, token);
+      }
       await (await SidecarPaths.port()).writeAsString('$port');
       await (await SidecarPaths.pid()).writeAsString('${process.pid}');
 
@@ -143,7 +191,7 @@ class DesktopSidecarManager implements SidecarManager {
     }
 
     throw SidecarException(
-      '引擎启动失败：连续尝试 10 个端口仍未就绪。请查看日志排查。',
+      '引擎启动失败：连续尝试 $_kMaxAttempts 个端口仍未就绪。请查看日志排查。',
       logPath: _logPath,
     );
   }
@@ -218,6 +266,11 @@ class DesktopSidecarManager implements SidecarManager {
     return SidecarConfig.randomSecret(32);
   }
 
+  /// 接管一个已在运行的引擎实例。
+  ///
+  /// 同样不能假设「登录一定很快」：已有实例可能正在加载存储源，此时所有
+  /// 接口（含登录）都被中间件挂住。那种情况下照旧接管 —— 进程是我们的、
+  /// 端口是对的 —— 只是先不带令牌返回，由会话层稍后重试登录。
   Future<SidecarLaunch?> _adopt(String password) async {
     final portFile = await SidecarPaths.port();
     if (!await portFile.exists()) return null;
@@ -228,28 +281,35 @@ class DesktopSidecarManager implements SidecarManager {
     final stored = await _secure.read(kSidecarTokenKey);
     final api = OpenListApi(baseUrl: 'http://127.0.0.1:$port', token: stored);
     SiteInfo? site;
-    String token;
-    if (stored == null || stored.isEmpty) {
-      token = await api.login(username: 'admin', password: password);
-      await _secure.write(kSidecarTokenKey, token);
-    } else {
-      api.token = stored;
-      var valid = true;
-      try {
-        await api.me();
-      } catch (_) {
-        valid = false;
-      }
-      if (valid) {
-        token = stored;
-      } else {
-        token = await api.login(username: 'admin', password: password);
+    String? token = stored;
+    try {
+      if (token == null || token.isEmpty) {
+        token = await api.login(username: 'admin', password: password).timeout(_kLoginTimeout);
         await _secure.write(kSidecarTokenKey, token);
+      } else {
+        api.token = token;
+        var valid = true;
+        try {
+          await api.me().timeout(const Duration(seconds: 5));
+        } catch (_) {
+          valid = false;
+        }
+        if (valid) {
+          token = stored;
+        } else {
+          token = await api.login(username: 'admin', password: password).timeout(_kLoginTimeout);
+          await _secure.write(kSidecarTokenKey, token);
+        }
       }
+    } on TimeoutException {
+      token = null;
+    } catch (_) {
+      // 不是我们的引擎（或已不可用）：放弃接管，让调用方重新启动一个。
+      return null;
     }
     try {
-      site = await api.publicSettings();
-    } on ApiException catch (_) {}
+      site = await api.publicSettings().timeout(const Duration(seconds: 3));
+    } on ApiException catch (_) {} on TimeoutException catch (_) {}
 
     _port = port;
     return SidecarLaunch(
@@ -296,6 +356,15 @@ class DesktopSidecarManager implements SidecarManager {
     return false;
   }
 
+  /// 进程已退出则返回退出码；仍在运行（健康检查只是超时）返回 null。
+  Future<int?> _exitCode(Process process) async {
+    try {
+      return await process.exitCode.timeout(const Duration(milliseconds: 300));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _kill(Process process) async {
     try {
       process.kill();
@@ -328,14 +397,28 @@ class DesktopSidecarManager implements SidecarManager {
     } catch (_) {}
   }
 
+  /// 引擎是否已经「活着」。
+  ///
+  /// 先打 `/ping`（正常情况下的最快路径）。但要注意：引擎的 `StoragesLoaded`
+  /// 中间件在**存储源加载完之前**会挂住除 `/` 以外的所有路径 —— 包括 `/ping`
+  /// 本身（见上游 `server/middlewares/check.go`）。因此 `/ping` 不通时再探
+  /// 一次 `/`：只要根路径能应答，就说明 HTTP 服务已起来、进程是健康的，
+  /// 剩下只是存储源在慢慢加载。**不能**把「存储源加载慢」判成「引擎启动失败」。
   static Future<bool> _ping(int port) async {
+    if (await _probe(port, '/ping', expectPong: true)) return true;
+    return _probe(port, '/', expectPong: false);
+  }
+
+  static Future<bool> _probe(int port, String path, {required bool expectPong}) async {
     final client = HttpClient()..connectionTimeout = const Duration(milliseconds: 700);
     try {
-      final request = await client.getUrl(Uri.parse('http://127.0.0.1:$port/ping'));
+      final request = await client.getUrl(Uri.parse('http://127.0.0.1:$port$path'));
       final response = await request.close().timeout(const Duration(milliseconds: 900));
+      if (response.statusCode >= 500) return false;
       final body = await response.transform(utf8.decoder).join().timeout(
             const Duration(milliseconds: 900),
           );
+      if (!expectPong) return true;
       return response.statusCode == 200 && body.toLowerCase().contains('pong');
     } catch (_) {
       return false;

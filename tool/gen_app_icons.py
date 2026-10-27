@@ -13,6 +13,11 @@
   assets/tray/tray_<state>.ico                    托盘四态 ICO 16/20/24/32/48
   android/app/src/main/res/mipmap-<dpi>/ic_launcher{,_round}.png   启动图标
 
+注意：**界面内的品牌标记**不走本脚本，而是直接渲染
+`assets/brand/icon.png`（母版的一份拷贝，由 pubspec 的 assets 声明打包）。
+换品牌时除了跑本脚本，还要把新的母版覆盖到 `assets/brand/icon.png` ——
+否则顶栏 / 启动页 / 欢迎页会继续显示旧 Logo（0.5.1 修的就是这个）。
+
 Windows 通知区域只认 ICO/BMP（Shell_NotifyIcon + LoadImage 不支持 PNG），
 ICO 条目沿用 32 位 BMP(DIB) 而非 PNG 压缩，确保 rc.exe 与资源管理器都认。
 托盘四态靠右下角状态点区分：idle 无点 / transferring 浅蓝 / error 红 / paused 灰。

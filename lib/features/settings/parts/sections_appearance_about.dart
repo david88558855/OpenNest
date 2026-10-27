@@ -17,10 +17,14 @@ class _AboutSection extends ConsumerWidget {
             children: [
               // 0.5.0：版本号从设置侧栏底部移到「关于」分区 ——
               // 版本信息归到一处，侧栏只留导航。
+              // 0.5.1：这里原来写的是 `shortLabel version`，而 shortLabel
+              // 本身就带版本（"OpenNest 0.5.1"），拼出来是
+              // 「OpenNest 0.5.1 0.5.1」—— 版本号重复。直接用
+              // versionLabel（0.5.1 (7)），应用名不必再重复一遍。
               _Row(
                 icon: 'info',
                 title: '版本',
-                subtitle: '${AppInfo.shortLabel} ${AppInfo.version}',
+                subtitle: AppInfo.versionLabel,
                 // 只读行，没有尾部动作；_Row 的 trailing 是必填参数。
                 trailing: const SizedBox.shrink(),
               ),

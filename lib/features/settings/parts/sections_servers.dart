@@ -106,6 +106,65 @@ class _ServersSection extends ConsumerWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 10),
+              // 逃生口：某个存储源换过网络、原地址已不可达时，引擎会一直卡在
+              // 「加载存储源」——它的 StoragesLoaded 中间件会把除 `/` 以外的
+              // 所有接口挂住（连存储源列表都读不出来），界面上其它按钮全都
+              // 点不动。这里是唯一还能用的一键自救：停用全部源再启动。
+              Row(
+                children: [
+                  const OlIcon('shield', size: 14, color: OlTokens.warn),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '卡在「加载存储源」时，用安全模式停用全部存储源后启动',
+                      style: TextStyle(fontSize: 10.5, height: 1.5, color: p.ink3),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OlGhostButton(
+                    label: '安全模式启动',
+                    icon: 'refresh',
+                    height: 28,
+                    fontSize: 10.5,
+                    onTap: () async {
+                      final confirmed = await showOlDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('安全模式启动', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                          content: const Text(
+                            '先把引擎库里全部存储源标记为「停用」，再重启引擎。\n\n'
+                            '起来后在「存储源」里逐个启用即可定位到卡住的那个；'
+                            '改动前会把 data.db 备份成 data.db.bak-<时间戳>。',
+                            style: TextStyle(fontSize: 12, height: 1.65),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(false),
+                              child: const Text('取消'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                              child: const Text('停用并启动'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true || !context.mounted) return;
+                      final result = await ref.read(sidecarProvider.notifier).startInSafeMode();
+                      if (!context.mounted) return;
+                      if (!result.ok) {
+                        olToast(context, result.error ?? '安全模式启动失败', error: true);
+                        return;
+                      }
+                      await ref.read(sessionProvider.notifier).retry();
+                      if (!context.mounted) return;
+                      ref.invalidate(sourcesProvider);
+                      olToast(context, '已停用 ${result.disabled} 个存储源并启动引擎，可在「存储源」逐个启用');
+                    },
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
               Row(
                 children: [

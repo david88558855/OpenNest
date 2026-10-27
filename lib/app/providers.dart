@@ -126,8 +126,15 @@ class AppSettingsNotifier extends StateNotifier<AppSettings> {
 
   Future<void> _persist() => _prefs.setJsonMap(ServerStore.keyPrefs, state.toJson());
 
+  /// 并发上限 16 路。
+  ///
+  /// 单文件吞吐基本被「单连接 + 服务端该存储驱动的读取速度」卡死，
+  /// 提速最有效的旋钮就是并行条数；8 路在千兆内网/家用千兆宽带上
+  /// 常常跑不满，放宽到 16（HttpClient 的 maxConnectionsPerHost 也已同步放宽）。
+  static const int kMaxConcurrency = 16;
+
   void setConcurrency(int value) {
-    state = state.copyWith(concurrency: value.clamp(1, 8).toInt());
+    state = state.copyWith(concurrency: value.clamp(1, kMaxConcurrency).toInt());
     _persist();
   }
 

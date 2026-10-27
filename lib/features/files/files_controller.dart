@@ -124,7 +124,25 @@ class FilesNotifier extends StateNotifier<FilesState> {
   Future<void> open(String path, {bool refresh = false}) async {
     final api = _api;
     final profile = ref.read(sessionProvider).profile;
-    if (api == null || profile == null) return;
+    if (api == null || profile == null) {
+      // 引擎没起来（降级模式）时不要静默返回空列表 —— 那看起来就像
+      // 「这个目录里什么都没有」。给一条明确的原因，用户才知道该去
+      // 「设置 → 通用」启动引擎。
+      _skeletonTimer?.cancel();
+      state = state.copyWith(
+        loading: false,
+        showSkeleton: false,
+        // 两种「还没就绪」要说清楚，别让用户以为目录是空的：
+        // - 没有 api：引擎进程没起来（降级模式），去设置里启动/重启；
+        // - 有 api 但没有 profile：引擎活着，但会话还没建立 —— 通常是
+        //   StoragesLoaded 中间件还挂着（某个换过网络的存储源连不上）。
+        error: api == null
+            ? '内嵌引擎未就绪，无法列出目录。可在「设置 → 通用」启动或重启引擎。'
+            : '引擎仍在加载存储源，暂时无法列出目录。换过网络、原地址已不可达的存储源会卡很久 —— '
+                '可在「设置 → 存储源」停用该源，或在启动页用「安全模式启动」。',
+      );
+      return;
+    }
     final normalized = path.isEmpty ? '/' : path;
     _seq++;
     final seq = _seq;
@@ -217,7 +235,19 @@ class FilesNotifier extends StateNotifier<FilesState> {
     }
   }
 
-  Future<void> refresh() => open(state.path, refresh: true);
+  Future<void> refresh() async {
+    // 会话还没建立（引擎在加载存储源）时，先补一次会话再重开当前路径；
+    // 否则「重试」只会反复刷同一条错误，用户没法从这个状态里恢复。
+    if (ref.read(sessionProvider).profile == null) {
+      try {
+        await ref.read(sessionProvider.notifier).retry();
+      } catch (_) {}
+      if (!mounted) return;
+      await attach();
+      return;
+    }
+    await open(state.path, refresh: true);
+  }
 
   Future<void> loadMore() async {
     final api = _api;

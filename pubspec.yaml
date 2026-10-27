@@ -1,7 +1,7 @@
 name: opennest
 description: OpenNest —— 免账户直连存储客户端（内嵌 OpenList 引擎）。
 publish_to: none
-version: 0.5.0+6
+version: 0.5.1+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -37,3 +37,7 @@ flutter:
   uses-material-design: false
   assets:
     - assets/tray/
+    # 品牌母版（与 tool/brand/icon-1024.png 同源）：
+    # 顶栏 / 启动页 / 欢迎页的品牌标记直接渲染它，避免界面里再出现
+    # 「渐变方块 + layers 线条图标」这套旧 Logo。
+    - assets/brand/
