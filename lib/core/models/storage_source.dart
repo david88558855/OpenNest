@@ -129,8 +129,11 @@ class StorageSource {
       'addition': jsonEncode(addition),
       'remark': remark,
       'disabled': disabled,
-      'disable_index': false,
-      'enable_sign': false,
+      // 0.5.10：与表单默认值保持一致（禁用索引 / 启用签名默认开启）。
+      // 引擎返回的 storage 一定带这两个键，正常路径下会被 options 覆盖；
+      // 这里的值只是「引擎没给字段」时的兜底。
+      'disable_index': true,
+      'enable_sign': true,
       'web_proxy': false,
       'webdav_policy': '302_redirect',
       'proxy_range': false,

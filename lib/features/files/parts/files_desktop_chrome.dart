@@ -60,56 +60,75 @@ class _TopBar extends ConsumerWidget {
         color: Colors.transparent,
         border: Border(bottom: BorderSide(color: p.line)),
       ),
-      child: Row(
-        children: [
-          // 设计稿是「后退 / 前进 / 上一级」三颗；本项目没有历史栈，
-          // 这里落成「返回上一级」与「回到全部文件」两颗可用按钮。
-          OlIconButton(
-            icon: 'chev-l',
-            size: OlDesktop.iconBtn,
-            squared: true,
-            iconSize: 15,
-            tooltip: '返回上一级',
-            onTap: atRoot ? null : () => notifier.goUp(),
-          ),
-          const SizedBox(width: 8),
-          OlIconButton(
-            icon: 'arrow-up',
-            size: OlDesktop.iconBtn,
-            squared: true,
-            iconSize: 15,
-            tooltip: '回到全部文件',
-            onTap: atRoot ? null : () => notifier.open('/'),
-          ),
-          const SizedBox(width: 8),
-          const OlIcon('cloud', size: 13, color: OlTokens.sky600, strokeWidth: 2),
-          const SizedBox(width: 6),
-          Flexible(
-            child: _Crumb(
-              text: rootLabel,
-              current: atRoot,
-              onTap: () => notifier.open('/'),
-            ),
-          ),
-          for (var i = 0; i < segs.length; i++) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 2),
-              child: Text('/', style: TextStyle(fontSize: 12.5, color: Color(0xFF9DB2C4))),
-            ),
-            Flexible(
-              child: _Crumb(
-                // 0.5.0：挂载点那一段显示存储源名称（如「本地存储6」），
-                // 不显示引擎的挂载路径段（s_xxxxxxxx）。
-                // 跳转路径仍用原始段 —— 那是引擎侧的真实路径。
-                text: i == 0 && current != null ? current.displayName : segs[i],
-                current: i == segs.length - 1,
-                onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 0.5.10：窗口变窄时右侧工具栏（上传/新建/批量 + 图标按钮）会把
+          // 面包屑挤成 0 宽 —— 界面上只剩一个云图标和两个「/」。
+          // 现在按顶栏可用宽度分档收缩搜索框，把空间让给面包屑；
+          // 面包屑本身改成「可横向滚动」，再窄也不会被压没。
+          final available = constraints.maxWidth;
+          final searchWidth = available < 560
+              ? 92.0
+              : available < 820
+                  ? 128.0
+                  : 186.0;
+          return Row(
+            children: [
+              // 设计稿是「后退 / 前进 / 上一级」三颗；本项目没有历史栈，
+              // 这里落成「返回上一级」与「回到全部文件」两颗可用按钮。
+              OlIconButton(
+                icon: 'chev-l',
+                size: OlDesktop.iconBtn,
+                squared: true,
+                iconSize: 15,
+                tooltip: '返回上一级',
+                onTap: atRoot ? null : () => notifier.goUp(),
               ),
-            ),
-          ],
-          const Spacer(),
-          _SearchMini(onTap: () => context.go('/search')),
-          const SizedBox(width: 8),
+              const SizedBox(width: 8),
+              OlIconButton(
+                icon: 'arrow-up',
+                size: OlDesktop.iconBtn,
+                squared: true,
+                iconSize: 15,
+                tooltip: '回到全部文件',
+                onTap: atRoot ? null : () => notifier.open('/'),
+              ),
+              const SizedBox(width: 8),
+              const OlIcon('cloud', size: 13, color: OlTokens.sky600, strokeWidth: 2),
+              const SizedBox(width: 6),
+              // 面包屑：占满剩余宽度，内容超宽时横向滚动。
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Crumb(
+                        text: rootLabel,
+                        current: atRoot,
+                        onTap: () => notifier.open('/'),
+                      ),
+                      for (var i = 0; i < segs.length; i++) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 2),
+                          child: Text('/', style: TextStyle(fontSize: 12.5, color: Color(0xFF9DB2C4))),
+                        ),
+                        _Crumb(
+                          // 0.5.0：挂载点那一段显示存储源名称（如「本地存储6」），
+                          // 不显示引擎的挂载路径段（s_xxxxxxxx）。
+                          // 跳转路径仍用原始段 —— 那是引擎侧的真实路径。
+                          text: i == 0 && current != null ? current.displayName : segs[i],
+                          current: i == segs.length - 1,
+                          onTap: () => notifier.open('/${segs.take(i + 1).join('/')}'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _SearchMini(width: searchWidth, onTap: () => context.go('/search')),
+              const SizedBox(width: 8),
           OlGhostButton(
             label: '上传',
             icon: 'upload',
@@ -183,7 +202,9 @@ class _TopBar extends ConsumerWidget {
               ),
             ),
           ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -222,7 +243,11 @@ class _Crumb extends StatelessWidget {
 
 class _SearchMini extends StatelessWidget {
   final VoidCallback onTap;
-  const _SearchMini({required this.onTap});
+
+  /// 宽度随顶栏可用宽度分档收缩（见 _TopBar 的 LayoutBuilder）。
+  final double width;
+
+  const _SearchMini({required this.onTap, required this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +257,7 @@ class _SearchMini extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 186,
+          width: width,
           height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 9),
           decoration: BoxDecoration(

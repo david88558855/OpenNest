@@ -124,12 +124,12 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
       if (!item.required) continue;
       final label = fieldLabelFor(info.name, item.name);
       if (item.isBool) {
-        // 布尔必填项必须勾选。原来把布尔值拼成字符串再判空，
-        // 结果永远不为空 —— 「必须同意」这类开关根本拦不住用户。
-        if (!(_bools[item.name] ?? false)) {
-          setState(() => _error = '「$label」为必填项');
-          return;
-        }
+        // 0.5.10 修正：布尔项**不做**「必须为 true」的校验。
+        // 上游 `internal/op/driver.go` 的通用字段 `disable_index` /
+        // `enable_sign` 就是 `Default: "false"` + `Required: true` ——
+        // 「必填」指的是这个字段必须出现在表单里（true / false 都是合法值），
+        // 否则新建存储时这两个开关的默认值本身就是非法的。
+        // 0.5.9 曾按「必须勾选」实现，结果所有驱动都无法添加存储。
         continue;
       }
       final value = item.isSelect

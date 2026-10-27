@@ -120,9 +120,27 @@ const Map<String, Map<String, String>> kDriverDefaultOverrides = {
   'Local': {'show_hidden': 'false'},
 };
 
-/// 取某驱动字段在「新建存储」表单里的默认值：先看客户端覆盖表，再退回引擎值。
+/// 所有驱动通用的表单默认值覆盖（优先于驱动专属覆盖）。
+///
+/// 0.5.10：引擎侧 `internal/op/driver.go` 的通用字段默认值是
+/// `disable_index = false` / `enable_sign = false`，本应用按使用习惯改成
+/// **默认开启**：
+/// - **禁用索引**：不做文件索引预扫描，点开大目录更快；
+/// - **启用签名**：直链带签名参数，避免地址被外部直接引用。
+///
+/// 这两个字段是存储**顶层**属性（不在 `addition` 里），提交时走
+/// `StorageSource.options` → `toRequestJson()`。
+const Map<String, String> kGlobalFormDefaults = {
+  'disable_index': 'true',
+  'enable_sign': 'true',
+};
+
+/// 取某驱动字段在「新建存储」表单里的默认值：
+/// 驱动专属覆盖 → 全局覆盖 → 引擎值。
 String? formDefaultOf(String driver, DriverItem item) =>
-    kDriverDefaultOverrides[driver]?[item.name] ?? item.defaultValue;
+    kDriverDefaultOverrides[driver]?[item.name] ??
+    kGlobalFormDefaults[item.name] ??
+    item.defaultValue;
 
 enum DriverGroup { local, object, cloud, server, other }
 

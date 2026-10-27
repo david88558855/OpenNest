@@ -270,3 +270,39 @@ P0-4 是产品决策，不建议改代码，但建议在 README 的安全边界�
 | `lib/features/settings/parts/sections_sources.dart` | 两处 `switch` 的 `default` 分支被前面的 case 覆盖（不可达） | 删除 default，保留 `case DriverGroup.other` |
 | `lib/core/widgets/ol_controls.dart` | 未使用的局部变量 `p` | 删除 |
 | `lib/features/files/file_actions.dart` | 未使用的局部变量 `files` | 删除 |
+
+---
+
+## 勘误：P2-19 的修法是错的（v0.5.10 已回退）
+
+**P2-19** 原文：「存储源表单对 `required` 的布尔字段校验恒为通过」→ 我在 v0.5.9 按
+「required 的布尔项必须为 true」修复。**这个修法是错的，并且造成了一个阻断性回归。**
+
+上游事实（`internal/op/driver.go` 的 `getMainItems`）：
+
+```go
+items = append(items, driver.Item{
+    Name:     "disable_index",
+    Type:     conf.TypeBool,
+    Default:  "false",
+    Required: true,
+})
+items = append(items, driver.Item{
+    Name:     "enable_sign",
+    Type:     conf.TypeBool,
+    Default:  "false",
+    Required: true,
+})
+```
+
+`Default: "false"` + `Required: true` 自相矛盾 —— 说明 `Required` 对布尔项的含义是
+「这个字段必须出现在表单里」（true / false 都是合法值），**不是**「必须为 true」。
+
+v0.5.9 的实现会让 `disable_index` / `enable_sign` 两个默认关闭的开关成为提交门槛，
+结果是**所有驱动都无法添加存储**（除非用户手动把两个开关都打开）。
+
+**v0.5.10 已回退**：布尔项不再做「必须为 true」的校验，并加了注释说明上游语义。
+本条同时作为本报告的实证 —— 修复前必须核对上游对该字段的实际语义，不能凭字段名推断。
+
+新增的全局默认值覆盖（`kGlobalFormDefaults`）与回退相互独立：它只改表单初值，
+不改校验口径。
