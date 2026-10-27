@@ -22,6 +22,10 @@ class _MobileAppBar extends ConsumerWidget {
         break;
       }
     }
+    // 标题栏上的连接状态。这里直接取整张表（appBar 很小，重建成本可忽略），
+    // 避免在 build 里做条件性 watch。
+    final healthMap = ref.watch(storageHealthProvider);
+    final health = current == null ? null : healthMap[current.id];
     final title = _appBarTitle(state.path, current);
     return Container(
       height: 52,
@@ -47,7 +51,8 @@ class _MobileAppBar extends ConsumerWidget {
                 ),
                 if (current != null) ...[
                   const SizedBox(width: 6),
-                  _SourceTag(text: driverShortTag(current.driver)),
+                  // 连接状态（正常/断开/停用），与桌面侧栏同一套判定。
+                  _ConnectionStatusPill(source: current, health: health),
                 ],
               ],
             ),
@@ -142,35 +147,6 @@ class _AppBarBtn extends StatelessWidget {
 }
 
 /// 源类型小胶囊（WebDAV / 本地 / 网盘 / SFTP）。
-class _SourceTag extends StatelessWidget {
-  final String text;
-
-  const _SourceTag({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    const green = {'SFTP', 'FTP', 'SMB'};
-    const sky = {'本地', 'WebDAV'};
-    final Color fg;
-    final Color bg;
-    if (sky.contains(text)) {
-      fg = const Color(0xFF08799F);
-      bg = const Color(0xFFEAF8FE);
-    } else if (green.contains(text)) {
-      fg = const Color(0xFF0B6B4A);
-      bg = const Color(0xFFD3F2E6);
-    } else {
-      fg = const Color(0xFFB7791F);
-      bg = const Color(0xFFFEF3C7);
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
-      child: Text(text, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: fg)),
-    );
-  }
-}
-
 class _KindFilter extends StatelessWidget {
   final FileKind? value;
   final ValueChanged<FileKind?> onChanged;

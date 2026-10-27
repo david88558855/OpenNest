@@ -36,6 +36,8 @@ class _SourceDrawer extends ConsumerWidget {
                 for (final source in sources)
                   _DrawerSourceRow(
                     source: source,
+                    // 每行只订阅自己的健康状态：别的源变化不会重建这一行。
+                    health: ref.watch(storageHealthProvider.select((all) => all[source.id])),
                     active: state.path == source.mountPath || state.path.startsWith('${source.mountPath}/'),
                     onTap: () {
                       onClose();
@@ -84,29 +86,20 @@ class _DrawerSection extends StatelessWidget {
 
 class _DrawerSourceRow extends StatelessWidget {
   final StorageSource source;
+  final StorageHealth? health;
   final bool active;
   final VoidCallback onTap;
 
-  const _DrawerSourceRow({required this.source, required this.active, required this.onTap});
+  const _DrawerSourceRow({
+    required this.source,
+    required this.active,
+    required this.onTap,
+    this.health,
+  });
 
   @override
   Widget build(BuildContext context) {
     final p = context.ol;
-    const green = {'SFTP', 'FTP', 'SMB'};
-    const sky = {'本地', 'WebDAV'};
-    final tag = driverShortTag(source.driver);
-    final Color tagFg;
-    final Color tagBg;
-    if (sky.contains(tag)) {
-      tagFg = const Color(0xFF08799F);
-      tagBg = const Color(0xFFEAF8FE);
-    } else if (green.contains(tag)) {
-      tagFg = const Color(0xFF0B6B4A);
-      tagBg = const Color(0xFFD3F2E6);
-    } else {
-      tagFg = const Color(0xFFB7791F);
-      tagBg = const Color(0xFFFEF3C7);
-    }
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -131,11 +124,8 @@ class _DrawerSourceRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: tagBg, borderRadius: BorderRadius.circular(99)),
-              child: Text(tag, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: tagFg)),
-            ),
+            // 连接状态（正常/断开/停用），与桌面侧栏同一套判定。
+            _ConnectionStatusPill(source: source, health: health),
           ],
         ),
       ),

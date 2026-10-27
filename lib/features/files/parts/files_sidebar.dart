@@ -209,39 +209,14 @@ class _SourceStatusTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
-    final String label;
-    final Color color;
-    final String detail;
-    if (source.disabled) {
-      label = '停用';
-      color = p.ink4;
-      detail = '该存储源已在设置里停用';
-    } else if (health == null) {
-      // 还没探测到结论（引擎刚起来的一两秒）：占位符，宽度不变，不会闪。
-      label = '—';
-      color = p.ink4;
-      detail = '正在检测连接状态…';
-    } else if (health!.online) {
-      label = '正常';
-      color = OlTokens.ok;
-      detail = '已连接'
-          '${health!.latencyMs > 0 ? ' · 响应 ${health!.latencyMs}ms' : ''}'
-          ' · ${_ago(health!.checkedAt)}检测';
-    } else {
-      label = '断开';
-      color = OlTokens.dangerDeep;
-      final reason = health!.message;
-      detail = '无法连接该存储源'
-          '${reason == null || reason.isEmpty ? '' : '：$reason'}';
-    }
+    final state = _ConnectionState.of(context, source, health);
     return Tooltip(
-      message: detail,
+      message: state.detail,
       waitDuration: const Duration(milliseconds: 500),
       child: SizedBox(
         width: width,
         child: Text(
-          label,
+          state.label,
           textAlign: TextAlign.right,
           maxLines: 1,
           overflow: TextOverflow.clip,
@@ -249,10 +224,117 @@ class _SourceStatusTag extends StatelessWidget {
             fontSize: 9.5,
             height: 1.1,
             fontWeight: FontWeight.w800,
-            color: color,
+            color: state.fg,
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 胶囊版连接状态：移动端抽屉与标题栏用（沿用它们原来的胶囊样式）。
+class _ConnectionStatusPill extends StatelessWidget {
+  final StorageSource source;
+  final StorageHealth? health;
+
+  const _ConnectionStatusPill({required this.source, required this.health});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = _ConnectionState.of(context, source, health);
+    return Tooltip(
+      message: state.detail,
+      waitDuration: const Duration(milliseconds: 500),
+      child: Container(
+        // 固定最小宽度：「—」与「正常/断开/停用」宽度一致，切换不跳。
+        constraints: const BoxConstraints(minWidth: 34),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: state.bg,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          state.label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: state.pillFg),
+        ),
+      ),
+    );
+  }
+}
+
+/// 连接状态的统一取值：文案 / 颜色 / 悬停说明。
+///
+/// 桌面侧栏（纯文字）与移动端抽屉、标题栏（胶囊）共用这一份判定 ——
+/// 三处各判一遍很容易出现「同一状态文案或颜色不一致」。
+class _ConnectionState {
+  final String label;
+
+  /// 纯文字场景的前景色。
+  final Color fg;
+
+  /// 胶囊场景的前景色（浅色底上要更深才够对比）。
+  final Color pillFg;
+
+  /// 胶囊底色。
+  final Color bg;
+
+  final String detail;
+
+  const _ConnectionState({
+    required this.label,
+    required this.fg,
+    required this.pillFg,
+    required this.bg,
+    required this.detail,
+  });
+
+  factory _ConnectionState.of(
+    BuildContext context,
+    StorageSource source,
+    StorageHealth? health,
+  ) {
+    final p = context.ol;
+    if (source.disabled) {
+      return _ConnectionState(
+        label: '停用',
+        fg: p.ink4,
+        pillFg: p.ink4,
+        bg: p.chipBg,
+        detail: '该存储源已在设置里停用',
+      );
+    }
+    if (health == null) {
+      // 还没探测到结论（引擎刚起来的一两秒）：占位符，宽度不变，不会闪。
+      return _ConnectionState(
+        label: '—',
+        fg: p.ink4,
+        pillFg: p.ink4,
+        bg: p.chipBg,
+        detail: '正在检测连接状态…',
+      );
+    }
+    if (health.online) {
+      return _ConnectionState(
+        label: '正常',
+        fg: OlTokens.ok,
+        pillFg: const Color(0xFF0B6B4A),
+        bg: const Color(0xFFD3F2E6),
+        detail: '已连接'
+            '${health.latencyMs > 0 ? ' · 响应 ${health.latencyMs}ms' : ''}'
+            ' · ${_ago(health.checkedAt)}检测',
+      );
+    }
+    final reason = health.message;
+    return _ConnectionState(
+      label: '断开',
+      fg: OlTokens.dangerDeep,
+      pillFg: OlTokens.dangerDeep,
+      bg: const Color(0xFFFDE8EC),
+      detail: '无法连接该存储源'
+          '${reason == null || reason.isEmpty ? '' : '：$reason'}',
     );
   }
 
