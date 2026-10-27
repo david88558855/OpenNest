@@ -88,10 +88,7 @@ class _AppBarBtn extends StatelessWidget {
   final VoidCallback? onTap;
   final ValueChanged<Offset>? onTapDown;
 
-  /// 右上角徽标（待处理传输数）。<=0 不显示。
-  final int badge;
-
-  const _AppBarBtn({required this.icon, this.onTap, this.onTapDown, this.badge = 0});
+  const _AppBarBtn({required this.icon, this.onTap, this.onTapDown});
 
   @override
   Widget build(BuildContext context) {
@@ -110,39 +107,7 @@ class _AppBarBtn extends StatelessWidget {
         child: Center(child: OlIcon(icon, size: 17, color: p.ink2)),
       ),
     );
-    if (badge <= 0) return button;
-    // 徽标压在按钮右上角外侧，靠 Stack 的负偏移实现，不改变 38×38 的点击区。
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        button,
-        Positioned(
-          right: -5,
-          top: -5,
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 16),
-            height: 16,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0EA5E9),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: p.card, width: 1.5),
-            ),
-            child: Center(
-              child: Text(
-                badge > 99 ? '99+' : '$badge',
-                style: const TextStyle(
-                  fontSize: 9,
-                  height: 1,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    return button;
   }
 }
 

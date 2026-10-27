@@ -143,14 +143,12 @@ class _MobileTile extends StatelessWidget {
   final String icon;
   final String label;
   final String value;
-  final bool danger;
   final VoidCallback onTap;
   const _MobileTile({
     required this.icon,
     required this.label,
     required this.value,
     required this.onTap,
-    this.danger = false,
   });
 
   @override
@@ -165,14 +163,14 @@ class _MobileTile extends StatelessWidget {
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.line2))),
         child: Row(
           children: [
-            OlIcon(icon, size: 18, color: danger ? OlTokens.dangerDeep : p.ink3),
+            OlIcon(icon, size: 18, color: p.ink3),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: danger ? OlTokens.dangerDeep : p.ink),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
             if (value.isNotEmpty)

@@ -11,9 +11,7 @@ import '../../core/models/api_types.dart';
 import '../../core/models/server_profile.dart';
 import '../../core/models/transfer_task.dart';
 import '../../core/storage/download_paths.dart';
-import '../../core/storage/prefs.dart';
 import '../../data/db/app_database.dart';
-import '../files/files_controller.dart';
 import '../sources/storage_health.dart';
 
 class TransfersState {
@@ -101,12 +99,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   bool _pumping = false;
   ProviderSubscription<AppSettings>? _settingsSub;
 
-  /// 缓存 prefs：dispose 时 ref 已失效，但合并窗口里的状态还得落盘。
-  final Prefs _prefs;
-
-  TransfersNotifier(this.ref)
-      : _prefs = ref.read(prefsProvider),
-        super(const TransfersState()) {
+  TransfersNotifier(this.ref) : super(const TransfersState()) {
     final settings = ref.read(appSettingsProvider);
     _downRateBytes = settings.downLimitKbps * 1024;
     _upRateBytes = settings.upLimitKbps * 1024;
@@ -127,8 +120,6 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     _restore();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
-
-  static const _persistKey = 'ol_transfers';
 
   /// 限速的字节值缓存。
   ///

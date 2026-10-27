@@ -575,7 +575,6 @@ class OlCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.ol;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(

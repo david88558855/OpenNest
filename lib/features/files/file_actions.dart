@@ -728,7 +728,6 @@ Future<void> showItemMenu(
   Offset position, {
   List<FileItem>? selection,
 }) async {
-  final files = ref.read(filesProvider);
   final targets = (selection != null && selection.length > 1) ? selection : [item];
 
   final openAction = _openAction(context, ref, item);

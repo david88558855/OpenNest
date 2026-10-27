@@ -660,7 +660,6 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
       case DriverGroup.server:
         return const Color(0xFFE8FBF3);
       case DriverGroup.other:
-      default:
         return const Color(0xFFF1F6FB);
     }
   }
@@ -676,7 +675,6 @@ class _SourceTableRowState extends ConsumerState<_SourceTableRow> {
       case DriverGroup.server:
         return const Color(0xFF0E9F6E);
       case DriverGroup.other:
-      default:
         return const Color(0xFF6B7F94);
     }
   }
