@@ -25,6 +25,16 @@ class OpenListApi {
   /// 取消响应变慢。1MB 在两者之间取的折中。
   static const int kTransferBlockSize = 1 << 20;
 
+  /// 进度上报的最小字节间隔 / 最小时间间隔。
+  ///
+  /// 0.5.3（方案 A）：以前每个 64KB 块都回调一次，1GB 下载 = 1.6 万次跨对象
+  /// 调用（回调里还要刷 UI 状态）。改成「攒够 512KB 或过了 200ms」才报一次，
+  /// 1GB 只剩 2000 次左右，进度条观感不变。
+  static const int kProgressStepBytes = 512 * 1024;
+
+  /// 见 [kProgressStepBytes]。
+  static const int kProgressIntervalMs = 200;
+
   OpenListApi({required this.baseUrl, this.token})
       : _dio = Dio(
           BaseOptions(
@@ -510,36 +520,53 @@ class OpenListApi {
     // 让一次 1GB 的下载产生上万次写系统调用。这里先攒到 1MB 再一次性交给
     // sink，写入顺序与崩溃语义不变，系统调用数量降一个量级。
     final buffer = BytesBuilder(copy: true);
+    // 0.5.3（方案 A）：把客户端自身开销压到最低，让吞吐尽量贴近引擎单流上限。
+    // 这一层能省的只有「每块」的固定开销，改不了引擎给数据的速度，所以：
+    // - 限速值改为每攒满一批（1MB）取一次，不再每 64KB 读一次 provider；
+    // - 进度回调按「≥512KB 或 ≥200ms」上报，避免每块一次跨对象调用；
+    // - 计时改用 Stopwatch（单调时钟），比每块两次 DateTime.now() 便宜。
+    var rate = throttleRate?.call() ?? throttleBytesPerSecond;
+    final clock = Stopwatch()..start();
     var windowBytes = 0;
-    var windowStart = DateTime.now();
+    var windowStartMs = 0;
+    var lastReportBytes = 0;
+    var lastReportMs = 0;
     try {
       await for (final chunk in body.stream) {
         buffer.add(chunk);
         if (buffer.length >= kTransferBlockSize) {
           sink.add(buffer.takeBytes());
+          // 改限速设置最多在这一批（1MB）之内生效，体感仍是即时。
+          rate = throttleRate?.call() ?? throttleBytesPerSecond;
         }
         received += chunk.length;
         windowBytes += chunk.length;
-        // 每块都重新取限速值：设置页改完立刻作用于正在跑的下载。
-        final rate = throttleRate?.call() ?? throttleBytesPerSecond;
         if (rate > 0) {
-          final elapsed = DateTime.now().difference(windowStart).inMilliseconds;
+          final elapsed = clock.elapsedMilliseconds - windowStartMs;
           final expectedMs = windowBytes * 1000 / rate;
           if (elapsed < expectedMs) {
             await Future<void>.delayed(Duration(milliseconds: (expectedMs - elapsed).round()));
           }
           if (windowBytes > rate * 2) {
             windowBytes = 0;
-            windowStart = DateTime.now();
+            windowStartMs = clock.elapsedMilliseconds;
           }
         }
-        onProgress(received, total);
+        final nowMs = clock.elapsedMilliseconds;
+        if (received - lastReportBytes >= kProgressStepBytes ||
+            nowMs - lastReportMs >= kProgressIntervalMs) {
+          lastReportBytes = received;
+          lastReportMs = nowMs;
+          onProgress(received, total);
+        }
         if (cancelToken.isCancelled) {
           // v1.0.21：取消必须抛出去。之前是 break 后照常返回 received 长度，
           // 上层会把半截文件当成「已完成」（文件被静默截断且标记成功）。
           throw const ApiException(-1, '传输已取消');
         }
       }
+      // 收尾补一次，保证 UI 一定能看到最终字节数（小文件可能一次都没上报）。
+      onProgress(received, total);
     } finally {
       // 收尾必须把不满一批的尾巴写出去，否则会丢最后 <1MB 数据。
       if (buffer.isNotEmpty) sink.add(buffer.takeBytes());

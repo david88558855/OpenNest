@@ -81,9 +81,15 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   TransfersNotifier(this.ref)
       : _prefs = ref.read(prefsProvider),
         super(const TransfersState()) {
-    state = state.copyWith(concurrency: ref.read(appSettingsProvider).concurrency);
+    final settings = ref.read(appSettingsProvider);
+    _downRateBytes = settings.downLimitKbps * 1024;
+    _upRateBytes = settings.upLimitKbps * 1024;
+    state = state.copyWith(concurrency: settings.concurrency);
     // v2.6：设置页改并发数后立即生效。之前只在构造时读一次，必须重启应用才生效。
+    // 0.5.3：顺带把限速值同步进缓存（传输循环每批只读缓存，不再读 provider）。
     _settingsSub = ref.listen<AppSettings>(appSettingsProvider, (previous, next) {
+      _downRateBytes = next.downLimitKbps * 1024;
+      _upRateBytes = next.upLimitKbps * 1024;
       if (previous?.concurrency == next.concurrency) return;
       if (state.concurrency != next.concurrency) {
         state = state.copyWith(concurrency: next.concurrency);
@@ -96,11 +102,19 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   static const _persistKey = 'ol_transfers';
 
-  /// 下载限速（字节/秒），每个数据块都重新读取，运行中改设置即时生效。
-  int _downRate() => ref.read(appSettingsProvider).downLimitKbps * 1024;
+  /// 限速的字节值缓存。
+  ///
+  /// 0.5.3（方案 A）：以前每收一个 64KB 块就 `ref.read(appSettingsProvider)`
+  /// 一次 —— 1GB 下载就是 1.6 万次 provider 读取。改成由设置监听写入缓存，
+  /// 传输循环里只读一个 int 字段；语义仍是「改完设置立即生效」。
+  int _downRateBytes = 0;
+  int _upRateBytes = 0;
 
-  /// 上传限速（字节/秒），同上。
-  int _upRate() => ref.read(appSettingsProvider).upLimitKbps * 1024;
+  /// 下载限速（字节/秒）。读缓存，不读 provider。
+  int _downRate() => _downRateBytes;
+
+  /// 上传限速（字节/秒）。同上。
+  int _upRate() => _upRateBytes;
 
   @override
   void dispose() {
@@ -163,7 +177,9 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
 
   void _emitThrottled() {
     final now = DateTime.now();
-    if (now.difference(_lastEmit).inMilliseconds < 150) return;
+    // 0.5.3（方案 A）：下载侧的上报已经是「512KB 或 200ms 一次」，这里
+    // 对齐到 200ms，避免同一帧内重复整表拷贝（每次都要 List.of 全量任务）。
+    if (now.difference(_lastEmit).inMilliseconds < 200) return;
     _lastEmit = now;
     _emit();
   }
