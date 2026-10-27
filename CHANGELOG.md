@@ -58,6 +58,13 @@
 - 存储源分组色两处不可达的 `switch default` 分支
 - 2 处未使用的局部变量
 
+### 发版脚本修复
+
+- **Windows 便携包的 `.sha256` 改为 LF 行尾**：原来用 PowerShell 的 `Out-File`，
+  默认写 CRLF，产出的校验文件在 Linux/macOS 上跑 `sha256sum -c` 会把文件名读成
+  `xxx.zip\r`，直接报 "No such file or directory"。现在显式用 LF 且不带 BOM。
+  **v0.5.9 已发布的附件已用修正后的 LF 版本覆盖**，端到端 `sha256sum -c` 已验证通过。
+
 ### 文档
 
 - README 补充「固定口令的代价」：引擎管理接口是回环明文 HTTP、口令是公开的

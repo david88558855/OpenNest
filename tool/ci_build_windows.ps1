@@ -65,6 +65,9 @@ Compress-Archive -Path "$stage\*" -DestinationPath $zip -Force
 Remove-Item -Recurse -Force $stage
 
 $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-"$hash  $name.zip" | Out-File -Encoding ascii "$zip.sha256"
+# 必须用 LF 行尾写：PowerShell 的 Out-File 默认写 CRLF，产出的 .sha256
+# 在 Linux/macOS 上跑 `sha256sum -c` 会把文件名读成 "xxx.zip\r"，
+# 直接报 "No such file or directory"。这里显式用 LF 且不带 BOM。
+[System.IO.File]::WriteAllText("$zip.sha256", "$hash  $name.zip`n", (New-Object System.Text.UTF8Encoding $false))
 Write-Host "OK: $zip ($((Get-Item $zip).Length) 字节)"
 Write-Host "SHA256: $hash"
