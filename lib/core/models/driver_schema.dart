@@ -122,18 +122,13 @@ const Map<String, Map<String, String>> kDriverDefaultOverrides = {
 
 /// 所有驱动通用的表单默认值覆盖（优先于驱动专属覆盖）。
 ///
-/// 0.5.10：引擎侧 `internal/op/driver.go` 的通用字段默认值是
-/// `disable_index = false` / `enable_sign = false`，本应用按使用习惯改成
-/// **默认开启**：
-/// - **禁用索引**：不做文件索引预扫描，点开大目录更快；
-/// - **启用签名**：直链带签名参数，避免地址被外部直接引用。
+/// 0.5.12 起**不再覆盖** `disable_index` / `enable_sign`：这两项跟随引擎
+/// `internal/op/driver.go` 的 `Default: "false"`，即新建存储时默认关闭。
 ///
-/// 这两个字段是存储**顶层**属性（不在 `addition` 里），提交时走
-/// `StorageSource.options` → `toRequestJson()`。
-const Map<String, String> kGlobalFormDefaults = {
-  'disable_index': 'true',
-  'enable_sign': 'true',
-};
+/// 0.5.10 曾把两者默认改成开启（禁用索引 = 不做预扫描、启用签名 = 直链带
+/// 签名）。这两个开关都会改变存储对外表现，属于用户自己的取舍，不该由
+/// 客户端的默认值替他决定 —— 恢复引擎默认。
+const Map<String, String> kGlobalFormDefaults = {};
 
 /// 取某驱动字段在「新建存储」表单里的默认值：
 /// 驱动专属覆盖 → 全局覆盖 → 引擎值。
