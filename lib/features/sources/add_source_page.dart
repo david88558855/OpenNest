@@ -36,6 +36,9 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
   final Map<String, String> _selects = {};
 
   String? _driver;
+
+  /// initialDriver 是否已经自动选过一次（用户点「换类型」后不再补选）。
+  bool _autoSelected = false;
   bool _busy = false;
   String? _error;
   bool _created = false;
@@ -225,11 +228,15 @@ class _AddSourcePageState extends ConsumerState<AddSourcePage> {
                 if (drivers.isEmpty) {
                   return const _Failed(message: '引擎没有返回任何驱动');
                 }
-                if (widget.initialDriver != null && _driver == null) {
+                // 只自动选一次。用户点「换类型」会把 _driver 置回 null，
+                // 若这里继续按 initialDriver 补选，下一帧就把他刚清空的选择
+                // 又填回去、控制器整体重建，已输入的内容全丢。
+                if (!_autoSelected && widget.initialDriver != null && _driver == null) {
                   final info = drivers[widget.initialDriver];
                   if (info != null) {
+                    _autoSelected = true;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _selectDriver(info));
+                      if (mounted && _driver == null) setState(() => _selectDriver(info));
                     });
                   }
                 }

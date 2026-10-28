@@ -524,11 +524,22 @@ Future<void> offlineDownload(BuildContext context, WidgetRef ref) async {
   }
 }
 
+/// 条目的完整远端路径。
+///
+/// 引擎返回的 `parent` 可能是**空串**（不是 null），`??` 不会回退 ——
+/// 直接用它拼路径会得到空字符串，预览 / 播放 / 直链全部 404。
+/// 本文件此前有三处这样的写法，统一收在这里。
+String itemPath(FileItem item, String currentDir) {
+  final parent = item.parent?.trim();
+  if (parent == null || parent.isEmpty) return joinPath(currentDir, item.name);
+  return parent;
+}
+
 Future<String?> signedUrl(WidgetRef ref, FileItem item) async {
   final api = ref.read(sessionProvider).api;
   if (api == null) return null;
   var sign = item.sign;
-  final path = item.parent ?? joinPath(ref.read(filesProvider).path, item.name);
+  final path = itemPath(item, ref.read(filesProvider).path);
   if (sign == null || sign.isEmpty) {
     try {
       final info = await api.get(path);
@@ -549,12 +560,12 @@ Future<void> openItem(BuildContext context, WidgetRef ref, FileItem item) async 
   }
   final kind = kindOf(item.name, false);
   if (kind == FileKind.video || kind == FileKind.audio) {
-    final path = item.parent ?? joinPath(dir, item.name);
+    final path = itemPath(item, dir);
     context.push('/player?path=${Uri.encodeComponent(path)}&name=${Uri.encodeComponent(item.name)}');
     return;
   }
   if (kind == FileKind.image || kind == FileKind.text) {
-    final path = item.parent ?? joinPath(dir, item.name);
+    final path = itemPath(item, dir);
     context.push('/preview?path=${Uri.encodeComponent(path)}&name=${Uri.encodeComponent(item.name)}');
     return;
   }

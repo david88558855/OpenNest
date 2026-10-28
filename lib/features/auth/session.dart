@@ -86,8 +86,25 @@ class SessionNotifier extends StateNotifier<SessionState> {
   /// 这一步卡几分钟，所以这里必须自己限时，否则启动页与界面都会一起干等。
   static const Duration _probeTimeout = Duration(seconds: 12);
 
+  /// 是否已有一轮 boot 在跑。
+  ///
+  /// 0.5.11：启动页只做短预算探测（2 秒），超时后那一轮 boot 仍在后台继续；
+  /// 后台引导（AppWatchdog）随后也会调 boot。没有这个闸门时两个协程会同时
+  /// 打 `/api/me`，后者还可能把前者刚写好的 signedIn 状态覆盖掉。
+  bool _booting = false;
+
   /// 连接本机引擎并建立会话。引擎未就绪时只记录错误，不抛异常。
   Future<void> boot() async {
+    if (_booting) return;
+    _booting = true;
+    try {
+      await _boot();
+    } finally {
+      _booting = false;
+    }
+  }
+
+  Future<void> _boot() async {
     final sidecar = ref.read(sidecarProvider);
     final port = sidecar.port;
     if (sidecar.status != SidecarStatus.ready || port == null) {

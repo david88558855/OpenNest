@@ -163,11 +163,17 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     if (!mounted) return;
     final restored = <TransferTask>[];
     for (final e in raw) {
-      final task = TransferTask.fromJson(e);
-      if (task.status == TransferStatus.running || task.status == TransferStatus.queued) {
-        task.status = TransferStatus.paused;
+      // 0.5.11：逐条容错。以前一条 JSON 字段类型不对（比如 total 存成字符串）
+      // 就会在 fromJson 里抛，整轮恢复中断，队列里其余任务全部丢失。
+      try {
+        final task = TransferTask.fromJson(e);
+        if (task.status == TransferStatus.running || task.status == TransferStatus.queued) {
+          task.status = TransferStatus.paused;
+        }
+        if (task.status != TransferStatus.done) restored.add(task);
+      } catch (_) {
+        // 坏记录直接跳过，不影响其它任务。
       }
-      if (task.status != TransferStatus.done) restored.add(task);
     }
     if (restored.isNotEmpty && mounted) {
       state = state.copyWith(tasks: restored);
@@ -307,6 +313,17 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     }
     // 同名文件不能互相覆盖：已在队列里的同一远程文件复用原路径（续传），
     // 否则在磁盘上顺延出「name (2).ext」。
+    //
+    // 0.5.11：但「复用」只对**已停下**（暂停 / 失败）的旧任务成立。旧任务还在
+    // 跑或排队时再入队同一个文件，两个协程会同时写同一个文件（一个截断、
+    // 一个追加），双双标成 done 而内容已坏。这种情况直接拒绝。
+    for (final t in state.tasks) {
+      if (t.kind == TransferKind.download &&
+          t.remotePath == remotePath &&
+          (t.status == TransferStatus.running || t.status == TransferStatus.queued)) {
+        return '该文件已在下载队列中';
+      }
+    }
     final localPath = _resolveLocalPath(dir, item.name, remotePath);
     final task = TransferTask(
       id: 'dl-${DateTime.now().microsecondsSinceEpoch}-${item.name.hashCode}',
@@ -416,9 +433,16 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   Future<void> resume(String id) async {
     final task = _find(id);
     if (task == null) return;
+    // 已完成的任务没有「继续」语义：再跑一遍会从本地已有长度发起 Range，
+    // 服务端回 416，任务反而变成失败（用户看到「已完成」变「失败」）。
+    if (task.status == TransferStatus.done) return;
     _pausedByGlobal.remove(id);
     task.status = TransferStatus.queued;
     task.error = null;
+    // 0.5.11：单个任务「继续」必须解除全局暂停。以前只改任务状态，
+    // 而 _pump 开头 `if (!state.pausedGlobally)` 会跳过整轮调度 ——
+    // 点过「全部暂停」后点某一条的「继续」，那条永远停在排队中。
+    state = state.copyWith(pausedGlobally: false);
     _emit();
     await _pump();
   }
@@ -429,6 +453,8 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
     _pausedByGlobal.remove(id);
     task.error = null;
     task.status = TransferStatus.queued;
+    // 同上：重试也要解除全局暂停，否则任务只排队不启动。
+    state = state.copyWith(pausedGlobally: false);
     _emit();
     await _pump();
   }
@@ -539,6 +565,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   Future<void> _pump() async {
     if (_pumping) return;
     _pumping = true;
+    var changed = false;
     try {
       if (!state.pausedGlobally) {
         var running = state.tasks.where((e) => e.status == TransferStatus.running).length;
@@ -551,6 +578,15 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
             // 典型场景）。此时**不能**再起一个 —— 两个协程会同时写同一个
             // 文件。等旧协程的 finally 调 _pump() 时自然会拉起新一轮。
             if (_running.containsKey(task.id)) continue;
+            // 0.5.11：会话换了服务器时 _run 会立刻把任务改回 paused 并返回，
+            // 以前这里已经 running++ 占了并发槽 —— 槽被空占，本轮其余排队
+            // 任务全被 break 掉。现在先判连接，没有 api 就不占槽。
+            if (_apiFor(task.serverId) == null) {
+              task.status = TransferStatus.paused;
+              task.error = '切换了服务器，恢复后继续';
+              changed = true;
+              continue;
+            }
             running++;
             _launch(task);
           }
@@ -558,6 +594,7 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
       }
     } finally {
       _pumping = false;
+      if (changed) _emit();
     }
   }
 
@@ -695,10 +732,13 @@ class TransfersNotifier extends StateNotifier<TransfersState> {
   }
 
   String _resolveLocalPath(String dir, String name, String remotePath) {
+    // 只复用「已停下」的旧任务的路径（续传场景）。运行中 / 排队中的同一文件
+    // 在入队时已被拦掉（见 enqueueDownloadInto），这里再排除一次是为了防止
+    // 竞态下两个任务拿到同一条路径。
     for (final task in state.tasks) {
       if (task.kind == TransferKind.download &&
           task.remotePath == remotePath &&
-          task.status != TransferStatus.done) {
+          (task.status == TransferStatus.paused || task.status == TransferStatus.failed)) {
         return task.localPath;
       }
     }

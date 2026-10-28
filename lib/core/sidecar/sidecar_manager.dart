@@ -129,9 +129,12 @@ class DesktopSidecarManager implements SidecarManager {
   ///
   /// 引擎启动后还有一道关卡：`StoragesLoaded` 中间件在**所有存储源加载完**
   /// 之前会挂住除 `/` 以外的全部接口（含 `/api/auth/login`）。换过网络、
-  /// 原地址不可达的存储源会让这一步卡几分钟。这里只等 12 秒，等到就登录，
-  /// 等不到就以「未登录」状态返回 —— 引擎是健康的，杀进程才是错的。
-  static const Duration _kLoginTimeout = Duration(seconds: 12);
+  /// 原地址不可达的存储源会让这一步卡几分钟。
+  ///
+  /// 0.5.11：上限从 12 秒压到 2.5 秒。本机回环登录正常在 100ms 量级，
+  /// 这里只是「顺手拿个令牌」—— 拿不到就以未登录返回，由后台引导在进入
+  /// 界面之后重试。原来等 12 秒，等于每次冷启动都被某个失联的源拖慢。
+  static const Duration _kLoginTimeout = Duration(milliseconds: 2500);
 
   @override
   bool get isRunning => _process != null;
@@ -358,7 +361,7 @@ class DesktopSidecarManager implements SidecarManager {
         api.token = token;
         var valid = true;
         try {
-          await api.me().timeout(const Duration(seconds: 5));
+          await api.me().timeout(_kLoginTimeout);
         } catch (_) {
           valid = false;
         }

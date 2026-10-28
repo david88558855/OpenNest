@@ -140,7 +140,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         bindings: {
           const SingleActivator(LogicalKeyboardKey.keyK, control: true): () => context.go('/search'),
           const SingleActivator(LogicalKeyboardKey.f5): () => ref.read(filesProvider.notifier).refresh(),
-          const SingleActivator(LogicalKeyboardKey.keyA, control: true): () => ref.read(filesProvider.notifier).selectAll(),
+          // 0.5.11：只勾选**当前可见**的条目。以前 selectAll() 按全量 items 选，
+          // 在「仅图片」筛选下 Ctrl+A 再删除，会把看不见的文件一起删掉。
+          const SingleActivator(LogicalKeyboardKey.keyA, control: true): () => ref
+              .read(filesProvider.notifier)
+              .selectOnly(_filtered(ref.read(filesProvider).items).map((e) => e.name)),
           const SingleActivator(LogicalKeyboardKey.escape): () => ref.read(filesProvider.notifier).clearSelection(),
           const SingleActivator(LogicalKeyboardKey.delete): () {
             final selected = ref.read(filesProvider).selectedItems;
@@ -233,9 +237,13 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
   Widget _buildBody(FilesState state) {
     final items = _filtered(state.items);
+    // 0.5.11：会话还没建立（引擎正在加载存储源）时列表必然是空的 ——
+    // 这时不能显示「这个文件夹是空的」，否则用户会以为数据丢了。
+    // 启动页不再等这一步，所以这里必须自己把「还在加载」表达出来。
+    final warming = !ref.watch(sessionProvider.select((s) => s.signedIn));
     // v1.0.38：骨架屏只在「超过 400ms 仍未返回」时出现（showSkeleton 由 controller 置位），
     // 快速切换目录时不再闪一下骨架；未到延迟前用等高占位保持布局稳定。
-    if (items.isEmpty && state.showSkeleton) return const _SkeletonBody();
+    if (items.isEmpty && (state.showSkeleton || warming)) return const _SkeletonBody();
     if (items.isEmpty && state.loading) return const SizedBox.expand();
     if (items.isEmpty && state.error != null && !state.offline) {
       return _ErrorBody(
@@ -288,6 +296,8 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   Widget _buildMobile(BuildContext context) {
     final state = ref.watch(filesProvider);
     final items = _filtered(state.items);
+    // 会话未就绪 = 引擎还在加载存储源：用骨架屏占位，不显示「空目录」。
+    final warming = !ref.watch(sessionProvider.select((s) => s.signedIn));
     return AppFrame(
       navIndex: 0,
       // 抽屉打开时收起底部导航：导航条由 AppFrame 画在 child 之外，
@@ -343,7 +353,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                             onRetry: () => ref.read(filesProvider.notifier).refresh(),
                           ),
                         ),
-                      if (items.isEmpty && state.showSkeleton)
+                      if (items.isEmpty && (state.showSkeleton || warming))
                         const SliverToBoxAdapter(child: SizedBox(height: 420, child: _SkeletonBody()))
                       else if (items.isEmpty && state.loading)
                         const SliverToBoxAdapter(child: SizedBox(height: 420))

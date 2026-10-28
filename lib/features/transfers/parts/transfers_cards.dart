@@ -193,20 +193,8 @@ class _GroupTitle extends StatelessWidget {
 class _TaskListSliver extends StatelessWidget {
   final List<TransferTask> tasks;
   final _Filter filter;
-  final ValueChanged<_Filter> onFilter;
 
-  /// 历史任务数：仅用于「进行中为空但历史里有内容」时给出跳转引导。
-  /// 服务端复制 / 移动是秒级完成的，不提示的话用户会以为没入队。
-  final int doneCount;
-  final int failedCount;
-
-  const _TaskListSliver({
-    required this.tasks,
-    required this.filter,
-    required this.onFilter,
-    this.doneCount = 0,
-    this.failedCount = 0,
-  });
+  const _TaskListSliver({required this.tasks, required this.filter});
 
   static const Map<TransferKind, String> _groupTitles = {
     TransferKind.download: '下载中',
@@ -218,9 +206,9 @@ class _TaskListSliver extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tasks.isEmpty) {
-      // 「进行中」为空但历史里有任务：给一个跳转。复制 / 移动在服务端是秒级
-      // 完成的，用户切到传输页时任务往往已经 done —— 不给引导会被当成「没入队」。
-      final historyHint = filter == _Filter.active && (doneCount > 0 || failedCount > 0);
+      // 空态只说明「这里此刻没有任务」。0.5.11 去掉了「查看已完成（N）」按钮：
+      // 顶部本来就有「已完成 / 失败」分段，计数也在上面，空态再放一个跳转按钮
+      // 属于重复引导，用户反馈「完成之后不需要这个提示和按钮」。
       return SliverToBoxAdapter(
         child: SizedBox(
           height: 260,
@@ -239,19 +227,6 @@ class _TaskListSliver extends StatelessWidget {
               _Filter.upload => '没有上传任务',
               _ => '没有进行中的任务',
             },
-            subtitle: historyHint
-                ? '最近已完成 $doneCount 个${failedCount > 0 ? '，失败 $failedCount 个' : ''}'
-                : null,
-            action: historyHint
-                ? OlGhostButton(
-                    label: failedCount > 0 ? '查看失败任务' : '查看已完成',
-                    icon: failedCount > 0 ? 'alert' : 'check',
-                    height: 28,
-                    fontSize: 11,
-                    horizontalPadding: 12,
-                    onTap: () => onFilter(failedCount > 0 ? _Filter.failed : _Filter.done),
-                  )
-                : null,
           ),
         ),
       );
@@ -293,6 +268,10 @@ class _TaskListSliver extends StatelessWidget {
 }
 
 /// 任务行（设计稿 D5 `.task`）：64 高、grid 40/1fr/190/150/96、圆角 14 描边。
+///
+/// `dense = true`（Android）时改走 [_MobileTaskRow]：手机宽度放不下桌面那套
+/// 固定列宽（合计 ~540dp），硬排的结果是名称列被压成 0 宽、右侧徽标与
+/// 「暂停 / 取消」整块被裁到屏幕外 —— 用户既看不到状态也点不到取消。
 class _TaskRow extends ConsumerWidget {
   final TransferTask task;
   final bool dense;
@@ -300,6 +279,7 @@ class _TaskRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (dense) return _MobileTaskRow(task: task);
     final p = context.ol;
     final notifier = ref.read(transfersProvider.notifier);
     final ratio = task.total <= 0 ? 0.0 : (task.done / task.total).clamp(0.0, 1.0);
@@ -326,7 +306,8 @@ class _TaskRow extends ConsumerWidget {
           };
 
     return Container(
-      height: dense ? null : 64,
+      // 桌面固定 64 高（设计稿 D5 `.task`）；移动端走 _MobileTaskRow，不到这里。
+      height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: failed ? OlTokens.failRowBg : p.card,
@@ -433,8 +414,10 @@ class _TaskRow extends ConsumerWidget {
                             style: TextStyle(fontSize: 10.5, color: p.ink3),
                           ),
                           Text(
+                            // 0.5.11：失败行此前写「已暂停」，与旁边的「失败」
+                            // 徽标自相矛盾。
                             failed
-                                ? '已暂停'
+                                ? '已中断'
                                 : (done ? '已完成' : formatSpeed(task.speed)),
                             style: TextStyle(
                               fontSize: 10.5,
@@ -469,28 +452,33 @@ class _TaskRow extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _ActionButton(
-                  icon: failed
-                      ? 'refresh'
-                      : (running ? 'pause' : (paused ? 'play' : 'pause')),
-                  tooltip: failed
-                      ? '重试'
-                      : (running ? '暂停' : (paused ? '继续' : '暂停')),
-                  danger: false,
-                  onTap: () {
-                    if (failed) {
-                      notifier.retry(task.id);
-                    } else if (running) {
-                      notifier.pause(task.id);
-                    } else {
-                      notifier.resume(task.id);
-                    }
-                  },
-                ),
-                const SizedBox(width: 6),
+                // 已完成的任务没有「暂停 / 继续」语义：以前这里判定走 else
+                // 分支调 resume()，会把它重新排队再下一次 —— 本地文件已完整，
+                // 服务端对 Range 请求回 416，任务反而从「已完成」变「失败」。
+                if (!done) ...[
+                  _ActionButton(
+                    icon: failed
+                        ? 'refresh'
+                        : (running ? 'pause' : (paused ? 'play' : 'pause')),
+                    tooltip: failed
+                        ? '重试'
+                        : (running ? '暂停' : (paused ? '继续' : '暂停')),
+                    danger: false,
+                    onTap: () {
+                      if (failed) {
+                        notifier.retry(task.id);
+                      } else if (running) {
+                        notifier.pause(task.id);
+                      } else {
+                        notifier.resume(task.id);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                ],
                 _ActionButton(
                   icon: 'x',
-                  tooltip: '取消',
+                  tooltip: done ? '清除记录' : '取消',
                   danger: true,
                   onTap: () => notifier.remove(task.id),
                 ),
@@ -513,6 +501,156 @@ class _TaskRow extends ConsumerWidget {
     return '$remote → $local';
   }
 
+}
+
+/// Android 任务行：单列紧凑卡。
+///
+/// 结构：`[类型图标] [名称 / 进度 / 百分比·状态] [主操作] [取消]`。
+/// 不再有固定宽度的「方式徽标」「操作列」——那些是桌面网格的产物，
+/// 手机上会被挤出屏幕。宽度自适应：名称与进度条吃掉全部剩余空间。
+class _MobileTaskRow extends ConsumerWidget {
+  final TransferTask task;
+  const _MobileTaskRow({required this.task});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ol;
+    final notifier = ref.read(transfersProvider.notifier);
+    final ratio = task.total <= 0 ? 0.0 : (task.done / task.total).clamp(0.0, 1.0);
+    final failed = task.status == TransferStatus.failed;
+    final running = task.status == TransferStatus.running;
+    final paused = task.status == TransferStatus.paused;
+    final done = task.status == TransferStatus.done;
+    final serverOp = task.isServerOp;
+
+    final (kindIcon, kindColor, kindTile) = switch (task.kind) {
+      TransferKind.download => ('download', const Color(0xFF0EA5E9), OlTokens.tileSky),
+      TransferKind.upload => ('upload', const Color(0xFF0E9F6E), OlTokens.tileTeal),
+      TransferKind.copy => ('copy', OlTokens.tagVioletFg, OlTokens.tileViolet),
+      TransferKind.move => ('move', const Color(0xFFD97706), OlTokens.tileAmber),
+    };
+
+    // 右侧状态：失败 / 已完成 / 速度，一句话说清当前在干什么。
+    final statusText = failed
+        ? '可重试'
+        : (done ? '已完成' : (paused ? '已暂停' : (running ? '进行中' : '排队中')));
+    final statusColor = failed
+        ? const Color(0xFF8A2438)
+        : (done ? const Color(0xFF0B6B4A) : p.ink3);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: failed ? OlTokens.failRowBg : p.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: failed ? const Color(0xFFF8C9D2) : p.line),
+      ),
+      child: Row(
+        children: [
+          // 类型图标：36×36 r10，紧贴卡片内边距，不再留出多余的空白。
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: failed ? const Color(0xFFFFF1F3) : kindTile,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: OlIcon(
+                failed ? 'alert' : kindIcon,
+                size: 17,
+                color: failed ? const Color(0xFFD92D4B) : kindColor,
+                strokeWidth: 1.9,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  task.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.ink),
+                ),
+                const SizedBox(height: 5),
+                if (serverOp)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          failed ? (task.error ?? '操作失败，可重试') : '服务端直传',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10.5, color: p.ink3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        statusText,
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: statusColor),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _ProgressBar(ratio: ratio, failed: failed, paused: paused),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${(ratio * 100).round()}% · ${formatBytes(task.done)} / ${formatBytes(task.total)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10.5, color: p.ink3),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        done ? '已完成' : (failed ? statusText : formatSpeed(task.speed)),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: statusColor),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 主操作：失败 → 重试；运行中 → 暂停；排队 → 继续。
+          // 已完成的任务不给主操作（再跑一遍会 416 变失败），只留右侧「清除记录」。
+          if (!done) ...[
+            _ActionButton(
+              icon: failed ? 'refresh' : (running ? 'pause' : 'play'),
+              tooltip: failed ? '重试' : (running ? '暂停' : '继续'),
+              size: 32,
+              onTap: () {
+                if (failed) {
+                  notifier.retry(task.id);
+                } else if (running) {
+                  notifier.pause(task.id);
+                } else {
+                  notifier.resume(task.id);
+                }
+              },
+            ),
+            const SizedBox(width: 6),
+          ],
+          // 取消 / 移除：已完成的任务也能从这里清掉（以前这个按钮被挤出屏幕）。
+          _ActionButton(
+            icon: 'x',
+            tooltip: done ? '清除记录' : '取消',
+            danger: true,
+            size: 32,
+            onTap: () => notifier.remove(task.id),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 方式徽标：字节传输写传输方式，复制/移动写服务端直传，失败统一「可续传」。
@@ -579,18 +717,22 @@ class _ProgressBar extends StatelessWidget {
   }
 }
 
-/// 行内操作按钮（设计稿 `.ia`）：30×30、圆角 8、描边。
+/// 行内操作按钮（设计稿 `.ia`）：默认 30×30、圆角 8、描边。
+///
+/// Android 传 [size] = 32（触控目标略大一点）；桌面保持 30。
 class _ActionButton extends StatelessWidget {
   final String icon;
   final String tooltip;
   final bool danger;
   final VoidCallback onTap;
+  final double size;
 
   const _ActionButton({
     required this.icon,
     required this.tooltip,
     required this.onTap,
     this.danger = false,
+    this.size = 30,
   });
 
   @override
@@ -603,8 +745,8 @@ class _ActionButton extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 30,
-            height: 30,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: p.card,
               borderRadius: BorderRadius.circular(8),
@@ -613,7 +755,7 @@ class _ActionButton extends StatelessWidget {
             child: Center(
               child: OlIcon(
                 icon,
-                size: 13,
+                size: size == 30 ? 13 : 14,
                 color: danger ? const Color(0xFFD92D4B) : p.ink2,
                 strokeWidth: 2,
               ),
@@ -634,15 +776,11 @@ class _EmptyTransfers extends StatelessWidget {
   final String icon;
   final Color? iconColor;
 
-  /// 可选的引导按钮：目前用于「进行中为空，但历史里有已完成任务」的场景。
-  final Widget? action;
-
   const _EmptyTransfers({
     this.title,
     this.subtitle,
     this.icon = 'arrow-down',
     this.iconColor,
-    this.action,
   });
 
   @override
@@ -663,10 +801,6 @@ class _EmptyTransfers extends StatelessWidget {
             subtitle ?? '下载或上传文件后，这里会显示实时进度',
             style: TextStyle(fontSize: 9.5, color: p.ink4),
           ),
-          if (action != null) ...[
-            const SizedBox(height: 10),
-            action!,
-          ],
         ],
       ),
     );

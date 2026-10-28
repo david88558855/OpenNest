@@ -99,7 +99,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       // 0.5.0：'servers' 不再算根列表 —— 移动端点「引擎状态」要能真正进入
       // 引擎分区（此前被拦回列表，是个进不去的死入口）。
       final showList = _tab == 'root' || !_known.contains(_section);
-      if (showList) return const AppFrame(navIndex: 3, handleBack: true, child: _MobileSettings());
+      if (showList) return const AppFrame(navIndex: 2, handleBack: true, child: _MobileSettings());
       return _MobileSectionPage(tab: _section);
     }
     return AppFrame(

@@ -165,7 +165,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     return kind == FileKind.video || kind == FileKind.audio;
   }
 
-  String _pathOf(FileItem item) => item.parent ?? joinPath(ref.read(filesProvider).path, item.name);
+  /// 条目的完整路径。
+  ///
+  /// 0.5.11：引擎的 `parent` 可能是空串（不是 null），`??` 不会回退 ——
+  /// 拼出空路径后播放器直接报「无法播放」。
+  String _pathOf(FileItem item) {
+    final parent = item.parent?.trim();
+    if (parent == null || parent.isEmpty) {
+      return joinPath(ref.read(filesProvider).path, item.name);
+    }
+    return parent;
+  }
 
   /// 元信息：播过的显示真实时长，没播过的只能给类型（不能为了时长去对
   /// 30 个文件各发一次签名请求）。

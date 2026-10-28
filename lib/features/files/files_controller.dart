@@ -98,6 +98,14 @@ class FilesNotifier extends StateNotifier<FilesState> {
   Timer? _skeletonTimer;
   int _seq = 0;
 
+  /// 最近一次**成功**打开的目录。
+  ///
+  /// 0.5.11：新目录加载失败且没有缓存时，列表会保留上一个目录的内容
+  /// （避免闪成空白），但 `path` 已经是新路径 —— 两者不一致时，删除 / 重命名
+  /// 会按「新目录 + 旧条目名」拼路径，命中同名文件。所以失败时把 path
+  /// 回滚到这里，界面停在原目录 + 错误条。
+  String _lastGoodPath = '/';
+
   FilesNotifier(this.ref) : super(const FilesState());
 
   static const perPage = 100;
@@ -166,8 +174,13 @@ class FilesNotifier extends StateNotifier<FilesState> {
       // 每次进/出子目录都闪一下；保留旧列表直到新数据到达更平稳
       //（面包屑已经变成新路径，列表在几百毫秒内替换）。
       // 骨架屏只用于「超过 400ms 仍未返回」（showSkeleton 由 _skeletonTimer 置位）。
+      //
+      // 0.5.11：loadingMore 必须归零。以前切目录时不清，而 loadMore 在
+      // 「代次已过期」的分支直接 return（不复位）—— 一次「滚到底 + 立刻切
+      // 目录」之后 loadingMore 永久为 true，「加载更多」再也发不出去。
       total: 0,
       page: 1,
+      loadingMore: false,
       selected: const {},
       clearError: true,
       offline: false,
@@ -188,6 +201,7 @@ class FilesNotifier extends StateNotifier<FilesState> {
         orderDirection: state.desc ? 'desc' : 'asc',
       );
       if (seq != _seq || !mounted) return;
+      _lastGoodPath = normalized;
       final store = ref.read(serverStoreProvider);
       // 0.5.0：根目录下的每一项就是一个存储源的挂载点。引擎返回的名字
       // 就是挂载路径段 —— 新建的存储由用户命名（`本地存储6`），与 OpenList
@@ -245,13 +259,28 @@ class FilesNotifier extends StateNotifier<FilesState> {
       // 根目录就退回显示 s_xxxxxxxx，与在线时表现不一致。
       final cachedKnown = ref.read(sourcesProvider).valueOrNull ?? const <StorageSource>[];
       final cachedItems2 = normalized == '/' ? _withSourceNames(cachedItems, cachedKnown) : cachedItems;
+      // 没有该目录的离线快照时，列表保留的是上一个目录的内容：这时把 path
+      // 一起回滚，否则「面包屑 = 新目录、条目 = 旧目录」，而删除 / 重命名
+      // 是按 state.path + 条目名拼路径的，会误伤新目录里的同名文件。
+      final keepingPrevious = cachedItems2.isEmpty;
       state = state.copyWith(
+        path: keepingPrevious ? _lastGoodPath : normalized,
         loading: false,
         showSkeleton: false,
         error: e.friendly,
         items: cachedItems2.isEmpty ? state.items : cachedItems2,
         total: cachedItems2.isEmpty ? state.total : cachedItems2.length,
         offline: cachedItems2.isNotEmpty && e.network,
+      );
+    } catch (e) {
+      // 非 ApiException（本地 JSON 解析异常、数据库写入失败等）：同样要把
+      // loading / showSkeleton 复位，否则界面永远停在骨架屏且没有任何提示。
+      if (seq != _seq || !mounted) return;
+      state = state.copyWith(
+        path: _lastGoodPath,
+        loading: false,
+        showSkeleton: false,
+        error: '打开目录失败：$e',
       );
     }
   }
@@ -284,7 +313,14 @@ class FilesNotifier extends StateNotifier<FilesState> {
         orderBy: state.orderBy,
         orderDirection: state.desc ? 'desc' : 'asc',
       );
-      if (!mounted || seq != _seq) return;
+      if (!mounted) return;
+      // 0.5.11：代次过期也要把 loadingMore 复位 —— 否则「滚到底的同时切目录」
+      // 之后 state.loadingMore 永久为 true，loadMore 的入口守卫会把后续
+      // 所有「加载更多」都拦掉。
+      if (seq != _seq) {
+        state = state.copyWith(loadingMore: false);
+        return;
+      }
       // v1.0.23：服务端分页在增删文件后可能返回重复条目，按 name 去重，
       // 否则列表里会出现两条相同文件（选择、批量操作都会跟着错）。
       final merged = <String, FileItem>{for (final item in state.items) item.name: item};
@@ -299,7 +335,17 @@ class FilesNotifier extends StateNotifier<FilesState> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      // 旧目录请求的失败不能盖到新目录上：只在代次仍有效时写 error。
+      if (seq != _seq) {
+        state = state.copyWith(loadingMore: false);
+        return;
+      }
       state = state.copyWith(loadingMore: false, error: e.friendly);
+    } catch (_) {
+      // 非 ApiException（解析 / 本地 IO）：至少把 loadingMore 复位，
+      // 否则「加载更多」永久失效。
+      if (!mounted) return;
+      state = state.copyWith(loadingMore: false);
     }
   }
 

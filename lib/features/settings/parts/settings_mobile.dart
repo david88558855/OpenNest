@@ -24,7 +24,7 @@ class _MobileSectionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ol;
     return AppFrame(
-      navIndex: 3,
+      navIndex: 2,
       showNav: false,
       // v2.5：系统返回先回「我的」，再按才退出应用。
       handleBack: true,

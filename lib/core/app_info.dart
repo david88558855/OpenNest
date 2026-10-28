@@ -5,8 +5,8 @@
 class AppInfo {
   const AppInfo._();
 
-  static const version = '0.5.10';
-  static const build = 16;
+  static const version = '0.5.11';
+  static const build = 17;
 
   static const name = 'OpenNest';
 

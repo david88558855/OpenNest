@@ -36,24 +36,41 @@ class _BootPageState extends ConsumerState<BootPage> {
   /// 安全模式失败时的额外提示（引擎日志之外的、我们能说清楚的那一句）。
   String? _safeModeError;
 
+  /// 是否已经在推进落点（防止「后台就绪监听」与 `_bootstrap` 各跳一次）。
+  bool _entering = false;
+
+  /// 引擎状态订阅：本页可能停在这里等引擎，而引擎是**在别处**就绪的
+  /// （崩溃自动重启成功、安全模式重启）。以前只靠 `_bootstrap` 那一次
+  /// await，一旦 start() 因 `status == starting` 提前返回，本页就永远
+  /// 停在「准备就绪」上不动了。
+  ProviderSubscription<SidecarState>? _sidecarSub;
+
   /// 引擎就绪之后每一步的兜底上限。
   ///
-  /// 之所以每一步都要单独限时：会话登录、拉存储源列表、打开根目录都会
-  /// 走引擎接口，而引擎的 fs 接口在「某个存储源还在加载 / 加载卡住」时
-  /// 可能迟迟不返回。任何一步卡住都只是「降级」，绝不允许把用户永远
-  /// 留在启动页 —— 个别存储源连不通时界面必须照常可用。
-  static const Duration _sessionTimeout = Duration(seconds: 12);
-  static const Duration _sourcesTimeout = Duration(seconds: 8);
-  static const Duration _attachTimeout = Duration(seconds: 15);
+  /// 注意：这些超时**不再是启动必经路径**。0.5.11 起启动页只等引擎进程
+  /// 就绪（`/ping` 通），会话建立、存储源列表、目录加载全部挪到进入界面
+  /// 之后的 AppWatchdog 里做 —— 引擎的 `StoragesLoaded` 中间件在「全部
+  /// 存储源加载完」之前会挂住除 `/` 以外的全部接口，一个连不通的源就能把
+  /// 这串等待拖到三四十秒（12 + 8 + 15），用户看到的就是「卡在启动页」。
+  /// 这里只保留一个短预算，用于判定首启落点。
+  static const Duration _entryProbeTimeout = Duration(seconds: 2);
 
   @override
   void initState() {
     super.initState();
+    // 引擎在后台就绪时继续推进落点（_busy 为真说明本页流程自己在跑，别抢）。
+    _sidecarSub = ref.listenManual<SidecarState>(sidecarProvider, (previous, next) {
+      if (next.status != SidecarStatus.ready) return;
+      if (previous?.status == SidecarStatus.ready) return;
+      if (!mounted || _busy) return;
+      unawaited(_enterApp(engineReady: true));
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
   void dispose() {
+    _sidecarSub?.close();
     _ticker?.cancel();
     super.dispose();
   }
@@ -104,35 +121,46 @@ class _BootPageState extends ConsumerState<BootPage> {
   }
 
   /// 引擎就绪（或用户选择降级）后走到落地页。
+  ///
+  /// 0.5.11：这里**只做落点判定**，不再等会话 / 存储源 / 目录 ——
+  /// 那三者都会被引擎的 `StoragesLoaded` 中间件拦住，个别存储源失联时
+  /// 能把启动页扣住几十秒。等待改由进入页面后的后台引导承担
+  /// （静态页照常可用，文件页显示「正在加载存储源」并在就绪后自动刷新）。
   Future<void> _enterApp({required bool engineReady}) async {
+    if (_entering) return;
+    _entering = true;
+    var hasSources = true;
     if (engineReady) {
-      try {
-        await ref.read(sessionProvider.notifier).boot().timeout(_sessionTimeout);
-      } catch (_) {}
+      hasSources = await _probeHasSources();
+      if (!mounted) return;
     }
-    var hasSources = false;
-    try {
-      final sources = await ref.read(sourcesProvider.future).timeout(_sourcesTimeout);
-      hasSources = sources.isNotEmpty;
-    } catch (_) {}
-    if (!mounted) return;
-    if (engineReady && hasSources) {
-      // 根目录打不开（例如唯一那个源连不通）也不影响落地：
-      // 文件页自己会显示错误条，并支持就地重试。
-      try {
-        await ref.read(filesProvider.notifier).attach().timeout(_attachTimeout);
-      } catch (_) {}
-    }
-    if (!mounted) return;
     // 落点：有源直接进文件页；无源且没点过「稍后再说」→ 欢迎页。
     // 降级模式一律进文件页（欢迎页在引擎不可用时没有意义）。
     final skipped = ref.read(prefsProvider).getBool(kOnboardDoneKey);
-    final entry = (hasSources || skipped || !engineReady) ? BootEntry.files : BootEntry.welcome;
+    final entry = (!engineReady || hasSources || skipped) ? BootEntry.files : BootEntry.welcome;
     ref.read(bootEntryProvider.notifier).state = entry;
     _stopTicker();
     if (!mounted) return;
     setState(() => _progress = 1);
     context.go(entry == BootEntry.files ? '/files' : '/welcome');
+  }
+
+  /// 短预算判断「引擎里有没有存储源」。
+  ///
+  /// 只有首启才需要区分：没有源要落到欢迎页。判定超时（多半是某个源把
+  /// 中间件挂住了）按「有源」处理 —— 那时用户一定不是首启，直接进文件页
+  /// 才是对的；首启没有源，引擎不会阻塞，这一步通常 100ms 内就返回。
+  Future<bool> _probeHasSources() async {
+    try {
+      if (!ref.read(sessionProvider).signedIn) {
+        await ref.read(sessionProvider.notifier).boot().timeout(_entryProbeTimeout);
+      }
+      if (!mounted || !ref.read(sessionProvider).signedIn) return true;
+      final sources = await ref.read(sourcesProvider.future).timeout(_entryProbeTimeout);
+      return sources.isNotEmpty;
+    } catch (_) {
+      return true;
+    }
   }
 
   /// 引擎失败时仍然进入主界面（降级模式）。
@@ -189,8 +217,10 @@ class _BootPageState extends ConsumerState<BootPage> {
       return;
     }
 
+    // 安全模式下所有源已停用，引擎不会卡在中间件上，登录很快；
+    // boot() 内部对 /api/me 还有 12 秒上限，这里不再叠加外层超时。
     try {
-      await ref.read(sessionProvider.notifier).boot().timeout(_sessionTimeout);
+      await ref.read(sessionProvider.notifier).boot();
     } catch (_) {}
     if (!mounted) return;
     ref.read(bootEntryProvider.notifier).state = BootEntry.files;

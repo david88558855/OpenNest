@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -662,14 +663,27 @@ class OpenListApi {
         ),
         cancelToken: cancelToken,
       );
-      // 1 字节的 body 必须消费掉，否则这条连接回不到池子里。
+      // 0.5.11：先判状态码再消费 body。
+      //
+      // 以前顺序反了：服务端忽略 `Range: bytes=0-0`（proxy_range 关闭的驱动、
+      // 302 到对象存储的直链）会回 200 + 完整文件，`drain()` 就把整个文件读完
+      // 才判断「不是 206，放弃」—— 探测总大小反而变成一次全量下载。
       final body = res.data;
+      if (res.statusCode != 206) {
+        // 非 206：直接掐掉连接，不读 body。
+        if (body != null) {
+          try {
+            unawaited(body.stream.listen(null).cancel());
+          } catch (_) {}
+        }
+        return null;
+      }
+      // 1 字节的 body 必须消费掉，否则这条连接回不到池子里。
       if (body != null) {
         try {
           await body.stream.drain<void>();
         } catch (_) {}
       }
-      if (res.statusCode != 206) return null;
       final match = RegExp(r'bytes\s+(\d+)-(\d+)/(\d+)')
           .firstMatch(res.headers.value('content-range') ?? '');
       final total = match == null ? null : int.tryParse(match.group(3)!);

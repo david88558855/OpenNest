@@ -22,6 +22,13 @@ class AndroidSidecarManager implements SidecarManager {
   final SecureStore _secure;
   int? _port;
 
+  /// 登录等待上限。
+  ///
+  /// 与桌面端一致（0.5.11 从 12 秒压到 2.5 秒）：引擎的 `StoragesLoaded`
+  /// 中间件在全部存储源加载完之前会挂住除 `/` 以外的接口。启动路径上不为
+  /// 它久等 —— 拿不到令牌就以未登录返回，交给进入界面后的后台引导重试。
+  static const Duration _kLoginTimeout = Duration(milliseconds: 2500);
+
   @override
   bool get isRunning => _port != null;
 
@@ -88,10 +95,14 @@ class AndroidSidecarManager implements SidecarManager {
       String? token;
       try {
         // 引擎的 StoragesLoaded 中间件在存储源加载完之前会挂住登录接口
-        // （换过网络、原地址不可达的源会卡很久）。只等 12 秒，等不到就
-        // 以「未登录」返回 —— 进程是健康的，stop 掉才是错的。
+        // （换过网络、原地址不可达的源会卡很久）。
+        //
+        // 0.5.11：上限从 12 秒压到 2.5 秒。手机端用户对启动时长最敏感，
+        // 而这一步只是「顺手拿个令牌」—— 本机回环登录正常在 100ms 量级，
+        // 拿不到就以未登录返回，进入界面后由后台引导重试；
+        // 原来等 12 秒，等于每次冷启动都被某个失联的源拖住。
         token = await api.login(username: 'admin', password: password)
-            .timeout(const Duration(seconds: 12));
+            .timeout(_kLoginTimeout);
       } on TimeoutException {
         onStep?.call('引擎已启动，正在等待存储源加载');
         token = null;
@@ -178,13 +189,13 @@ class AndroidSidecarManager implements SidecarManager {
     try {
       if (token == null || token.isEmpty) {
         token = await api.login(username: 'admin', password: password)
-            .timeout(const Duration(seconds: 12));
+            .timeout(_kLoginTimeout);
         await _secure.write(kSidecarTokenKey, token);
       } else {
         api.token = token;
         var valid = true;
         try {
-          await api.me().timeout(const Duration(seconds: 5));
+          await api.me().timeout(_kLoginTimeout);
         } catch (_) {
           valid = false;
         }
@@ -192,7 +203,7 @@ class AndroidSidecarManager implements SidecarManager {
           token = stored;
         } else {
           token = await api.login(username: 'admin', password: password)
-              .timeout(const Duration(seconds: 12));
+              .timeout(_kLoginTimeout);
           await _secure.write(kSidecarTokenKey, token);
         }
       }

@@ -15,7 +15,7 @@ OpenList Web 端的表单 = 存储顶层字段 + 引擎 `common` 字段 + 驱动
 | 层次 | 含义 | 客户端处理 |
 |---|---|---|
 | 顶层 | `mount_path` / `order` / `remark` / `cache_expiration` | 客户端自己处理（挂载路径由名称派生、名称即备注、独立的缓存过期时间输入框、序号在通用选项里） |
-| `common` | 所有驱动共享的通用项：排序、缓存策略、网盘代理、WebDAV 策略、下载代理网址、种子策略…… | **0.5.0 补齐**（此前整组漏掉，用户无法配置） |
+| `common` | 所有驱动共享的通用项：排序、缓存策略、网页代理、WebDAV 策略、下载代理网址、种子策略…… | **0.5.0 补齐**（此前整组漏掉，用户无法配置） |
 | `additional` | 驱动特有项（root_folder_path、username、password……） | 一直有 |
 
 > **重要**：引擎把 `common` 字段定义在**存储顶层**，不在 `addition` 里。
@@ -32,7 +32,7 @@ OpenList Web 端的表单 = 存储顶层字段 + 引擎 `common` 字段 + 驱动
 | `order_direction` | 排序方向 | 排序方向 | 未变 |
 | `cache_expiration` | 缓存时长（秒） | **缓存过期时间（秒）** | 界面手写文案同步（设置页为「（分钟）」） |
 | `custom_cache_policies` | 自定义缓存策略 | 自定义缓存策略 | 未变 |
-| `web_proxy` | 网页代理 | **网盘代理** | |
+| `web_proxy` | 网页代理 | **网页代理** | 0.5.11 起回退：`web_proxy` 指「Web 端经引擎代理访问该存储」，写「网盘代理」会被理解成「给网盘做代理的地址」，与开关语义相反 |
 | `webdav_policy` | WebDAV 策略 | WebDAV 策略 | 未变 |
 | `down_proxy_url` | 下载代理地址 | **下载代理网址** | |
 | `proxy_range` | 代理范围 | 代理范围 | 未变 |

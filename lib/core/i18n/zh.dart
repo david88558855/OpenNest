@@ -95,7 +95,9 @@ const Map<String, String> _fieldLabels = {
   'remark': '备注',
   'cache_expiration': '缓存过期时间（秒）',
   'custom_cache_policies': '自定义缓存策略',
-  'web_proxy': '网盘代理',
+  // 0.5.11：`web_proxy` 是「网页代理」（Web 端通过引擎代理访问该存储），
+  // 不是「网盘代理」—— 后者会被读成「给网盘做代理的地址」，与开关语义相反。
+  'web_proxy': '网页代理',
   'webdav_policy': 'WebDAV 策略',
   'proxy_range': '代理范围',
   'down_proxy_url': '下载代理网址',

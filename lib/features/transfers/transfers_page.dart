@@ -132,9 +132,6 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                         _TaskListSliver(
                           tasks: tasks,
                           filter: _filter,
-                          onFilter: (f) => setState(() => _filter = f),
-                          doneCount: state.doneCount,
-                          failedCount: state.failedCount,
                         ),
                       ],
                     ),
@@ -153,6 +150,50 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     final p = context.ol;
     final state = ref.watch(transfersProvider);
     final visible = _visible(state);
+    // 顶部右侧按钮跟随分段：进行中 → 全局暂停；已完成 / 失败 → 清除。
+    // 0.5.11：以前这里恒为「全部暂停」，已完成列表里既清不掉、也没法批量删，
+    // 只能一个个点行内的 ×（而手机上行内按钮还被挤出了屏幕）。
+    final Widget trailingAction;
+    if (_filter == _Filter.done) {
+      trailingAction = OlGhostButton(
+        label: '清除已完成',
+        icon: 'trash',
+        height: 28,
+        fontSize: 10,
+        onTap: state.doneCount == 0
+            ? null
+            : () => ref
+                .read(transfersProvider.notifier)
+                .clearTasks(visible.where((e) => e.status == TransferStatus.done).map((e) => e.id).toList()),
+      );
+    } else if (_filter == _Filter.failed) {
+      trailingAction = OlGhostButton(
+        label: '清除失败',
+        icon: 'trash',
+        height: 28,
+        fontSize: 10,
+        onTap: state.failedCount == 0
+            ? null
+            : () => ref
+                .read(transfersProvider.notifier)
+                .clearTasks(visible.where((e) => e.status == TransferStatus.failed).map((e) => e.id).toList()),
+      );
+    } else {
+      trailingAction = OlGhostButton(
+        label: state.pausedGlobally ? '全部继续' : '全部暂停',
+        icon: state.pausedGlobally ? 'play' : 'pause',
+        height: 28,
+        fontSize: 10,
+        onTap: () {
+          final notifier = ref.read(transfersProvider.notifier);
+          if (state.pausedGlobally) {
+            notifier.resumeAll();
+          } else {
+            notifier.pauseAll();
+          }
+        },
+      );
+    }
     return AppFrame(
       navIndex: 1,
       handleBack: true,
@@ -200,20 +241,7 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  OlGhostButton(
-                    label: state.pausedGlobally ? '全部继续' : '全部暂停',
-                    icon: state.pausedGlobally ? 'play' : 'pause',
-                    height: 28,
-                    fontSize: 10,
-                    onTap: () {
-                      final notifier = ref.read(transfersProvider.notifier);
-                      if (state.pausedGlobally) {
-                        notifier.resumeAll();
-                      } else {
-                        notifier.pauseAll();
-                      }
-                    },
-                  ),
+                  trailingAction,
                 ],
               ),
             ),
@@ -222,7 +250,8 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 240,
-                // v2.6：完成的任务落到「已完成」，进行中为空时提示去哪找。
+                // 0.5.11：空态只说明当前分组为空。去掉了「查看已完成（N）」提示
+                // 与按钮 —— 顶部分段里已经有计数，再引导一次属于重复。
                 child: _EmptyTransfers(
                   icon: switch (_filter) {
                     _Filter.failed => 'alert',
@@ -242,21 +271,6 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                     _Filter.failed => '传输失败时会出现在这里，可重试',
                     _ => '下载或上传文件后，这里会显示实时进度',
                   },
-                  // 复制 / 移动在服务端是秒级完成的，切过来时任务已经落到「已完成」，
-                  // 「进行中」看着是空的。给一个直达按钮，避免被当成没入队。
-                  action: _filter == _Filter.active && (state.doneCount > 0 || state.failedCount > 0)
-                      ? OlGhostButton(
-                          label: state.doneCount > 0
-                              ? '查看已完成（${state.doneCount}）'
-                              : '查看失败任务（${state.failedCount}）',
-                          icon: state.doneCount > 0 ? 'check' : 'alert',
-                          height: 28,
-                          fontSize: 11,
-                          horizontalPadding: 12,
-                          onTap: () => setState(() =>
-                              _filter = state.doneCount > 0 ? _Filter.done : _Filter.failed),
-                        )
-                      : null,
                 ),
               ),
             )

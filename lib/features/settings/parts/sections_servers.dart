@@ -181,7 +181,9 @@ class _ServersSection extends ConsumerWidget {
                     icon: 'hard-drive',
                     height: 28,
                     fontSize: 10.5,
-                    onTap: () => _openPath(context, _dirOf(ref.watch(prefsProvider).storagePath)),
+                    // 回调里用 read：构建期之外调用 watch 会往依赖表注册订阅并
+                    // markNeedsBuild（等于在点击时触发一次重建）。
+                    onTap: () => _openPath(context, _dirOf(ref.read(prefsProvider).storagePath)),
                   ),
                 ],
               ),

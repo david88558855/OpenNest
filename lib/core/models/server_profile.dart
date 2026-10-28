@@ -98,7 +98,9 @@ class ServerProfile {
         baseUrl: (j['baseUrl'] ?? '').toString(),
         username: (j['username'] ?? '').toString(),
         mode: (j['mode'] ?? 'password') == 'token' ? AuthMode.token : AuthMode.password,
-        rememberBrowse: j['rememberBrowse'] as bool? ?? true,
+        // 与 transfer_task 同理：`as bool?` 遇到 1 / "true" 会抛，
+        // 而 loadServers 是整表读取 —— 一条坏记录会让所有档案一起丢。
+        rememberBrowse: j['rememberBrowse'] != false,
         lastUsed: DateTime.tryParse((j['lastUsed'] ?? '').toString()),
         siteTitle: j['siteTitle']?.toString(),
         version: j['version']?.toString(),

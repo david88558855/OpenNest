@@ -117,7 +117,10 @@ class TransferTask {
         ),
         error: j['error']?.toString(),
         sign: j['sign']?.toString(),
-        resumable: j['resumable'] as bool? ?? true,
+        // 0.5.11：不用 `as bool?` —— 旧格式 / 手改过的 payload 里可能是 1 或
+        // "true"，`as` 会直接抛，而 _restore 逐条恢复时一条坏记录就会让
+        // 整个队列丢失。`!= false` 同时保留了「字段缺失默认 true」的语义。
+        resumable: j['resumable'] != false,
         createdAt: DateTime.tryParse((j['createdAt'] ?? '').toString()),
       );
 }

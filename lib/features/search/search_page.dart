@@ -40,6 +40,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 0.5.11：本页可能在首帧就被重定向替换（引擎状态变化 / 立即返回），
+      // 那个回调里 _focus 已被 dispose，直接 requestFocus 会抛。
+      if (!mounted) return;
       _focus.requestFocus();
       if (widget.initialQuery.isNotEmpty) _run();
     });
@@ -136,9 +139,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   Future<void> _open(FileItem item) async {
     if (item.isDir) {
-      final path = item.parent ?? joinPath(ref.read(filesProvider).path, item.name);
-      await ref.read(filesProvider.notifier).open(path);
-      // 带上 path 回到文件页，保证跨目录定位后地址栏与列表一致。
+      // 0.5.11：parent 可能是空串（不是 null），`??` 不会回退 ——
+      // 以前会拼出空路径，点搜索结果里的文件夹跳到一个不存在的目录。
+      final path = itemPath(item, ref.read(filesProvider).path);
+      // 只交给文件页打开：FilesPage.didUpdateWidget 会对新的 initialPath
+      // 调一次 open()，这里再 open 一次等于同一目录发两次 fs/list。
       if (mounted) context.go('/files?path=${Uri.encodeComponent(path)}');
     } else {
       await openItem(context, ref, item);
