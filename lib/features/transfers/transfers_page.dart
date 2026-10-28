@@ -117,10 +117,11 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
                     onFilter: (f) => setState(() => _filter = f),
                     onNew: () => offlineDownload(context, ref),
                   ),
-                  // 工具栏：左＝类型筛选，右＝汇总 + 全部暂停（合并成一行）
+                  // 工具栏：左＝类型筛选，右＝汇总 + 清除已完成/失败 + 全部暂停
                   _QueueBar(
                     kind: _kind,
                     onKind: (k) => setState(() => _kind = k),
+                    filter: _filter,
                   ),
                   Expanded(
                     // v1.0.30：整页改 sliver 体系。原来任务列表是

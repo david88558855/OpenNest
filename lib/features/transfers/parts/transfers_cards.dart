@@ -25,7 +25,13 @@ class _QueueBar extends ConsumerWidget {
   final TransferKind? kind;
   final ValueChanged<TransferKind?> onKind;
 
-  const _QueueBar({required this.kind, required this.onKind});
+  /// 当前状态分组（进行中 / 已完成 / 失败）。
+  ///
+  /// 0.5.13：已完成 / 失败分组在这里给一个「清除全部」，放在「全部暂停」左侧。
+  /// 之前桌面端只能一条条点行内 ×，清几十条历史纯靠手速。
+  final _Filter filter;
+
+  const _QueueBar({required this.kind, required this.onKind, required this.filter});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,6 +40,18 @@ class _QueueBar extends ConsumerWidget {
     final notifier = ref.read(transfersProvider.notifier);
 
     int countOf(TransferKind kind) => state.tasks.where((e) => e.kind == kind).length;
+
+    /// 当前分组 + 当前类型筛选下的任务 id（与列表里看得见的那批一致）。
+    List<String> idsOf(TransferStatus status) => state.tasks
+        .where((e) => e.status == status && (kind == null || e.kind == kind))
+        .map((e) => e.id)
+        .toList();
+
+    final clearIds = switch (filter) {
+      _Filter.done => idsOf(TransferStatus.done),
+      _Filter.failed => idsOf(TransferStatus.failed),
+      _ => const <String>[],
+    };
 
     // 汇总：全部任务的总字节，以及按当前速度估算的剩余时间。
     var totalBytes = 0;
@@ -76,6 +94,20 @@ class _QueueBar extends ConsumerWidget {
             style: TextStyle(fontSize: 11.5, color: p.ink3),
           ),
           const SizedBox(width: 10),
+          // 「清除全部」：只在已完成 / 失败分组出现，位置紧挨「全部暂停」左侧。
+          // 列表被类型胶囊过滤过，清除也只看当前筛选，与眼睛看到的一致。
+          if (filter == _Filter.done || filter == _Filter.failed) ...[
+            OlGhostButton(
+              label: filter == _Filter.done ? '清除已完成' : '清除失败',
+              icon: 'trash',
+              height: 32,
+              fontSize: 12,
+              horizontalPadding: 14,
+              fgColor: p.ink,
+              onTap: clearIds.isEmpty ? null : () => notifier.clearTasks(clearIds),
+            ),
+            const SizedBox(width: 8),
+          ],
           OlGhostButton(
             label: state.pausedGlobally ? '全部继续' : '全部暂停',
             icon: state.pausedGlobally ? 'play' : 'pause',
@@ -196,12 +228,25 @@ class _TaskListSliver extends StatelessWidget {
 
   const _TaskListSliver({required this.tasks, required this.filter});
 
-  static const Map<TransferKind, String> _groupTitles = {
-    TransferKind.download: '下载中',
-    TransferKind.upload: '上传中',
-    TransferKind.copy: '复制中',
-    TransferKind.move: '移动中',
+  static const Map<TransferKind, String> _kindLabels = {
+    TransferKind.download: '下载',
+    TransferKind.upload: '上传',
+    TransferKind.copy: '复制',
+    TransferKind.move: '移动',
   };
+
+  /// 分组标题跟随状态分组。
+  ///
+  /// 0.5.13：以前恒为「下载中 / 上传中」，切到「已完成」还写着「下载中」，
+  /// 与分段选中态和 100% 的进度条互相矛盾。
+  String _groupTitle(TransferKind kind) {
+    final label = _kindLabels[kind]!;
+    return switch (filter) {
+      _Filter.done => '已完成 · $label',
+      _Filter.failed => '失败 · $label',
+      _ => '$label中',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +287,7 @@ class _TaskListSliver extends StatelessWidget {
     for (final kind in TransferKind.values) {
       final list = groups[kind];
       if (list == null || list.isEmpty) continue;
-      flat.add(_GroupTitle(_groupTitles[kind]!));
+      flat.add(_GroupTitle(_groupTitle(kind)));
       flat.addAll(list);
     }
 
