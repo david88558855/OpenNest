@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:sqflite_common/sqlite_api.dart';
+// 只用类型（Database / Transaction / ConflictAlgorithm），来自 ffi 包的重导出。
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../data/db/app_database.dart';
 
@@ -42,8 +43,14 @@ class Prefs {
   final Set<String> _deletedCache = {};
 
   Timer? _timer;
-  bool _flushing = false;
-  bool _pending = false;
+
+  /// 落库串行队列。
+  ///
+  /// 0.5.11：以前用 `_flushing` 布尔 + `_pending` 标记 —— 撞上「已有一轮在写」
+  /// 时本次 flush 只置个标记就 return，调用方（退出应用、清空缓存）以为写完
+  /// 了，其实事务还在跑；进程随即 exit，最新设置直接丢。
+  /// 改成 Future 链：每次调用排队执行，await 的就是「我这一次确实写完」。
+  Future<void> _flushQueue = Future<void>.value();
 
   /// 单一数据库固定落在程序目录，恒为便携模式。
   bool get isPortable => true;
@@ -198,6 +205,10 @@ class Prefs {
       }
       return map;
     }
+    // 缓存键形如 ol_srv_<id>_cache|<任意路径>，路径部分不受控。
+    // 必须先判缓存，否则缓存一个以 _browse / _resume / _download 结尾的目录
+    // （如 `/资料_browse`）会被当成浏览位置写进 ui_state，离线列表永远是空。
+    if (_isCacheKey(key)) return Map<String, dynamic>.from(_cache[key] ?? const {});
     final browseId = _sourceIdOf(key, '_browse');
     if (browseId != null) return Map<String, dynamic>.from(_browse[browseId] ?? const {});
     final resumeId = _sourceIdOf(key, '_resume');
@@ -206,7 +217,6 @@ class Prefs {
       if (positions == null) return <String, dynamic>{};
       return positions.map((k, v) => MapEntry<String, dynamic>(k, v));
     }
-    if (_isCacheKey(key)) return Map<String, dynamic>.from(_cache[key] ?? const {});
     return const {};
   }
 
@@ -238,6 +248,15 @@ class Prefs {
       return;
     }
 
+    // 与 getJsonMap 一致：缓存键必须最先判，否则路径以 _browse / _resume
+    // 结尾的目录会被写进 ui_state（当作浏览位置），离线快照反而写不进去。
+    if (_isCacheKey(key)) {
+      _cache[key] = Map<String, dynamic>.from(value);
+      _dirtyCache.add(key);
+      _schedule();
+      return;
+    }
+
     final browseId = _sourceIdOf(key, '_browse');
     if (browseId != null) {
       _browse[browseId] = {
@@ -262,12 +281,6 @@ class Prefs {
       _schedule();
       return;
     }
-
-    if (_isCacheKey(key)) {
-      _cache[key] = Map<String, dynamic>.from(value);
-      _dirtyCache.add(key);
-      _schedule();
-    }
   }
 
   /// 清空离线目录缓存（设置页与切换源时调用）。
@@ -285,14 +298,17 @@ class Prefs {
     _timer = Timer(const Duration(milliseconds: 250), () => flush());
   }
 
-  Future<void> flush() async {
+  Future<void> flush() {
     _timer?.cancel();
     _timer = null;
-    if (_flushing) {
-      _pending = true;
-      return;
-    }
-    _flushing = true;
+    // 排队执行：并发调用不会互相打断，await 也能拿到「本次写入已完成」。
+    // 前一轮失败时 catchError 兜住，保证队列不会因为一次异常而永久卡住。
+    final next = _flushQueue.then<void>((_) => _flushOnce()).catchError((Object _) {});
+    _flushQueue = next;
+    return next;
+  }
+
+  Future<void> _flushOnce() async {
     try {
       await _db.transaction((txn) async {
         for (final key in _dirtySettings) {
@@ -386,12 +402,6 @@ class Prefs {
       await _pruneCache();
     } catch (_) {
       // 落库失败保留脏标记，下次写入或退出时再试。
-    } finally {
-      _flushing = false;
-      if (_pending) {
-        _pending = false;
-        unawaited(flush());
-      }
     }
   }
 

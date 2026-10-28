@@ -65,9 +65,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   Future<void> _skip() async {
     // 记住「跳过」：下次启动直接进文件页，不再回到欢迎页。
+    // 0.5.11：notifier 先取出来 —— await 之后页面可能已被 redirect 替换，
+    // 那时再 ref.read 会用到已卸载的 Element。
+    final entry = ref.read(bootEntryProvider.notifier);
     await ref.read(prefsProvider).setBool(kOnboardDoneKey, true);
-    ref.read(bootEntryProvider.notifier).state = BootEntry.files;
-    if (mounted) context.go('/files');
+    if (!mounted) return;
+    entry.state = BootEntry.files;
+    context.go('/files');
   }
 
   @override

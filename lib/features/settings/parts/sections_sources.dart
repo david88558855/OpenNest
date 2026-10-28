@@ -187,9 +187,16 @@ class _SourcesSectionState extends ConsumerState<_SourcesSection> {
 
   /// 导入：读 JSON 并逐条创建。
   Future<void> _importConfig(BuildContext context, WidgetRef ref) async {
-    final bundle = await SourceConfigBundle.pickAndParse();
+    SourceConfigBundle? bundle;
+    try {
+      bundle = await SourceConfigBundle.pickAndParse();
+    } on SourceConfigException catch (error) {
+      // 用户取消返回 null（静默）；选错文件 / 选择器异常要给出原因。
+      if (context.mounted) olToast(context, error.message, error: true);
+      return;
+    }
     if (!context.mounted) return;
-    if (bundle == null) return; // 用户取消或文件格式不对
+    if (bundle == null) return; // 用户取消
     if (bundle.sources.isEmpty) {
       olToast(context, '配置文件里没有存储源', error: true);
       return;

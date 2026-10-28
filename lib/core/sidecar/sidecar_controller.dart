@@ -122,7 +122,13 @@ class SidecarNotifier extends StateNotifier<SidecarState> {
       await _managerOrCreate.stop();
     } catch (_) {}
     if (!mounted) return;
-    state = state.copyWith(status: SidecarStatus.stopped, clearStep: true);
+    // 端点与令牌一起清空：否则设置页仍显示旧端口，会话层也可能拿旧令牌重试。
+    state = state.copyWith(
+      status: SidecarStatus.stopped,
+      clearStep: true,
+      clearPort: true,
+      clearToken: true,
+    );
   }
 
   /// 令牌失效时重新登录（口令仍在本机钥匙串里）。
@@ -145,6 +151,8 @@ class SidecarNotifier extends StateNotifier<SidecarState> {
     if (!mounted || _stopping) return;
     state = state.copyWith(
       status: SidecarStatus.failed,
+      // 进程已经没了：端口即失效，清掉免得界面继续显示一个连不上的端点。
+      clearPort: true,
       error: '引擎进程已退出。如果刚启用过某个存储源，多半是该源的驱动在这台机器上崩溃 —— '
           '重启时可在启动页用「安全模式启动」先把它们全部停用。',
       clearStep: true,

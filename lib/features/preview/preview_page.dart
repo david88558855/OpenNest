@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -460,7 +459,12 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
     final url = _url;
     if (url == null) return;
     try {
-      await launchUrl(Uri.parse(url));
+      // launchUrl 失败时返回 false 而不抛异常 —— 以前返回值没看，
+      // 系统没有对应处理器时点「打开方式」完全没反馈。
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        olToast(context, '系统里没有能打开这种文件的应用', error: true);
+      }
     } catch (_) {
       if (context.mounted) olToast(context, '无法打开外部程序', error: true);
     }

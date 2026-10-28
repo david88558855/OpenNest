@@ -15,6 +15,19 @@ import 'sidecar_paths.dart';
 /// 因此导出时会把机密字段整条剔除（密码、令牌、私钥、Cookie…），
 /// 导入时这些字段保持为空 —— 用户补齐后才能真正连上远端。
 /// 这一点在导入结果里会逐条说明，不做静默失败。
+/// 导入 / 导出失败：message 可直接展示给用户。
+///
+/// 0.5.11：以前 `pickAndParse` 把「用户取消」和「文件格式不对 / 选择器异常」
+/// 全部收敛成 null，调用方只能静默 return —— 用户选了别的 JSON 之后界面
+/// 一点反应都没有，看起来像没点上。
+class SourceConfigException implements Exception {
+  final String message;
+  const SourceConfigException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class SourceConfigBundle {
   /// 导出文件的格式版本，便于将来扩展。
   static const formatVersion = 1;
@@ -100,18 +113,31 @@ class SourceConfigBundle {
   }
 
   /// 选一个 JSON 文件并解析。
+  ///
+  /// 返回 null 只表示「用户取消」；选择器异常或文件格式错误会抛
+  /// [SourceConfigException]，调用方应把 message 展示出来。
   static Future<SourceConfigBundle?> pickAndParse() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['json'],
-    );
+    final FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+      );
+    } catch (error) {
+      throw SourceConfigException('无法打开文件选择器：$error');
+    }
     final path = result?.files.single.path;
     if (path == null || path.isEmpty) return null;
+    final String text;
     try {
-      final text = await File(path).readAsString();
+      text = await File(path).readAsString();
+    } catch (error) {
+      throw SourceConfigException('读取文件失败：$error');
+    }
+    try {
       return decode(text);
-    } catch (_) {
-      return null;
+    } catch (error) {
+      throw SourceConfigException('不是有效的存储源配置文件：$error');
     }
   }
 

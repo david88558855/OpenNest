@@ -100,10 +100,22 @@ class _DownloadSectionState extends ConsumerState<_DownloadSection> {
                       child: OlGhostButton(
                         label: '打开目录',
                         icon: 'external',
-                        onTap: () {
+                        onTap: () async {
                           final dir = _dir;
                           if (dir == null) return;
-                          Process.run('explorer', [dir]);
+                          // 0.5.11：按平台选打开方式。以前写死 explorer，
+                          // macOS / Linux 上点「打开目录」永远没反应。
+                          try {
+                            if (Platform.isMacOS) {
+                              await Process.run('open', [dir]);
+                            } else if (Platform.isLinux) {
+                              await Process.run('xdg-open', [dir]);
+                            } else {
+                              await Process.run('explorer', [dir]);
+                            }
+                          } catch (error) {
+                            if (mounted) olToast(context, '无法打开目录：$error', error: true);
+                          }
                         },
                       ),
                     ),

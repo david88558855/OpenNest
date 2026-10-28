@@ -70,11 +70,15 @@ class SidecarState {
     String? step,
     bool clearError = false,
     bool clearStep = false,
+    // 0.5.11：port / token 也需要能显式清空 —— 引擎停止或崩溃后，
+    // copyWith 无法把它们置空，`endpoint` 会一直指向已经死掉的端口。
+    bool clearPort = false,
+    bool clearToken = false,
   }) {
     return SidecarState(
       status: status ?? this.status,
-      port: port ?? this.port,
-      token: token ?? this.token,
+      port: clearPort ? null : (port ?? this.port),
+      token: clearToken ? null : (token ?? this.token),
       engineVersion: engineVersion ?? this.engineVersion,
       pid: pid ?? this.pid,
       error: clearError ? null : (error ?? this.error),

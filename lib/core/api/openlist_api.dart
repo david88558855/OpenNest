@@ -700,7 +700,7 @@ class OpenListApi {
   ///
   /// 不满足最小体积时返回空列表，调用方据此退回单流。段数会按
   /// [kSegmentMinPartBytes] 自动缩减，保证每段都不是零头。
-  static List<_ByteRange> planSegments(int total, int segments) {
+  static List<ByteRange> planSegments(int total, int segments) {
     if (total < kSegmentMinBytes || segments < 2) return const [];
     var count = segments;
     while (count > 1 && total ~/ count < kSegmentMinPartBytes) {
@@ -708,11 +708,11 @@ class OpenListApi {
     }
     if (count < 2) return const [];
     final part = total ~/ count;
-    final ranges = <_ByteRange>[];
+    final ranges = <ByteRange>[];
     var start = 0;
     for (var i = 0; i < count; i++) {
       final end = i == count - 1 ? total - 1 : start + part - 1;
-      ranges.add(_ByteRange(start, end));
+      ranges.add(ByteRange(start, end));
       start = end + 1;
     }
     return ranges;
@@ -732,7 +732,7 @@ class OpenListApi {
     required String path,
     required String sign,
     required File target,
-    required List<_ByteRange> ranges,
+    required List<ByteRange> ranges,
     required int total,
     required CancelToken cancelToken,
     required void Function(int received, int total) onProgress,
@@ -844,7 +844,7 @@ class OpenListApi {
   Future<void> _fetchSegment({
     required String path,
     required String sign,
-    required _ByteRange part,
+    required ByteRange part,
     required int total,
     required CancelToken token,
     required Future<void> Function(int offset, List<int> data) writeAt,
@@ -1065,11 +1065,11 @@ class OpenListApi {
 }
 
 /// 下载分段：`start` 与 `end` 都是闭区间端点（与 HTTP `Range` 一致）。
-class _ByteRange {
+class ByteRange {
   final int start;
   final int end;
 
-  const _ByteRange(this.start, this.end);
+  const ByteRange(this.start, this.end);
 
   int get length => end - start + 1;
 }

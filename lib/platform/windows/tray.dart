@@ -260,24 +260,28 @@ class TrayService with TrayListener {
       _subscription = null;
     } catch (_) {}
 
-    // 2~5 并行：偏好落盘 / 停引擎 / 关闭窗口拦截 / 移除托盘图标（NIM_DELETE）
-    final cleanup = <Future<void>>[
-      _ignore(() {
-        final container = _container;
-        if (container == null) return Future<void>.value();
-        return container.read(prefsProvider).flush();
-      }),
-      // 引擎是本进程的子进程：不主动停会留下孤儿，下次冷启动抢同一份数据库。
-      _ignore(() {
-        final container = _container;
-        if (container == null) return Future<void>.value();
-        return container.read(sidecarProvider.notifier).stop();
-      }),
-      _ignore(() => windowManager.setPreventClose(false)),
-      _ignore(() => trayManager.destroy()),
-    ];
+    // 2. 偏好落盘：必须真的等到写完 —— 以前它和窗口销毁一起塞进 1.2 秒的
+    //    Future.wait，撞上 250ms 合并窗口时进程已经 exit(0)，最后一次设置丢失。
+    await _ignore(() async {
+      final container = _container;
+      if (container == null) return;
+      await container.read(prefsProvider).flush().timeout(const Duration(seconds: 4));
+    });
+
+    // 3. 停引擎：引擎是本进程的子进程，不主动停会留下孤儿，下次冷启动抢同一份数据库。
+    //    退出流程里给它单独的时间预算（kill + 等进程消失），不再挤在 1.2 秒里。
+    await _ignore(() async {
+      final container = _container;
+      if (container == null) return;
+      await container.read(sidecarProvider.notifier).stop().timeout(const Duration(seconds: 6));
+    });
+
+    // 4. 纯 UI 收尾（关闭拦截 + 移除托盘图标）并行做，1.2 秒足够。
     try {
-      await Future.wait(cleanup).timeout(const Duration(milliseconds: 1200));
+      await Future.wait([
+        _ignore(() => windowManager.setPreventClose(false)),
+        _ignore(() => trayManager.destroy()),
+      ]).timeout(const Duration(milliseconds: 1200));
     } catch (_) {
       // 超时也继续：退出比清理完整更重要
     }

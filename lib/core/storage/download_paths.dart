@@ -58,7 +58,7 @@ Future<String> androidPublicDownloadRoot() async {
   final path = external ?? '';
   final cut = path.indexOf('/Android/');
   final storageRoot = cut > 0 ? path.substring(0, cut) : '/storage/emulated/0';
-  return storageRoot + '/Download';
+  return '$storageRoot/Download';
 }
 
 /// 系统默认下载根目录：Android 为公共 Download，桌面为系统下载文件夹。
@@ -82,7 +82,7 @@ Future<String> resolveDownloadDirFor(ServerStore store, ServerProfile profile) a
   // 0.5.0：不再按实例再分一层目录。本应用只连本机引擎
   // （profile.id 恒为 'local'、profile.name 恒为 '本机存储'），
   // 那层目录永远叫同一个名字，起不到区分作用。
-  return base + Platform.pathSeparator + 'OpenNest';
+  return '$base${Platform.pathSeparator}OpenNest';
 }
 
 /// 解析并确保目录存在；Android 未授予「所有文件访问权限」时退回应用私有目录，
@@ -97,14 +97,14 @@ Future<String> ensureDownloadDirFor(ServerStore store, ServerProfile profile) as
     // 回退到应用私有目录。仍与设置页显示的目标目录区分开，
     // 避免用户以为文件在显式目录里。
     final fallback = await getApplicationDocumentsDirectory();
-    final root = fallback.path + Platform.pathSeparator + 'OpenNest';
+    final root = '${fallback.path}${Platform.pathSeparator}OpenNest';
     try {
       await Directory(root).create(recursive: true);
       return root;
     } catch (second) {
       debugPrint('download: 私有目录也不可写（$second），退回下载根目录');
       final base = await defaultDownloadBase();
-      final alt = base + Platform.pathSeparator + 'OpenNest';
+      final alt = '$base${Platform.pathSeparator}OpenNest';
       await Directory(alt).create(recursive: true);
       return alt;
     }
