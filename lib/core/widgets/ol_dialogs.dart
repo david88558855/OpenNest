@@ -312,14 +312,21 @@ Future<T?> showOlDialog<T>({
 OverlayEntry? _toastEntry;
 Timer? _toastTimer;
 
+/// 桌面端窗口标题栏高度（与 `AppFrame` 里的 `_TitleBar` 一致）。
+const double _kTitleBarHeight = 38;
+
+/// 文件页顶栏高度（`OlDesktop.topBar` 与移动端 `_MobileAppBar` 都是 52）。
+const double _kTopBarHeight = 52;
+
 /// 轻提示（v1.0.52 重写）。
 ///
 /// 原来用 `SnackBar`：进入 250ms 上滑 + 退出 250ms 淡出，操作后要等动画才看到结果。
 /// 现在直接往 Overlay 里塞一条静态提示，出现与消失都是瞬时的，计时到点即移除。
 /// 轻提示（v1.0.54 重新设计）。
 ///
-/// - **位置**：移到页面顶部（安全区往下约 52，落在文件页「服务器地址」与
-///   「所有文件」标题之间），不再压在底部导航上；
+/// - **位置**：与文件页顶栏同高（0.5.13）—— 移动端对齐顶栏里的搜索图标，
+///   桌面端在自绘标题栏（38）之下对齐搜索框；不再贴在顶栏底边压住面包屑，
+///   也不压在底部导航上；
 /// - **视觉**：白底 + 细描边 + 轻阴影，替代原来的深色块，和页面卡片风格统一；
 /// - **文字**：显式 `decoration: none`，去掉部分机型上出现的下划线（黄线）；
 /// - 出现与消失都是瞬时的（不带动画）。
@@ -328,6 +335,11 @@ void olToast(BuildContext context, String message, {bool error = false}) {
   if (overlay == null) return;
   final p = context.ol;
   final safeTop = MediaQuery.maybeOf(context)?.viewPadding.top ?? 0;
+  // 0.5.13：提示条与文件页顶栏**同高对齐**（下载这类操作的结果就出现在
+  // 搜索框那一行的高度上）。
+  // - 移动端：顶栏紧贴安全区，52 的区域内居中 → 与搜索按钮同一水平线；
+  // - 桌面端：窗口是无边框的，顶栏上方还有 38 高的自绘标题栏，要一起算。
+  final chromeTop = context.isNarrow ? safeTop : safeTop + _kTitleBarHeight;
 
   // 连续调用时只保留最新一条
   _toastTimer?.cancel();
@@ -343,7 +355,10 @@ void olToast(BuildContext context, String message, {bool error = false}) {
     builder: (_) => Positioned(
       left: 16,
       right: 16,
-      top: safeTop + 52,
+      top: chromeTop,
+      // 固定成顶栏高度并用 Center 居中：无论一行还是两行文本，
+      // 提示条的垂直中心都落在搜索按钮的中线上。
+      height: _kTopBarHeight,
       child: IgnorePointer(
         child: Center(
           child: Container(
